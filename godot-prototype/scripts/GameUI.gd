@@ -15,6 +15,11 @@ extends Control
 @onready var aircraft_list: ItemList = $MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel/AircraftList
 @onready var purchase_button: Button = $MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel/PurchaseButton
 @onready var fleet_list: ItemList = $MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel/FleetList
+@onready var loans_list: ItemList = $MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoansList
+@onready var amount_input: LineEdit = $MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls/AmountContainer/AmountInput
+@onready var term_input: LineEdit = $MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls/TermContainer/TermInput
+@onready var apply_loan_button: Button = $MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls/ApplyButton
+@onready var loan_info: Label = $MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls/LoanInfo
 
 var selected_route: Route = null
 var selected_aircraft_model_index: int = -1
@@ -47,6 +52,9 @@ func _ready() -> void:
 	if purchase_button:
 		purchase_button.pressed.connect(_on_purchase_button_pressed)
 
+	if apply_loan_button:
+		apply_loan_button.pressed.connect(_on_apply_loan_pressed)
+
 	# Wait for game data
 	await GameData.game_initialized
 
@@ -57,10 +65,13 @@ func _ready() -> void:
 
 	# Connect global signals
 	GameData.aircraft_purchased.connect(_on_aircraft_purchased)
+	GameData.loan_created.connect(_on_loan_created)
 
 	update_ui()
 	populate_aircraft_list()
 	update_fleet_list()
+	update_loans_list()
+	update_loan_info()
 
 func update_ui() -> void:
 	"""Update all UI elements"""
@@ -84,6 +95,9 @@ func update_ui() -> void:
 
 	# Update route list
 	update_route_list()
+
+	# Update loan info
+	update_loan_info()
 
 func update_route_list() -> void:
 	"""Update the route list display"""
@@ -381,3 +395,92 @@ func update_fleet_list() -> void:
 			aircraft.condition
 		]
 		fleet_list.add_item(text)
+
+func update_loans_list() -> void:
+	"""Update the active loans list display"""
+	if not loans_list or not GameData.player_airline:
+		return
+
+	loans_list.clear()
+
+	if GameData.player_airline.loans.is_empty():
+		loans_list.add_item("No active loans")
+		return
+
+	for loan in GameData.player_airline.loans:
+		var text: String = "Loan #%d: $%s @ %.1f%% | Payment: $%s/wk | %d weeks left" % [
+			loan.id,
+			format_money(loan.remaining_balance),
+			loan.interest_rate * 100,
+			format_money(loan.weekly_payment),
+			loan.weeks_remaining
+		]
+		loans_list.add_item(text)
+
+func update_loan_info() -> void:
+	"""Update loan credit limit and interest rate display"""
+	if not loan_info or not GameData.player_airline:
+		return
+
+	var credit_limit: float = GameData.player_airline.get_credit_limit()
+	var interest_rate: float = GameData.player_airline.get_interest_rate()
+
+	loan_info.text = "Credit Limit: $%s | Rate: %.1f%% | Total Debt: $%s" % [
+		format_money(credit_limit),
+		interest_rate * 100,
+		format_money(GameData.player_airline.total_debt)
+	]
+
+func _on_apply_loan_pressed() -> void:
+	"""Handle loan application"""
+	if not GameData.player_airline:
+		return
+
+	# Parse inputs
+	var amount_text: String = amount_input.text.strip_edges()
+	var term_text: String = term_input.text.strip_edges()
+
+	if amount_text.is_empty() or term_text.is_empty():
+		if airport_info:
+			airport_info.text = "LOAN APPLICATION FAILED!\n\nPlease enter both amount and term."
+		return
+
+	var amount_millions: float = amount_text.to_float()
+	var amount: float = amount_millions * 1000000.0  # Convert millions to actual amount
+	var term: int = term_text.to_int()
+
+	if amount <= 0 or term <= 0:
+		if airport_info:
+			airport_info.text = "LOAN APPLICATION FAILED!\n\nAmount and term must be positive numbers."
+		return
+
+	# Try to create loan
+	var loan: Loan = GameData.create_loan(GameData.player_airline, amount, term)
+
+	if loan:
+		# Success
+		if airport_info:
+			airport_info.text = "LOAN APPROVED!\n\nAmount: $%s\nTerm: %d weeks\nInterest Rate: %.1f%%\nWeekly Payment: $%s\n\nFunds have been added to your balance." % [
+				format_money(loan.principal),
+				loan.term_weeks,
+				loan.interest_rate * 100,
+				format_money(loan.weekly_payment)
+			]
+
+		# Clear inputs
+		amount_input.text = ""
+		term_input.text = ""
+	else:
+		# Failed - GameData.create_loan already printed the reason
+		if airport_info:
+			var credit_limit: float = GameData.player_airline.get_credit_limit()
+			airport_info.text = "LOAN APPLICATION DENIED!\n\nRequested: $%s\nCredit Limit: $%s\n\nYou may be over your credit limit or unable to afford the payments." % [
+				format_money(amount),
+				format_money(credit_limit)
+			]
+
+func _on_loan_created(loan: Loan, airline: Airline) -> void:
+	"""Handle loan created event"""
+	update_loans_list()
+	update_loan_info()
+	update_ui()

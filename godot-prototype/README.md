@@ -24,6 +24,7 @@ This prototype simulates the core mechanics of running an airline, including:
 - **Quality System**: Service quality and aircraft condition affect demand
 - **Financial Tracking**: Weekly revenue, expenses, and profit calculations
 - **Range Restrictions**: Aircraft can only fly routes within their maximum range
+- **Loan System**: Take out loans to finance expansion with dynamic interest rates based on airline grade
 
 ### Simulation Engine
 The simulation runs weekly cycles (configurable speed) that calculate:
@@ -39,6 +40,7 @@ The simulation runs weekly cycles (configurable speed) that calculate:
 - **Route List**: Shows all active routes with assigned aircraft ID, passenger count and profit
 - **Aircraft Panel**: Browse available aircraft models and purchase them
 - **Fleet List**: View your owned aircraft with assignment status and condition
+- **Loan Panel**: Apply for loans and view active loan details
 - **Control Buttons**: Play/Pause and Step Week for manual control
 
 ## How to Run
@@ -77,6 +79,13 @@ The simulation runs weekly cycles (configurable speed) that calculate:
    - Aircraft degrade over time (condition percentage)
    - Each aircraft can only be assigned to one route
 
+4. **Take Out Loans** (if needed):
+   - Enter loan amount in millions (e.g., "50" for $50M)
+   - Enter term in weeks (e.g., "52" for 1 year)
+   - Check your credit limit and interest rate displayed below
+   - Click "Apply for Loan" to receive funds instantly
+   - Weekly loan payments are automatically deducted during simulation
+
 ### Running the Simulation
 - **Play Button**: Start/pause automatic weekly simulation (5 seconds per week)
 - **Step Week Button**: Manually advance one week at a time
@@ -86,6 +95,7 @@ The simulation runs weekly cycles (configurable speed) that calculate:
 - **Routes Panel**: Lists all routes with assigned aircraft ID, passengers, and profit
 - **Airport Info**: Shows details about selected items (airports, routes, aircraft)
 - **Aircraft Panel**: Browse and purchase aircraft, view your fleet
+- **Loan Panel**: Shows active loans and loan application form with credit limit and interest rate
 
 ### Default Setup
 - Starting airline: "SkyLine Airways"
@@ -98,7 +108,7 @@ The simulation runs weekly cycles (configurable speed) that calculate:
 **Realistic Economics**: Aircraft prices reflect real-world costs ($74M-$445M). This creates:
 - **Strategic decisions**: Do you buy one widebody or multiple narrowbodies?
 - **Fleet composition matters**: Each aircraft choice has trade-offs
-- **Future loan system**: Debt financing will allow expansion beyond cash reserves (coming soon)
+- **Loan system**: Debt financing allows expansion beyond cash reserves with dynamic interest rates
 
 ### Gameplay Loop
 1. **Purchase aircraft** with your starting $100M (can buy 1-2 aircraft initially)
@@ -107,7 +117,7 @@ The simulation runs weekly cycles (configurable speed) that calculate:
 4. **Reinvest profits** into more aircraft
 5. **Expand your network** to more destinations
 6. **Manage fleet** as aircraft degrade over time
-7. **(Future) Use loans** to accelerate expansion with leverage
+7. **Use loans** to accelerate expansion with leverage when needed
 
 ## Game Mechanics
 
@@ -133,7 +143,25 @@ Passenger demand is based on:
 ### Reputation System
 - Profitable weeks: +0.5 reputation
 - Unprofitable weeks: -0.2 reputation
-- Reputation determines airline grade (19 grades from "New" to "Mythic")
+- Reputation determines airline grade (New → Emerging → Established → Professional → Elite → Legendary → Mythic)
+- Higher grades get better interest rates on loans (8% for New, down to 2% for Mythic)
+
+### Loan System
+**Dynamic Credit System**:
+- Credit limit based on: Weekly revenue × 10 × (1 + Reputation/100)
+- Interest rates determined by airline grade
+- Weekly payments automatically deducted from balance
+- Loans paid off automatically when remaining balance reaches zero
+- Can take multiple loans simultaneously (within credit limit)
+
+**Interest Rates by Grade**:
+- New: 8.0%
+- Emerging: 7.0%
+- Established: 6.0%
+- Professional: 5.0%
+- Elite: 4.0%
+- Legendary: 3.0%
+- Mythic: 2.0%
 
 ## Code Structure
 
@@ -146,9 +174,11 @@ godot-prototype/
 └── scripts/
     ├── GameData.gd           # Global singleton with game data
     ├── Airport.gd            # Airport data model
-    ├── Airline.gd            # Airline data model
+    ├── Airline.gd            # Airline data model with loan management
     ├── Route.gd              # Route/link data model
-    ├── Aircraft.gd           # Aircraft model and instance classes
+    ├── Aircraft.gd           # Aircraft model classes
+    ├── AircraftInstance.gd   # Individual aircraft instances
+    ├── Loan.gd               # Loan data model with amortization
     ├── SimulationEngine.gd   # Weekly simulation logic
     ├── WorldMap.gd           # Map visualization and interaction
     └── GameUI.gd             # Main UI controller
@@ -157,11 +187,10 @@ godot-prototype/
 ## Future Enhancement Ideas
 
 This prototype includes the basic mechanics. Potential additions:
-- Aircraft purchasing system
 - Base/hub management
 - Alliance system
-- Loan system
 - More detailed financial reports
+- Aircraft leasing options
 - Airport slots and competition
 - Real-world map textures
 - More detailed aircraft specifications

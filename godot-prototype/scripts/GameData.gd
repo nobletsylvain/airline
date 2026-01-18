@@ -7,6 +7,7 @@ var current_week: int = 0
 var current_cycle: int = 0
 var is_simulating: bool = false
 var next_aircraft_id: int = 1
+var next_loan_id: int = 1
 
 # Collections
 var airports: Array[Airport] = []
@@ -18,6 +19,7 @@ var player_airline: Airline = null
 signal week_simulated(week_number: int)
 signal game_initialized()
 signal aircraft_purchased(aircraft: AircraftInstance, airline: Airline)
+signal loan_created(loan: Loan, airline: Airline)
 
 func _ready() -> void:
 	initialize_game_data()
@@ -155,3 +157,39 @@ func purchase_aircraft(airline: Airline, model: AircraftModel) -> AircraftInstan
 	print("Purchased %s for $%.0f (Balance: $%.0f)" % [model.get_display_name(), model.price, airline.balance])
 
 	return aircraft
+
+func create_loan(airline: Airline, amount: float, term_weeks: int) -> Loan:
+	"""Create a new loan for an airline"""
+	if not airline:
+		return null
+
+	# Check credit limit
+	var credit_limit: float = airline.get_credit_limit()
+	if amount > credit_limit:
+		print("Loan amount $%.0f exceeds credit limit $%.0f" % [amount, credit_limit])
+		return null
+
+	# Check if airline can afford the payment
+	var interest_rate: float = airline.get_interest_rate()
+	var test_loan: Loan = Loan.new(0, airline.id, amount, interest_rate, term_weeks, current_week)
+
+	if not airline.can_afford_loan_payment(test_loan.weekly_payment):
+		print("Cannot afford weekly payment of $%.0f" % test_loan.weekly_payment)
+		return null
+
+	# Create the actual loan
+	var loan: Loan = Loan.new(next_loan_id, airline.id, amount, interest_rate, term_weeks, current_week)
+	next_loan_id += 1
+
+	# Add loan to airline
+	airline.add_loan(loan)
+
+	# Add cash to airline balance
+	airline.add_balance(amount)
+
+	# Emit signal
+	loan_created.emit(loan, airline)
+
+	print("Loan created: $%.0f at %.1f%% for %d weeks (Payment: $%.0f/week)" % [amount, interest_rate * 100, term_weeks, loan.weekly_payment])
+
+	return loan

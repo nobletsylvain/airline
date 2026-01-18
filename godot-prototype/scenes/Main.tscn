@@ -70,6 +70,74 @@ layout_mode = 2
 size_flags_vertical = 3
 script = ExtResource("2_worldmap")
 
+[node name="LoanPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/LoanPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="LoansLabel" type="Label" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer"]
+layout_mode = 2
+text = "Loans:"
+vertical_alignment = 1
+
+[node name="LoansList" type="ItemList" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer"]
+custom_minimum_size = Vector2(400, 0)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="VSeparator" type="VSeparator" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer"]
+layout_mode = 2
+
+[node name="LoanControls" type="VBoxContainer" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 5
+
+[node name="LoanTitle" type="Label" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls"]
+layout_mode = 2
+text = "Apply for Loan"
+
+[node name="AmountContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls"]
+layout_mode = 2
+
+[node name="AmountLabel" type="Label" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls/AmountContainer"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+text = "Amount ($M):"
+vertical_alignment = 1
+
+[node name="AmountInput" type="LineEdit" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls/AmountContainer"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+placeholder_text = "50"
+alignment = 1
+
+[node name="TermContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls"]
+layout_mode = 2
+
+[node name="TermLabel" type="Label" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls/TermContainer"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+text = "Term (weeks):"
+vertical_alignment = 1
+
+[node name="TermInput" type="LineEdit" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls/TermContainer"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+placeholder_text = "52"
+alignment = 1
+
+[node name="ApplyButton" type="Button" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls"]
+layout_mode = 2
+text = "Apply for Loan"
+
+[node name="LoanInfo" type="Label" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls"]
+layout_mode = 2
+text = "Credit Limit: $0.00M | Rate: 8.0%"
+
 [node name="BottomPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer"]
 custom_minimum_size = Vector2(0, 200)
 layout_mode = 2

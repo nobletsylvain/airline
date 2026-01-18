@@ -168,6 +168,13 @@ func calculate_airline_finances(airline: Airline) -> void:
 	var weekly_profit: float = airline.calculate_weekly_profit()
 	airline.add_balance(weekly_profit)
 
+	# Process loan payments
+	var loan_payments: float = airline.process_loan_payments()
+	if loan_payments > 0:
+		airline.deduct_balance(loan_payments)
+		airline.weekly_expenses += loan_payments
+		print("  Loan payments: $%.0f" % loan_payments)
+
 	# Update reputation based on performance
 	if weekly_profit > 0:
 		airline.reputation += 0.5
