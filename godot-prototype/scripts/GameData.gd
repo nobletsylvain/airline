@@ -6,6 +6,7 @@ extends Node
 var current_week: int = 0
 var current_cycle: int = 0
 var is_simulating: bool = false
+var next_aircraft_id: int = 1
 
 # Collections
 var airports: Array[Airport] = []
@@ -16,6 +17,7 @@ var player_airline: Airline = null
 # Signals
 signal week_simulated(week_number: int)
 signal game_initialized()
+signal aircraft_purchased(aircraft: AircraftInstance, airline: Airline)
 
 func _ready() -> void:
 	initialize_game_data()
@@ -126,3 +128,30 @@ func lat_lon_to_screen(lat: float, lon: float, map_size: Vector2) -> Vector2:
 	var y: float = 0.5 - merc_y / (2.0 * PI)
 
 	return Vector2(x * map_size.x, y * map_size.y)
+
+func purchase_aircraft(airline: Airline, model: AircraftModel) -> AircraftInstance:
+	"""Purchase an aircraft for an airline"""
+	if not airline or not model:
+		return null
+
+	# Check if airline has enough balance
+	if airline.balance < model.price:
+		print("Insufficient funds to purchase %s" % model.get_display_name())
+		return null
+
+	# Deduct cost
+	airline.deduct_balance(model.price)
+
+	# Create aircraft instance
+	var aircraft: AircraftInstance = AircraftInstance.new(next_aircraft_id, model, airline.id)
+	next_aircraft_id += 1
+
+	# Add to airline's fleet
+	airline.aircraft.append(aircraft)
+
+	# Emit signal
+	aircraft_purchased.emit(aircraft, airline)
+
+	print("Purchased %s for $%.0f (Balance: $%.0f)" % [model.get_display_name(), model.price, airline.balance])
+
+	return aircraft

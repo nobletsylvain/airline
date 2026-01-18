@@ -13,8 +13,11 @@ extends Control
 @onready var step_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/StepButton
 @onready var aircraft_panel: VBoxContainer = $MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel
 @onready var aircraft_list: ItemList = $MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel/AircraftList
+@onready var purchase_button: Button = $MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel/PurchaseButton
+@onready var fleet_list: ItemList = $MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel/FleetList
 
 var selected_route: Route = null
+var selected_aircraft_model_index: int = -1
 
 func _ready() -> void:
 	# Connect signals
@@ -38,6 +41,12 @@ func _ready() -> void:
 	if route_list:
 		route_list.item_selected.connect(_on_route_selected)
 
+	if aircraft_list:
+		aircraft_list.item_selected.connect(_on_aircraft_model_selected)
+
+	if purchase_button:
+		purchase_button.pressed.connect(_on_purchase_button_pressed)
+
 	# Wait for game data
 	await GameData.game_initialized
 
@@ -46,8 +55,12 @@ func _ready() -> void:
 		GameData.player_airline.balance_changed.connect(_on_balance_changed)
 		GameData.player_airline.route_added.connect(_on_route_added)
 
+	# Connect global signals
+	GameData.aircraft_purchased.connect(_on_aircraft_purchased)
+
 	update_ui()
 	populate_aircraft_list()
+	update_fleet_list()
 
 func update_ui() -> void:
 	"""Update all UI elements"""
@@ -62,10 +75,11 @@ func update_ui() -> void:
 		balance_label.text = "Balance: $%s" % format_money(GameData.player_airline.balance)
 
 	if info_label:
-		info_label.text = "%s | Grade: %s | Reputation: %.1f" % [
+		info_label.text = "%s | Grade: %s | Reputation: %.1f | Fleet: %d" % [
 			GameData.player_airline.name,
 			GameData.player_airline.get_grade(),
-			GameData.player_airline.reputation
+			GameData.player_airline.reputation,
+			GameData.player_airline.aircraft.size()
 		]
 
 	# Update route list
@@ -78,10 +92,21 @@ func update_route_list() -> void:
 
 	route_list.clear()
 
+	if GameData.player_airline.routes.is_empty():
+		route_list.add_item("No routes created")
+		return
+
 	for route in GameData.player_airline.routes:
-		var route_text: String = "%s | %d pax | $%s profit" % [
+		var aircraft_info: String = ""
+		if not route.assigned_aircraft.is_empty():
+			aircraft_info = " [AC:%d]" % route.assigned_aircraft[0].id
+
+		var profit_color: String = "+" if route.weekly_profit >= 0 else ""
+		var route_text: String = "%s%s | %dpax | %s$%s" % [
 			route.get_display_name(),
+			aircraft_info,
 			route.passengers_transported,
+			profit_color,
 			format_money(route.weekly_profit)
 		]
 		route_list.add_item(route_text)
@@ -138,22 +163,55 @@ func _on_route_created(from_airport: Airport, to_airport: Airport) -> void:
 	if not GameData.player_airline:
 		return
 
+	# Check if there are any available aircraft
+	var available_aircraft: Array[AircraftInstance] = []
+	for aircraft in GameData.player_airline.aircraft:
+		if not aircraft.is_assigned:
+			available_aircraft.append(aircraft)
+
+	if available_aircraft.is_empty():
+		if airport_info:
+			airport_info.text = "CANNOT CREATE ROUTE!\n\nNo available aircraft in your fleet.\n\nYou need to:\n1. Purchase an aircraft\n2. Assign it to this route"
+		print("Cannot create route: No available aircraft")
+		return
+
 	# Create new route
 	var route: Route = Route.new(from_airport, to_airport, GameData.player_airline.id)
+
+	# Check if route is within aircraft range
+	var suitable_aircraft: AircraftInstance = null
+	for aircraft in available_aircraft:
+		if aircraft.model.can_fly_distance(route.distance_km):
+			suitable_aircraft = aircraft
+			break
+
+	if not suitable_aircraft:
+		if airport_info:
+			airport_info.text = "CANNOT CREATE ROUTE!\n\nRoute: %s\nDistance: %.0f km\n\nNone of your available aircraft can fly this distance.\n\nLongest range available: %.0f km" % [
+				route.get_display_name(),
+				route.distance_km,
+				available_aircraft[0].model.range_km
+			]
+		print("Cannot create route: Distance exceeds aircraft range")
+		return
+
+	# Assign the first suitable aircraft
+	route.assign_aircraft(suitable_aircraft)
+
+	# Set capacity from aircraft model
+	route.capacity_economy = suitable_aircraft.model.capacity_economy
+	route.capacity_business = suitable_aircraft.model.capacity_business
+	route.capacity_first = suitable_aircraft.model.capacity_first
+	route.frequency = 7  # Daily
+
+	# Set quality from airline and aircraft
+	route.service_quality = GameData.player_airline.service_quality
+	route.aircraft_condition = suitable_aircraft.condition
 
 	# Set default pricing
 	route.price_economy = route.calculate_base_price(route.distance_km, "economy")
 	route.price_business = route.calculate_base_price(route.distance_km, "business")
 	route.price_first = route.calculate_base_price(route.distance_km, "first")
-
-	# Set default capacity (assuming 737-800)
-	route.capacity_economy = 162
-	route.capacity_business = 12
-	route.capacity_first = 0
-	route.frequency = 7  # Daily
-
-	# Set quality from airline
-	route.service_quality = GameData.player_airline.service_quality
 
 	# Add to airline
 	GameData.player_airline.add_route(route)
@@ -162,7 +220,21 @@ func _on_route_created(from_airport: Airport, to_airport: Airport) -> void:
 	if world_map:
 		world_map.refresh_routes()
 
-	print("Created route: %s (%.0f km)" % [route.get_display_name(), route.distance_km])
+	# Update fleet list to show assignment
+	update_fleet_list()
+
+	# Show success message
+	if airport_info:
+		airport_info.text = "ROUTE CREATED!\n\n%s\nDistance: %.0f km\nAircraft: %s (ID:%d)\nCapacity: %d passengers\nPrice: $%.0f (Economy)" % [
+			route.get_display_name(),
+			route.distance_km,
+			suitable_aircraft.model.get_display_name(),
+			suitable_aircraft.id,
+			route.get_total_capacity(),
+			route.price_economy
+		]
+
+	print("Created route: %s (%.0f km) with aircraft ID:%d" % [route.get_display_name(), route.distance_km, suitable_aircraft.id])
 
 func _on_route_added(route: Route) -> void:
 	"""Handle new route added to airline"""
@@ -230,3 +302,82 @@ func format_number(num: int) -> String:
 		return "%.1fK" % (num / 1000.0)
 	else:
 		return str(num)
+
+func _on_aircraft_model_selected(index: int) -> void:
+	"""Handle aircraft model selection"""
+	selected_aircraft_model_index = index
+
+	if purchase_button:
+		purchase_button.disabled = false
+
+	# Show aircraft info
+	if index >= 0 and index < GameData.aircraft_models.size():
+		var model: AircraftModel = GameData.aircraft_models[index]
+		if airport_info:
+			airport_info.text = "Aircraft: %s\nCapacity: %d (%dE/%dB/%dF)\nRange: %d km\nPrice: $%s\n\nClick Purchase to buy" % [
+				model.get_display_name(),
+				model.get_total_capacity(),
+				model.capacity_economy,
+				model.capacity_business,
+				model.capacity_first,
+				model.range_km,
+				format_money(model.price)
+			]
+
+func _on_purchase_button_pressed() -> void:
+	"""Handle purchase button press"""
+	if selected_aircraft_model_index < 0 or selected_aircraft_model_index >= GameData.aircraft_models.size():
+		print("No aircraft selected")
+		return
+
+	var model: AircraftModel = GameData.aircraft_models[selected_aircraft_model_index]
+
+	# Check balance
+	if GameData.player_airline.balance < model.price:
+		if airport_info:
+			airport_info.text = "INSUFFICIENT FUNDS!\n\nAircraft: %s\nPrice: $%s\nYour balance: $%s\nShortfall: $%s" % [
+				model.get_display_name(),
+				format_money(model.price),
+				format_money(GameData.player_airline.balance),
+				format_money(model.price - GameData.player_airline.balance)
+			]
+		return
+
+	# Purchase aircraft
+	var aircraft: AircraftInstance = GameData.purchase_aircraft(GameData.player_airline, model)
+
+	if aircraft:
+		# Success feedback
+		if airport_info:
+			airport_info.text = "PURCHASED!\n\n%s\nAircraft ID: %d\nRemaining balance: $%s" % [
+				model.get_display_name(),
+				aircraft.id,
+				format_money(GameData.player_airline.balance)
+			]
+
+func _on_aircraft_purchased(aircraft: AircraftInstance, airline: Airline) -> void:
+	"""Handle aircraft purchase"""
+	update_fleet_list()
+	update_ui()
+
+func update_fleet_list() -> void:
+	"""Update the fleet list display"""
+	if not fleet_list or not GameData.player_airline:
+		return
+
+	fleet_list.clear()
+
+	if GameData.player_airline.aircraft.is_empty():
+		fleet_list.add_item("No aircraft owned")
+		return
+
+	for aircraft in GameData.player_airline.aircraft:
+		var status_icon: String = "✓" if aircraft.is_assigned else "○"
+		var text: String = "%s %s | ID:%d | %s | Condition:%.0f%%" % [
+			status_icon,
+			aircraft.model.get_display_name(),
+			aircraft.id,
+			aircraft.get_status(),
+			aircraft.condition
+		]
+		fleet_list.add_item(text)

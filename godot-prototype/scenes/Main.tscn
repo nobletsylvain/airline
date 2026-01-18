@@ -103,8 +103,21 @@ layout_mode = 2
 
 [node name="Label" type="Label" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel"]
 layout_mode = 2
-text = "Aircraft Models:"
+text = "Available Aircraft:"
 
 [node name="AircraftList" type="ItemList" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel"]
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+
+[node name="PurchaseButton" type="Button" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel"]
+layout_mode = 2
+text = "Purchase Selected Aircraft"
+disabled = true
+
+[node name="FleetLabel" type="Label" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel"]
+layout_mode = 2
+text = "Your Fleet:"
+
+[node name="FleetList" type="ItemList" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel"]
 layout_mode = 2
 size_flags_vertical = 3

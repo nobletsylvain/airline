@@ -5,9 +5,10 @@ A Godot 4.x prototype of an airline tycoon game based on the [Airline Club](http
 ## Overview
 
 This prototype simulates the core mechanics of running an airline, including:
+- **Aircraft Fleet Management**: Purchase aircraft and manage your fleet
 - **Route Management**: Create flight routes between major airports worldwide
+- **Aircraft Assignment**: Assign aircraft to routes based on range and capacity
 - **Financial Simulation**: Track revenue, expenses, and profitability
-- **Aircraft Fleet**: View available aircraft models with different capacities and ranges
 - **Weekly Simulation**: Automated weekly cycles that simulate passenger demand and calculate finances
 - **World Map**: Visual representation of airports and routes on a simplified world map
 
@@ -15,11 +16,14 @@ This prototype simulates the core mechanics of running an airline, including:
 
 ### Core Game Systems
 - **15 Major Airports**: JFK, LAX, LHR, NRT, SYD, DXB, CDG, FRA, SIN, ORD, ATL, HND, PEK, ICN, MIA
-- **8 Aircraft Models**: Boeing 737, Airbus A320, Boeing 787, Airbus A350, and more
+- **8 Aircraft Models**: Boeing 737, Airbus A320, Boeing 787, Airbus A350, and more with realistic prices and specs
+- **Fleet Management**: Purchase aircraft, track fleet status, and assign to routes
+- **Aircraft Assignment**: Routes require available aircraft, automatic assignment based on range
 - **Passenger Classes**: Economy, Business, and First Class
 - **Dynamic Pricing**: Distance-based pricing with class multipliers
 - **Quality System**: Service quality and aircraft condition affect demand
 - **Financial Tracking**: Weekly revenue, expenses, and profit calculations
+- **Range Restrictions**: Aircraft can only fly routes within their maximum range
 
 ### Simulation Engine
 The simulation runs weekly cycles (configurable speed) that calculate:
@@ -31,9 +35,10 @@ The simulation runs weekly cycles (configurable speed) that calculate:
 
 ### Visual Interface
 - **World Map**: Click airports to select, click two airports to create a route
-- **Top Panel**: Displays airline name, grade, reputation, week number, and balance
-- **Route List**: Shows all active routes with passenger count and profit
-- **Aircraft Panel**: Browse available aircraft models for purchase
+- **Top Panel**: Displays airline name, grade, reputation, fleet size, week number, and balance
+- **Route List**: Shows all active routes with assigned aircraft ID, passenger count and profit
+- **Aircraft Panel**: Browse available aircraft models and purchase them
+- **Fleet List**: View your owned aircraft with assignment status and condition
 - **Control Buttons**: Play/Pause and Step Week for manual control
 
 ## How to Run
@@ -50,28 +55,52 @@ The simulation runs weekly cycles (configurable speed) that calculate:
 
 ## How to Play
 
-### Creating Routes
-1. Click on an airport to select it (it will highlight in white)
-2. Click on another airport to create a route between them
-3. The route will appear as a line on the map:
-   - **Green line**: Profitable route
-   - **Red line**: Unprofitable route
+### Getting Started
+**IMPORTANT**: You must purchase aircraft before you can create routes!
+
+1. **Purchase Aircraft**:
+   - Look at the "Available Aircraft" list in the bottom-right panel
+   - Click on an aircraft model to see its details (capacity, range, price)
+   - Click "Purchase Selected Aircraft" if you have enough money
+   - Your new aircraft will appear in the "Your Fleet" list below
+
+2. **Create Routes**:
+   - Click on an airport to select it (it will highlight in white)
+   - Click on another airport to create a route between them
+   - The system will automatically assign an available aircraft that can fly the distance
+   - If successful, the route will appear as a line on the map:
+     - **Green line**: Profitable route
+     - **Red line**: Unprofitable route
+
+3. **Manage Your Fleet**:
+   - Fleet list shows: ✓ = assigned to route, ○ = available
+   - Aircraft degrade over time (condition percentage)
+   - Each aircraft can only be assigned to one route
 
 ### Running the Simulation
 - **Play Button**: Start/pause automatic weekly simulation (5 seconds per week)
 - **Step Week Button**: Manually advance one week at a time
 
 ### Understanding the UI
-- **Top Panel**: Shows your airline info, current week, and balance
-- **Routes Panel**: Lists all your routes with performance metrics
-- **Airport Info**: Shows details about selected airports or routes
-- **Aircraft Panel**: Displays available aircraft (purchase feature not yet implemented)
+- **Top Panel**: Shows airline name, grade, reputation, fleet size, week, and balance
+- **Routes Panel**: Lists all routes with assigned aircraft ID, passengers, and profit
+- **Airport Info**: Shows details about selected items (airports, routes, aircraft)
+- **Aircraft Panel**: Browse and purchase aircraft, view your fleet
 
 ### Default Setup
 - Starting airline: "SkyLine Airways"
 - Starting balance: $5,000,000
 - Starting reputation: 0 (Grade: New)
+- Starting fleet: Empty - purchase your first aircraft!
 - No routes created initially - you create them!
+
+### Gameplay Loop
+1. **Purchase aircraft** with your starting capital ($5M can buy a 737-700 or A220)
+2. **Create profitable routes** between major airports
+3. **Run simulation** to generate revenue
+4. **Reinvest profits** into more aircraft
+5. **Expand your network** to more destinations
+6. **Manage fleet** as aircraft degrade over time
 
 ## Game Mechanics
 

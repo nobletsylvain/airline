@@ -37,23 +37,5 @@ func get_total_capacity() -> int:
 func can_fly_distance(distance_km: float) -> bool:
 	return distance_km <= range_km
 
-## Instance of an aircraft owned by an airline
-class_name AircraftInstance
-extends Resource
-
-@export var id: int = 0
-@export var model: AircraftModel
-@export var airline_id: int = 0
-@export var condition: float = 100.0  # 0-100, affects quality
-@export var is_assigned: bool = false
-@export var assigned_route_id: int = -1
-
-func _init(p_model: AircraftModel = null, p_airline_id: int = 0) -> void:
-	model = p_model
-	airline_id = p_airline_id
-
-func degrade_condition(amount: float) -> void:
-	condition = max(0.0, condition - amount)
-
-func repair(amount: float) -> void:
-	condition = min(100.0, condition + amount)
+func get_display_name() -> String:
+	return "%s %s" % [manufacturer, model_name]
