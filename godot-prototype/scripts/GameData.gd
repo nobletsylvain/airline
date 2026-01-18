@@ -102,7 +102,7 @@ func create_player_airline() -> void:
 	"""Create the player's airline"""
 	player_airline = Airline.new("SkyLine Airways", "SKY", "USA")
 	player_airline.id = 1
-	player_airline.balance = 5000000.0  # Start with $5M
+	player_airline.balance = 100000000.0  # Start with $100M
 	airlines.append(player_airline)
 
 func get_airport_by_iata(iata: String) -> Airport:

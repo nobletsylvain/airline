@@ -89,18 +89,25 @@ The simulation runs weekly cycles (configurable speed) that calculate:
 
 ### Default Setup
 - Starting airline: "SkyLine Airways"
-- Starting balance: $5,000,000
+- Starting balance: **$100,000,000** (realistic startup capital)
 - Starting reputation: 0 (Grade: New)
 - Starting fleet: Empty - purchase your first aircraft!
 - No routes created initially - you create them!
 
+### Aircraft Pricing Philosophy
+**Realistic Economics**: Aircraft prices reflect real-world costs ($74M-$445M). This creates:
+- **Strategic decisions**: Do you buy one widebody or multiple narrowbodies?
+- **Fleet composition matters**: Each aircraft choice has trade-offs
+- **Future loan system**: Debt financing will allow expansion beyond cash reserves (coming soon)
+
 ### Gameplay Loop
-1. **Purchase aircraft** with your starting capital ($5M can buy a 737-700 or A220)
+1. **Purchase aircraft** with your starting $100M (can buy 1-2 aircraft initially)
 2. **Create profitable routes** between major airports
 3. **Run simulation** to generate revenue
 4. **Reinvest profits** into more aircraft
 5. **Expand your network** to more destinations
 6. **Manage fleet** as aircraft degrade over time
+7. **(Future) Use loans** to accelerate expansion with leverage
 
 ## Game Mechanics
 

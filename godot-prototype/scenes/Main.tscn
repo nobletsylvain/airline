@@ -53,7 +53,7 @@ vertical_alignment = 1
 
 [node name="BalanceLabel" type="Label" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
 layout_mode = 2
-text = "Balance: $5.00M"
+text = "Balance: $100.00M"
 vertical_alignment = 1
 
 [node name="PlayButton" type="Button" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
