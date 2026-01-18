@@ -1,0 +1,110 @@
+[gd_scene load_steps=3 format=3 uid="uid://bvdx8y3qwmfqh"]
+
+[ext_resource type="Script" path="res://scripts/GameUI.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/WorldMap.gd" id="2_worldmap"]
+[ext_resource type="Script" path="res://scripts/SimulationEngine.gd" id="3_simulation"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_main")
+
+[node name="SimulationEngine" type="Node" parent="."]
+script = ExtResource("3_simulation")
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="TopPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 40)
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/TopPanel"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="InfoLabel" type="Label" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "SkyLine Airways | Grade: New | Reputation: 0.0"
+vertical_alignment = 1
+
+[node name="WeekLabel" type="Label" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
+layout_mode = 2
+text = "Week: 0"
+vertical_alignment = 1
+
+[node name="BalanceLabel" type="Label" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
+layout_mode = 2
+text = "Balance: $5.00M"
+vertical_alignment = 1
+
+[node name="PlayButton" type="Button" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
+layout_mode = 2
+text = "Play"
+
+[node name="StepButton" type="Button" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
+layout_mode = 2
+text = "Step Week"
+
+[node name="WorldMap" type="Control" parent="MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 400)
+layout_mode = 2
+size_flags_vertical = 3
+script = ExtResource("2_worldmap")
+
+[node name="BottomPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 200)
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/BottomPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="RoutePanel" type="VBoxContainer" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/RoutePanel"]
+layout_mode = 2
+text = "Routes:"
+
+[node name="RouteList" type="ItemList" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/RoutePanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="AirportInfo" type="Label" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer"]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+text = "Click airports to select
+Click two airports to create route"
+vertical_alignment = 1
+
+[node name="AircraftPanel" type="VBoxContainer" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer"]
+custom_minimum_size = Vector2(400, 0)
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel"]
+layout_mode = 2
+text = "Aircraft Models:"
+
+[node name="AircraftList" type="ItemList" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel"]
+layout_mode = 2
+size_flags_vertical = 3
