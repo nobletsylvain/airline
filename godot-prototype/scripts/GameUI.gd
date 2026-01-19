@@ -336,7 +336,7 @@ func update_competitor_list() -> void:
 
 		var text: String = "%s (%s) | %s\nGrade: %s | Fleet: %d | Routes: %d\nBalance: $%s | Debt: $%s" % [
 			airline.name,
-			airline.code,
+			airline.airline_code,
 			ai_personality,
 			airline.get_grade(),
 			airline.aircraft.size(),
@@ -693,7 +693,7 @@ func _on_competitor_selected(index: int) -> void:
 	if competitor_detail:
 		competitor_detail.text = "Airline: %s (%s)\nStrategy: %s\n\nGrade: %s\nReputation: %.1f\nBalance: $%s\nDebt: $%s\n\nFleet: %d aircraft\nRoutes: %d" % [
 			selected_airline.name,
-			selected_airline.code,
+			selected_airline.airline_code,
 			ai_personality,
 			selected_airline.get_grade(),
 			selected_airline.reputation,
