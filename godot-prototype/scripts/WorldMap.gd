@@ -1,6 +1,6 @@
 extends Control
 
-## World map visualization with airports and routes
+## World map visualization with airports and routes - Enhanced with zoom and better graphics
 
 @export var airport_marker_scene: PackedScene
 @export var background_color: Color = Color(0.1, 0.15, 0.2)
@@ -12,6 +12,15 @@ var route_lines: Array[Line2D] = []
 var selected_airport: Airport = null
 var hover_airport: Airport = null
 
+# Zoom and pan variables
+var zoom_level: float = 1.0
+var min_zoom: float = 0.5
+var max_zoom: float = 3.0
+var zoom_step: float = 0.2
+var pan_offset: Vector2 = Vector2.ZERO
+var is_panning: bool = false
+var last_mouse_pos: Vector2 = Vector2.ZERO
+
 signal airport_clicked(airport: Airport)
 signal airport_hovered(airport: Airport)
 signal route_created(from_airport: Airport, to_airport: Airport)
@@ -19,6 +28,7 @@ signal route_created(from_airport: Airport, to_airport: Airport)
 func _ready() -> void:
 	custom_minimum_size = Vector2(1000, 600)
 	mouse_filter = Control.MOUSE_FILTER_PASS
+	clip_contents = true  # Clip content outside bounds
 
 	# Wait for GameData to initialize
 	if GameData.airports.is_empty():
@@ -28,49 +38,185 @@ func _ready() -> void:
 	await get_tree().process_frame
 	setup_airports()
 
+func _gui_input(event: InputEvent) -> void:
+	# Handle zoom with mouse wheel
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
+			zoom_at_point(event.position, zoom_step)
+			accept_event()
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
+			zoom_at_point(event.position, -zoom_step)
+			accept_event()
+		# Handle panning with middle mouse button
+		elif event.button_index == MOUSE_BUTTON_MIDDLE:
+			if event.pressed:
+				is_panning = true
+				last_mouse_pos = event.position
+			else:
+				is_panning = false
+			accept_event()
+
+	# Handle pan dragging
+	if event is InputEventMouseMotion and is_panning:
+		var delta: Vector2 = event.position - last_mouse_pos
+		pan_offset += delta
+		last_mouse_pos = event.position
+		update_airport_positions()
+		queue_redraw()
+		accept_event()
+
+func zoom_at_point(point: Vector2, delta: float) -> void:
+	"""Zoom in/out at a specific point"""
+	var old_zoom: float = zoom_level
+	zoom_level = clamp(zoom_level + delta, min_zoom, max_zoom)
+
+	if old_zoom != zoom_level:
+		# Adjust pan to zoom toward the mouse position
+		var zoom_factor: float = zoom_level / old_zoom
+		pan_offset = point + (pan_offset - point) * zoom_factor
+
+		update_airport_positions()
+		queue_redraw()
+
 func _draw() -> void:
-	# Draw background
+	# Draw background (ocean)
 	draw_rect(Rect2(Vector2.ZERO, size), ocean_color, true)
 
-	# Draw simplified continents (very basic)
-	draw_simple_continents()
+	# Apply zoom and pan transformation
+	draw_set_transform(pan_offset, 0.0, Vector2(zoom_level, zoom_level))
 
-	# Draw routes
-	for route in GameData.player_airline.routes if GameData.player_airline else []:
-		draw_route(route)
+	# Draw continents with better Mercator projection
+	draw_world_continents()
 
-func draw_simple_continents() -> void:
-	"""Draw simplified continent shapes"""
-	# This is a very simplified representation
-	# North America
+	# Draw routes (player and competitors)
+	draw_all_routes()
+
+	# Reset transformation for UI elements
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+func draw_world_continents() -> void:
+	"""Draw continents using Mercator projection with better shapes"""
+	var map_size: Vector2 = size
+
+	# North America (approximate outline)
 	var na_points: PackedVector2Array = [
-		Vector2(100, 150),
-		Vector2(300, 150),
-		Vector2(350, 350),
-		Vector2(100, 350)
+		latlon_to_screen(70, -170, map_size),   # Alaska
+		latlon_to_screen(75, -100, map_size),   # North Canada
+		latlon_to_screen(50, -65, map_size),    # East Canada
+		latlon_to_screen(45, -70, map_size),    # Nova Scotia
+		latlon_to_screen(25, -80, map_size),    # Florida
+		latlon_to_screen(20, -90, map_size),    # Mexico Gulf
+		latlon_to_screen(15, -95, map_size),    # Central America
+		latlon_to_screen(30, -115, map_size),   # California
+		latlon_to_screen(50, -125, map_size),   # Pacific Northwest
+		latlon_to_screen(60, -140, map_size),   # Alaska South
 	]
 	draw_colored_polygon(na_points, land_color)
 
+	# South America
+	var sa_points: PackedVector2Array = [
+		latlon_to_screen(10, -75, map_size),    # Colombia
+		latlon_to_screen(-5, -80, map_size),    # Peru
+		latlon_to_screen(-35, -70, map_size),   # Chile
+		latlon_to_screen(-55, -70, map_size),   # Cape Horn
+		latlon_to_screen(-35, -55, map_size),   # Argentina East
+		latlon_to_screen(-5, -35, map_size),    # Brazil East
+		latlon_to_screen(5, -50, map_size),     # North Brazil
+	]
+	draw_colored_polygon(sa_points, land_color)
+
 	# Europe
 	var eu_points: PackedVector2Array = [
-		Vector2(450, 100),
-		Vector2(580, 100),
-		Vector2(580, 250),
-		Vector2(450, 250)
+		latlon_to_screen(70, 25, map_size),     # Northern Norway
+		latlon_to_screen(60, 30, map_size),     # Finland
+		latlon_to_screen(55, 15, map_size),     # Denmark
+		latlon_to_screen(50, 5, map_size),      # UK/France
+		latlon_to_screen(45, -10, map_size),    # Spain
+		latlon_to_screen(36, -5, map_size),     # Gibraltar
+		latlon_to_screen(36, 15, map_size),     # Sicily
+		latlon_to_screen(42, 25, map_size),     # Greece
+		latlon_to_screen(45, 30, map_size),     # Black Sea
+		latlon_to_screen(50, 40, map_size),     # Russia West
+		latlon_to_screen(65, 40, map_size),     # Russia North
 	]
 	draw_colored_polygon(eu_points, land_color)
 
-	# Asia
-	var as_points: PackedVector2Array = [
-		Vector2(600, 100),
-		Vector2(850, 100),
-		Vector2(850, 350),
-		Vector2(600, 350)
+	# Africa
+	var af_points: PackedVector2Array = [
+		latlon_to_screen(35, -5, map_size),     # Morocco
+		latlon_to_screen(30, 10, map_size),     # Libya
+		latlon_to_screen(32, 30, map_size),     # Egypt
+		latlon_to_screen(15, 45, map_size),     # Horn of Africa
+		latlon_to_screen(-5, 40, map_size),     # Kenya
+		latlon_to_screen(-35, 25, map_size),    # South Africa East
+		latlon_to_screen(-35, 18, map_size),    # Cape of Good Hope
+		latlon_to_screen(-15, 12, map_size),    # Angola
+		latlon_to_screen(5, 10, map_size),      # West Africa
+		latlon_to_screen(10, -15, map_size),    # Senegal
 	]
-	draw_colored_polygon(as_points, land_color)
+	draw_colored_polygon(af_points, land_color)
 
-func draw_route(route: Route) -> void:
-	"""Draw a route line between two airports"""
+	# Asia (Main landmass)
+	var asia_points: PackedVector2Array = [
+		latlon_to_screen(70, 60, map_size),     # Russia North
+		latlon_to_screen(75, 100, map_size),    # Siberia
+		latlon_to_screen(70, 140, map_size),    # East Siberia
+		latlon_to_screen(60, 160, map_size),    # Kamchatka
+		latlon_to_screen(45, 135, map_size),    # Manchuria
+		latlon_to_screen(35, 140, map_size),    # Japan area
+		latlon_to_screen(20, 110, map_size),    # South China
+		latlon_to_screen(1, 105, map_size),     # Malaysia
+		latlon_to_screen(10, 80, map_size),     # India South
+		latlon_to_screen(25, 70, map_size),     # India
+		latlon_to_screen(30, 50, map_size),     # Iran
+		latlon_to_screen(40, 45, map_size),     # Caucasus
+	]
+	draw_colored_polygon(asia_points, land_color)
+
+	# Australia
+	var au_points: PackedVector2Array = [
+		latlon_to_screen(-10, 130, map_size),   # North
+		latlon_to_screen(-15, 145, map_size),   # Queensland
+		latlon_to_screen(-38, 148, map_size),   # Victoria
+		latlon_to_screen(-43, 145, map_size),   # Tasmania
+		latlon_to_screen(-35, 115, map_size),   # Perth
+		latlon_to_screen(-20, 115, map_size),   # West Coast
+	]
+	draw_colored_polygon(au_points, land_color)
+
+func latlon_to_screen(lat: float, lon: float, map_size: Vector2) -> Vector2:
+	"""Helper function to convert lat/lon to screen coordinates"""
+	return GameData.lat_lon_to_screen(lat, lon, map_size)
+
+func draw_all_routes() -> void:
+	"""Draw routes for player and all AI competitors with different colors"""
+	# Draw AI competitor routes first (so player routes are on top)
+	for airline in GameData.airlines:
+		if airline == GameData.player_airline:
+			continue
+
+		# Assign color based on airline
+		var route_color: Color = get_airline_color(airline)
+
+		for route in airline.routes:
+			draw_single_route(route, route_color)
+
+	# Draw player routes last (on top)
+	if GameData.player_airline:
+		for route in GameData.player_airline.routes:
+			# Color based on profitability
+			var route_color: Color = Color.GREEN if route.weekly_profit > 0 else Color.RED
+			draw_single_route(route, route_color)
+
+func get_airline_color(airline: Airline) -> Color:
+	"""Get a unique color for each AI airline"""
+	# Simple hash-based coloring
+	var hash: int = airline.name.hash()
+	var hue: float = (hash % 360) / 360.0
+	return Color.from_hsv(hue, 0.7, 0.8, 0.5)
+
+func draw_single_route(route: Route, base_color: Color) -> void:
+	"""Draw a single route line"""
 	if not route.from_airport or not route.to_airport:
 		return
 
@@ -80,16 +226,15 @@ func draw_route(route: Route) -> void:
 	if from_pos == Vector2.ZERO or to_pos == Vector2.ZERO:
 		return
 
-	# Draw line with color based on profitability
-	var line_color: Color = Color.GREEN if route.weekly_profit > 0 else Color.RED
+	# Draw line
+	var line_color: Color = base_color
 	line_color.a = 0.6
-
-	draw_line(from_pos, to_pos, line_color, 2.0)
+	draw_line(from_pos, to_pos, line_color, 2.0 / zoom_level)
 
 	# Draw direction arrow
 	var direction: Vector2 = (to_pos - from_pos).normalized()
 	var mid_point: Vector2 = (from_pos + to_pos) / 2.0
-	var arrow_size: float = 10.0
+	var arrow_size: float = 10.0 / zoom_level
 
 	var arrow_left: Vector2 = mid_point - direction * arrow_size + direction.rotated(PI/2) * arrow_size * 0.5
 	var arrow_right: Vector2 = mid_point - direction * arrow_size - direction.rotated(PI/2) * arrow_size * 0.5
@@ -112,6 +257,14 @@ func setup_airports() -> void:
 		create_airport_marker(airport)
 
 	queue_redraw()
+
+func update_airport_positions() -> void:
+	"""Update airport marker positions based on zoom and pan"""
+	for airport in GameData.airports:
+		if airport.iata_code in airport_markers:
+			var marker: Control = airport_markers[airport.iata_code]
+			var transformed_pos: Vector2 = airport.position_2d * zoom_level + pan_offset
+			marker.position = transformed_pos - Vector2(12, 12)  # Center the marker
 
 func create_airport_marker(airport: Airport) -> void:
 	"""Create a visual marker for an airport"""
