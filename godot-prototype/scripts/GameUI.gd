@@ -757,3 +757,89 @@ func format_number(num: int) -> String:
 		return "%.1fK" % (num / 1000.0)
 	else:
 		return str(num)
+
+## Route Opportunity System
+
+func show_route_opportunities(from_airport: Airport) -> void:
+	"""Display best route opportunities from an airport (for console/debug)"""
+	if not from_airport:
+		print("No airport selected")
+		return
+
+	print("\n=== Route Opportunities from %s (%s) ===" % [from_airport.name, from_airport.iata_code])
+
+	var opportunities: Array[Dictionary] = GameData.find_route_opportunities(from_airport, 10)
+
+	if opportunities.is_empty():
+		print("No opportunities found")
+		return
+
+	for i in range(opportunities.size()):
+		var opp: Dictionary = opportunities[i]
+		var to: Airport = opp.to_airport
+
+		print("\n%d. %s → %s (%.0fkm)" % [
+			i + 1,
+			from_airport.iata_code,
+			to.iata_code,
+			opp.distance_km
+		])
+		print("   Score: %.0f/100" % opp.profitability_score)
+		print("   Demand: %s pax/week | Supply: %s | Gap: %s" % [
+			format_number(int(opp.demand)),
+			format_number(int(opp.supply)),
+			format_number(int(opp.gap))
+		])
+		print("   Competition: %d airlines | Saturation: %.0f%%" % [
+			opp.competition,
+			opp.market_saturation * 100
+		])
+
+		# Get recommended pricing
+		var pricing: Dictionary = GameData.get_recommended_pricing_for_route(from_airport, to)
+		print("   Recommended: Y:$%.0f J:$%.0f F:$%.0f" % [
+			pricing.economy,
+			pricing.business,
+			pricing.first
+		])
+
+func analyze_existing_route(route: Route) -> void:
+	"""Analyze an existing route and show performance vs market"""
+	if not route:
+		return
+
+	var analysis: Dictionary = GameData.analyze_route(route.from_airport, route.to_airport)
+
+	print("\n=== Route Analysis: %s ===" % route.get_display_name())
+	print("Distance: %.0fkm | Duration: %.1fh" % [route.distance_km, route.flight_duration_hours])
+	print("\nMarket Conditions:")
+	print("  Total Demand: %s pax/week" % format_number(int(analysis.demand)))
+	print("  Total Supply: %s seats/week" % format_number(int(analysis.supply)))
+	print("  Unmet Demand: %s pax/week" % format_number(int(analysis.gap)))
+	print("  Competition: %d airlines" % analysis.competition)
+	print("  Market Saturation: %.0f%%" % (analysis.market_saturation * 100))
+	print("  Opportunity Score: %.0f/100" % analysis.profitability_score)
+
+	print("\nYour Route:")
+	print("  Capacity: %d seats x %d freq = %d/week" % [
+		route.get_total_capacity(),
+		route.frequency,
+		route.get_total_capacity() * route.frequency
+	])
+	print("  Load Factor: %.1f%%" % (
+		(route.passengers_transported / float(route.get_total_capacity() * route.frequency) * 100) if route.get_total_capacity() > 0 else 0
+	))
+	print("  Pricing: Y:$%.0f J:$%.0f F:$%.0f" % [
+		route.price_economy,
+		route.price_business,
+		route.price_first
+	])
+	print("  Weekly Profit: $%s" % format_money(route.weekly_profit))
+
+	var recommended: Dictionary = GameData.get_recommended_pricing_for_route(route.from_airport, route.to_airport)
+	print("\nRecommended Pricing:")
+	print("  Y:$%.0f J:$%.0f F:$%.0f" % [
+		recommended.economy,
+		recommended.business,
+		recommended.first
+	])
