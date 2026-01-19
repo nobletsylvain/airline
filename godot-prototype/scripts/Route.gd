@@ -12,9 +12,12 @@ class_name Route
 
 # Flight configuration
 @export var frequency: int = 1  # Flights per week
-@export var capacity_economy: int = 0
-@export var capacity_business: int = 0
-@export var capacity_first: int = 0
+
+# Note: Capacities are now calculated from assigned aircraft configurations
+# These are deprecated but kept for backward compatibility
+@export var _deprecated_capacity_economy: int = 0
+@export var _deprecated_capacity_business: int = 0
+@export var _deprecated_capacity_first: int = 0
 
 # Pricing (per passenger)
 @export var price_economy: float = 100.0
@@ -62,8 +65,43 @@ func calculate_distance() -> float:
 
 	return earth_radius_km * c
 
+func get_economy_capacity() -> int:
+	"""Get total economy capacity from assigned aircraft"""
+	var total: int = 0
+	for aircraft in assigned_aircraft:
+		total += aircraft.get_economy_capacity()
+	return total
+
+func get_business_capacity() -> int:
+	"""Get total business capacity from assigned aircraft"""
+	var total: int = 0
+	for aircraft in assigned_aircraft:
+		total += aircraft.get_business_capacity()
+	return total
+
+func get_first_capacity() -> int:
+	"""Get total first capacity from assigned aircraft"""
+	var total: int = 0
+	for aircraft in assigned_aircraft:
+		total += aircraft.get_first_capacity()
+	return total
+
 func get_total_capacity() -> int:
-	return capacity_economy + capacity_business + capacity_first
+	"""Get total capacity from assigned aircraft"""
+	var total: int = 0
+	for aircraft in assigned_aircraft:
+		total += aircraft.get_total_capacity()
+	return total
+
+# Backward compatibility properties
+var capacity_economy: int:
+	get: return get_economy_capacity()
+
+var capacity_business: int:
+	get: return get_business_capacity()
+
+var capacity_first: int:
+	get: return get_first_capacity()
 
 func calculate_base_price(distance: float, passenger_class: String) -> float:
 	"""Calculate base price based on distance and class"""

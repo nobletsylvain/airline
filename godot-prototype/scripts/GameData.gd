@@ -93,28 +93,83 @@ func create_sample_airports() -> void:
 		airports.append(airport)
 
 func create_aircraft_models() -> void:
-	"""Create sample aircraft models"""
+	"""Create sample aircraft models with realistic configurable seats"""
+	# Format: name, manufacturer, max_seats, range, price, min_economy, max_first, max_business, default_config
 	var models: Array[Dictionary] = [
-		{"name": "737-800", "mfr": "Boeing", "eco": 162, "bus": 12, "first": 0, "range": 5665, "price": 89000000},
-		{"name": "A320", "mfr": "Airbus", "eco": 150, "bus": 12, "first": 0, "range": 6150, "price": 98000000},
-		{"name": "787-9", "mfr": "Boeing", "eco": 242, "bus": 38, "first": 8, "range": 14140, "price": 265000000},
-		{"name": "A350-900", "mfr": "Airbus", "eco": 270, "bus": 40, "first": 8, "range": 15000, "price": 317000000},
-		{"name": "777-300ER", "mfr": "Boeing", "eco": 310, "bus": 58, "first": 8, "range": 13649, "price": 375000000},
-		{"name": "A380", "mfr": "Airbus", "eco": 399, "bus": 80, "first": 14, "range": 15200, "price": 445000000},
-		{"name": "737-700", "mfr": "Boeing", "eco": 126, "bus": 8, "first": 0, "range": 6230, "price": 74000000},
-		{"name": "A220-300", "mfr": "Airbus", "eco": 135, "bus": 0, "first": 0, "range": 6297, "price": 91000000},
+		# Narrow-body short/medium haul
+		{
+			"name": "737-800", "mfr": "Boeing",
+			"max_seats": 189, "range": 5665, "price": 89000000,
+			"min_economy": 100, "max_first": 12, "max_business": 30,
+			"default": {"eco": 162, "bus": 12, "first": 0}  # Mixed config
+		},
+		{
+			"name": "A320", "mfr": "Airbus",
+			"max_seats": 180, "range": 6150, "price": 98000000,
+			"min_economy": 100, "max_first": 12, "max_business": 30,
+			"default": {"eco": 150, "bus": 12, "first": 0}  # Mixed config
+		},
+		{
+			"name": "737-700", "mfr": "Boeing",
+			"max_seats": 149, "range": 6230, "price": 74000000,
+			"min_economy": 90, "max_first": 12, "max_business": 24,
+			"default": {"eco": 126, "bus": 8, "first": 0}  # Mixed config
+		},
+		{
+			"name": "A220-300", "mfr": "Airbus",
+			"max_seats": 160, "range": 6297, "price": 91000000,
+			"min_economy": 120, "max_first": 8, "max_business": 20,
+			"default": {"eco": 135, "bus": 0, "first": 0}  # All economy
+		},
+
+		# Wide-body long haul
+		{
+			"name": "787-9", "mfr": "Boeing",
+			"max_seats": 296, "range": 14140, "price": 265000000,
+			"min_economy": 180, "max_first": 16, "max_business": 60,
+			"default": {"eco": 242, "bus": 38, "first": 8}  # Premium config
+		},
+		{
+			"name": "A350-900", "mfr": "Airbus",
+			"max_seats": 325, "range": 15000, "price": 317000000,
+			"min_economy": 200, "max_first": 18, "max_business": 70,
+			"default": {"eco": 270, "bus": 40, "first": 8}  # Premium config
+		},
+		{
+			"name": "777-300ER", "mfr": "Boeing",
+			"max_seats": 396, "range": 13649, "price": 375000000,
+			"min_economy": 250, "max_first": 20, "max_business": 80,
+			"default": {"eco": 310, "bus": 58, "first": 8}  # Premium config
+		},
+
+		# Super jumbo
+		{
+			"name": "A380", "mfr": "Airbus",
+			"max_seats": 853, "range": 15200, "price": 445000000,
+			"min_economy": 400, "max_first": 28, "max_business": 120,
+			"default": {"eco": 399, "bus": 80, "first": 14}  # Premium config
+		},
 	]
 
 	for model_data in models:
 		var model: AircraftModel = AircraftModel.new(
 			model_data.name,
 			model_data.mfr,
-			model_data.eco,
-			model_data.bus,
-			model_data.first,
+			model_data.max_seats,
 			model_data.range,
-			model_data.price
+			model_data.price,
+			model_data.min_economy,
+			model_data.max_first,
+			model_data.max_business
 		)
+
+		# Set default configuration
+		model.set_default_configuration(
+			model_data.default.eco,
+			model_data.default.bus,
+			model_data.default.first
+		)
+
 		aircraft_models.append(model)
 
 func create_player_airline() -> void:
@@ -177,8 +232,8 @@ func lat_lon_to_screen(lat: float, lon: float, map_size: Vector2) -> Vector2:
 
 	return Vector2(x * map_size.x, y * map_size.y)
 
-func purchase_aircraft(airline: Airline, model: AircraftModel) -> AircraftInstance:
-	"""Purchase an aircraft for an airline"""
+func purchase_aircraft(airline: Airline, model: AircraftModel, config: AircraftConfiguration = null) -> AircraftInstance:
+	"""Purchase an aircraft for an airline with optional custom configuration"""
 	if not airline or not model:
 		return null
 
@@ -190,8 +245,11 @@ func purchase_aircraft(airline: Airline, model: AircraftModel) -> AircraftInstan
 	# Deduct cost
 	airline.deduct_balance(model.price)
 
-	# Create aircraft instance
-	var aircraft: AircraftInstance = AircraftInstance.new(next_aircraft_id, model, airline.id)
+	# Use provided configuration or default
+	var final_config: AircraftConfiguration = config if config else model.get_default_configuration()
+
+	# Create aircraft instance with configuration
+	var aircraft: AircraftInstance = AircraftInstance.new(next_aircraft_id, model, airline.id, final_config)
 	next_aircraft_id += 1
 
 	# Add to airline's fleet
@@ -200,7 +258,12 @@ func purchase_aircraft(airline: Airline, model: AircraftModel) -> AircraftInstan
 	# Emit signal
 	aircraft_purchased.emit(aircraft, airline)
 
-	print("Purchased %s for $%.0f (Balance: $%.0f)" % [model.get_display_name(), model.price, airline.balance])
+	print("Purchased %s [%s] for $%.0f (Balance: $%.0f)" % [
+		model.get_display_name(),
+		final_config.get_config_summary(),
+		model.price,
+		airline.balance
+	])
 
 	return aircraft
 
@@ -239,3 +302,21 @@ func create_loan(airline: Airline, amount: float, term_weeks: int) -> Loan:
 	print("Loan created: $%.0f at %.1f%% for %d weeks (Payment: $%.0f/week)" % [amount, interest_rate * 100, term_weeks, loan.weekly_payment])
 
 	return loan
+
+func find_route_opportunities(from_airport: Airport, top_n: int = 10) -> Array[Dictionary]:
+	"""Find best route opportunities from a given airport"""
+	return MarketAnalysis.find_best_opportunities(from_airport, airports, airlines, top_n)
+
+func analyze_route(from: Airport, to: Airport) -> Dictionary:
+	"""Analyze a specific route for demand, supply, and opportunity"""
+	return MarketAnalysis.analyze_route_opportunity(from, to, airlines)
+
+func get_recommended_pricing_for_route(from: Airport, to: Airport) -> Dictionary:
+	"""Get AI-recommended pricing for a route"""
+	var analysis: Dictionary = analyze_route(from, to)
+	return MarketAnalysis.get_recommended_pricing(
+		analysis.demand,
+		analysis.supply,
+		analysis.distance_km,
+		analysis.competition
+	)

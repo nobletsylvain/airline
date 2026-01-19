@@ -12,6 +12,11 @@ class_name Airline
 @export var service_quality: float = 50.0  # 0-100
 @export var maintenance_quality: float = 50.0  # 0-100
 
+# Branding
+@export var primary_color: Color = Color(0.2, 0.4, 0.8)  # Default blue
+@export var secondary_color: Color = Color(0.9, 0.9, 0.9)  # Default white/gray
+@export var accent_color: Color = Color(1.0, 0.6, 0.0)  # Default orange
+
 # Collections
 var bases: Array[Airport] = []
 var routes: Array[Route] = []
@@ -36,6 +41,37 @@ func _init(p_name: String = "", p_code: String = "", p_country: String = "") -> 
 	name = p_name
 	airline_code = p_code
 	country = p_country
+
+	# Assign random branding colors if not set
+	if p_name != "":
+		randomize_branding()
+
+func set_branding(p_primary: Color, p_secondary: Color, p_accent: Color) -> void:
+	"""Set custom airline branding colors"""
+	primary_color = p_primary
+	secondary_color = p_secondary
+	accent_color = p_accent
+
+func randomize_branding() -> void:
+	"""Generate random but aesthetically pleasing branding colors"""
+	# Generate a random hue for primary color
+	var hue: float = randf()
+	primary_color = Color.from_hsv(hue, 0.7, 0.8)
+
+	# Secondary is usually white/gray
+	secondary_color = Color(0.9 + randf() * 0.1, 0.9 + randf() * 0.1, 0.9 + randf() * 0.1)
+
+	# Accent is complementary or triadic to primary
+	var accent_hue: float = fmod(hue + 0.5 + randf() * 0.2 - 0.1, 1.0)
+	accent_color = Color.from_hsv(accent_hue, 0.8, 0.9)
+
+func get_brand_colors_hex() -> Dictionary:
+	"""Get brand colors as hex strings for UI display"""
+	return {
+		"primary": primary_color.to_html(),
+		"secondary": secondary_color.to_html(),
+		"accent": accent_color.to_html()
+	}
 
 func add_balance(amount: float) -> void:
 	balance += amount

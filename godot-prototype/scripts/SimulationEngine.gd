@@ -87,10 +87,13 @@ func simulate_route(route: Route, airline: Airline) -> void:
 	# Calculate actual passengers per class
 	var total_capacity: int = route.get_total_capacity() * route.frequency
 
-	# Simplified passenger allocation (after market share split)
-	var economy_demand: int = int(route_demand * 0.7 * quality_multiplier)
-	var business_demand: int = int(route_demand * 0.25 * quality_multiplier)
-	var first_demand: int = int(route_demand * 0.05 * quality_multiplier)
+	# Calculate realistic passenger class distribution
+	var class_distribution: Dictionary = calculate_class_distribution(route, airline)
+
+	# Apply class distribution to demand (after market share split)
+	var economy_demand: int = int(route_demand * class_distribution.economy * quality_multiplier)
+	var business_demand: int = int(route_demand * class_distribution.business * quality_multiplier)
+	var first_demand: int = int(route_demand * class_distribution.first * quality_multiplier)
 
 	# Cap by capacity
 	var economy_passengers: int = mini(economy_demand, route.capacity_economy * route.frequency)
@@ -137,21 +140,74 @@ func simulate_route(route: Route, airline: Airline) -> void:
 	])
 
 func calculate_demand(route: Route) -> float:
-	"""Calculate base passenger demand for a route"""
-	var from_multiplier: float = route.from_airport.get_demand_multiplier()
-	var to_multiplier: float = route.to_airport.get_demand_multiplier()
+	"""Calculate base passenger demand for a route using market analysis"""
+	# Use the new market analysis system
+	var distance: float = route.distance_km
+	var demand: float = MarketAnalysis.calculate_potential_demand(
+		route.from_airport,
+		route.to_airport,
+		distance
+	)
 
-	# Base demand influenced by both airports
-	var base: float = (from_multiplier + to_multiplier) * 50.0
+	return demand
 
-	# Distance penalty (very long routes have less demand)
-	var distance_factor: float = 1.0
-	if route.distance_km > 10000:
-		distance_factor = 0.7
-	elif route.distance_km > 5000:
-		distance_factor = 0.85
+func calculate_class_distribution(route: Route, airline: Airline) -> Dictionary:
+	"""
+	Calculate realistic passenger class distribution based on:
+	- Route distance (long haul = more business/first)
+	- Pricing (expensive economy = shift to lower demand)
+	- Airline reputation (high rep = more premium passengers)
+	- Income levels of airports
+	"""
+	var distance: float = route.distance_km
 
-	return base * distance_factor
+	# Base distribution by distance
+	var economy_ratio: float = 0.70
+	var business_ratio: float = 0.25
+	var first_ratio: float = 0.05
+
+	# Long haul routes have more premium passengers
+	if distance > 6000:
+		economy_ratio = 0.60
+		business_ratio = 0.32
+		first_ratio = 0.08
+	elif distance > 3000:
+		economy_ratio = 0.65
+		business_ratio = 0.28
+		first_ratio = 0.07
+	elif distance < 1000:
+		# Short haul is mostly economy
+		economy_ratio = 0.80
+		business_ratio = 0.18
+		first_ratio = 0.02
+
+	# Adjust for airline reputation (high reputation attracts premium passengers)
+	if airline.reputation > 100:
+		var rep_bonus: float = min((airline.reputation - 100) / 200.0, 0.15)
+		business_ratio += rep_bonus
+		first_ratio += rep_bonus * 0.5
+		economy_ratio -= rep_bonus * 1.5
+
+	# Adjust for airport income levels
+	var avg_income: float = (route.from_airport.income_level + route.to_airport.income_level) / 2.0
+	if avg_income > 70:
+		# High income cities = more premium travel
+		var income_bonus: float = (avg_income - 70) / 100.0
+		business_ratio += income_bonus * 0.1
+		first_ratio += income_bonus * 0.05
+		economy_ratio -= income_bonus * 0.15
+
+	# Normalize to ensure sum = 1.0
+	var total: float = economy_ratio + business_ratio + first_ratio
+	economy_ratio /= total
+	business_ratio /= total
+	first_ratio /= total
+
+	return {
+		"economy": economy_ratio,
+		"business": business_ratio,
+		"first": first_ratio
+	}
 
 func calculate_fuel_cost(route: Route) -> float:
 	"""Calculate fuel cost for a route"""
