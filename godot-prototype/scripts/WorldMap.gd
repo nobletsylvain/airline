@@ -24,6 +24,8 @@ func _ready() -> void:
 	if GameData.airports.is_empty():
 		await GameData.game_initialized
 
+	# Wait one frame for the control to be properly sized
+	await get_tree().process_frame
 	setup_airports()
 
 func _draw() -> void:
@@ -98,10 +100,13 @@ func draw_route(route: Route) -> void:
 func setup_airports() -> void:
 	"""Create visual markers for all airports"""
 	var map_size: Vector2 = size
+	print("WorldMap: Setting up airports. Map size: %s" % map_size)
+	print("WorldMap: Number of airports: %d" % GameData.airports.size())
 
 	for airport in GameData.airports:
 		# Calculate screen position
 		airport.position_2d = GameData.lat_lon_to_screen(airport.latitude, airport.longitude, map_size)
+		print("  %s: lat/lon (%.2f, %.2f) -> screen pos %s" % [airport.iata_code, airport.latitude, airport.longitude, airport.position_2d])
 
 		# Create marker
 		create_airport_marker(airport)
@@ -128,6 +133,7 @@ func create_airport_marker(airport: Airport) -> void:
 	marker.draw.connect(_draw_airport_marker.bind(marker, airport))
 
 	add_child(marker)
+	marker.queue_redraw()  # Force initial draw
 
 func _draw_airport_marker(marker: Control, airport: Airport) -> void:
 	"""Draw an individual airport marker"""
