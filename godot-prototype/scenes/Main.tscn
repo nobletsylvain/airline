@@ -34,7 +34,7 @@ theme_override_constants/separation = 10
 
 [node name="TopPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 40)
+custom_minimum_size = Vector2(0, 50)
 
 [node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/TopPanel"]
 layout_mode = 2
@@ -43,7 +43,7 @@ theme_override_constants/separation = 15
 [node name="InfoLabel" type="Label" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "SkyLine Airways | Grade: New | Reputation: 0.0"
+text = "SkyLine Airways | Grade: New | Reputation: 0.0 | Fleet: 0"
 vertical_alignment = 1
 
 [node name="WeekLabel" type="Label" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
@@ -64,140 +64,283 @@ text = "Play"
 layout_mode = 2
 text = "Step Week"
 
-[node name="WorldMap" type="Control" parent="MarginContainer/VBoxContainer"]
-custom_minimum_size = Vector2(0, 400)
+[node name="MainArea" type="HSplitContainer" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
+
+[node name="WorldMap" type="Control" parent="MarginContainer/VBoxContainer/MainArea"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 2.5
 script = ExtResource("2_worldmap")
 
-[node name="LoanPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer"]
-custom_minimum_size = Vector2(0, 80)
-layout_mode = 2
-
-[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/LoanPanel"]
+[node name="RightPanels" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainArea"]
+custom_minimum_size = Vector2(400, 0)
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="LoansLabel" type="Label" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer"]
+[node name="InfoPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels"]
+custom_minimum_size = Vector2(0, 120)
 layout_mode = 2
-text = "Loans:"
-vertical_alignment = 1
 
-[node name="LoansList" type="ItemList" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer"]
-custom_minimum_size = Vector2(400, 0)
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/InfoPanel"]
+layout_mode = 2
+
+[node name="InfoTitle" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/InfoPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "Selection Info"
+
+[node name="AirportInfo" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/InfoPanel/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+text = "Click on airports to see details
+
+Click two airports to create a route"
+autowrap_mode = 3
+
+[node name="ManagementTabs" type="TabContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="VSeparator" type="VSeparator" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer"]
+[node name="Routes" type="ScrollContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs"]
 layout_mode = 2
 
-[node name="LoanControls" type="VBoxContainer" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Routes"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 5
+size_flags_vertical = 3
+theme_override_constants/separation = 10
 
-[node name="LoanTitle" type="Label" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls"]
+[node name="Title" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Routes/VBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Your Routes"
+
+[node name="RouteList" type="ItemList" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Routes/VBoxContainer"]
+custom_minimum_size = Vector2(0, 300)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Fleet" type="ScrollContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs"]
+visible = false
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 15
+
+[node name="FleetTitle" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Your Fleet"
+
+[node name="FleetList" type="ItemList" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer"]
+custom_minimum_size = Vector2(0, 200)
+layout_mode = 2
+
+[node name="FleetStatsPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer"]
+layout_mode = 2
+
+[node name="FleetStats" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer/FleetStatsPanel"]
+layout_mode = 2
+text = "Total Aircraft: 0
+Available: 0
+Assigned: 0
+Avg Condition: 100%"
+
+[node name="Separator1" type="HSeparator" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer"]
+layout_mode = 2
+
+[node name="ShopTitle" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Aircraft Market"
+
+[node name="AircraftList" type="ItemList" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+
+[node name="AircraftDetailsPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer"]
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer/AircraftDetailsPanel"]
+layout_mode = 2
+
+[node name="AircraftDetails" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer/AircraftDetailsPanel/VBoxContainer"]
+layout_mode = 2
+text = "Select an aircraft to see details"
+autowrap_mode = 3
+
+[node name="PurchaseButton" type="Button" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer/AircraftDetailsPanel/VBoxContainer"]
+layout_mode = 2
+text = "Purchase Aircraft"
+disabled = true
+
+[node name="Finances" type="ScrollContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs"]
+visible = false
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 15
+
+[node name="FinancialsTitle" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Financial Summary"
+
+[node name="WeeklyStatsPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer"]
+layout_mode = 2
+
+[node name="WeeklyStats" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/WeeklyStatsPanel"]
+layout_mode = 2
+text = "Revenue: $0
+Expenses: $0
+Profit: $0
+Balance: $100.00M"
+
+[node name="Separator1" type="HSeparator" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer"]
+layout_mode = 2
+
+[node name="LoansTitle" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Active Loans"
+
+[node name="LoansList" type="ItemList" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer"]
+custom_minimum_size = Vector2(0, 100)
+layout_mode = 2
+
+[node name="LoanSummary" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer"]
+layout_mode = 2
+text = "Total Debt: $0 | Weekly Payments: $0"
+
+[node name="Separator2" type="HSeparator" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer"]
+layout_mode = 2
+
+[node name="ApplyLoanTitle" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
 text = "Apply for Loan"
 
-[node name="AmountContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls"]
+[node name="LoanPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer"]
 layout_mode = 2
 
-[node name="AmountLabel" type="Label" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls/AmountContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CreditInfo" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel/VBoxContainer"]
+layout_mode = 2
+text = "Credit Limit: $0
+Interest Rate: 8.0%
+Grade: New"
+
+[node name="Separator" type="HSeparator" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel/VBoxContainer"]
+layout_mode = 2
+
+[node name="AmountContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel/VBoxContainer"]
+layout_mode = 2
+
+[node name="AmountLabel" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel/VBoxContainer/AmountContainer"]
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 text = "Amount ($M):"
 vertical_alignment = 1
 
-[node name="AmountInput" type="LineEdit" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls/AmountContainer"]
-custom_minimum_size = Vector2(100, 0)
+[node name="AmountInput" type="LineEdit" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel/VBoxContainer/AmountContainer"]
 layout_mode = 2
+size_flags_horizontal = 3
 placeholder_text = "50"
 alignment = 1
 
-[node name="TermContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls"]
+[node name="TermContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel/VBoxContainer"]
 layout_mode = 2
 
-[node name="TermLabel" type="Label" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls/TermContainer"]
+[node name="TermLabel" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel/VBoxContainer/TermContainer"]
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 text = "Term (weeks):"
 vertical_alignment = 1
 
-[node name="TermInput" type="LineEdit" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls/TermContainer"]
-custom_minimum_size = Vector2(100, 0)
+[node name="TermInput" type="LineEdit" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel/VBoxContainer/TermContainer"]
 layout_mode = 2
+size_flags_horizontal = 3
 placeholder_text = "52"
 alignment = 1
 
-[node name="ApplyButton" type="Button" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls"]
+[node name="PaymentPreview" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel/VBoxContainer"]
+layout_mode = 2
+text = "Weekly Payment: $0"
+
+[node name="ApplyButton" type="Button" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel/VBoxContainer"]
 layout_mode = 2
 text = "Apply for Loan"
 
-[node name="LoanInfo" type="Label" parent="MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls"]
+[node name="ApplicationResult" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer"]
+custom_minimum_size = Vector2(0, 80)
 layout_mode = 2
-text = "Credit Limit: $0.00M | Rate: 8.0%"
+autowrap_mode = 3
 
-[node name="BottomPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer"]
+[node name="Market" type="ScrollContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs"]
+visible = false
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 15
+
+[node name="CompetitorsTitle" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Competitor Airlines"
+
+[node name="CompetitorList" type="ItemList" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market/VBoxContainer"]
 custom_minimum_size = Vector2(0, 200)
 layout_mode = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer/BottomPanel"]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="RoutePanel" type="VBoxContainer" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/RoutePanel"]
-layout_mode = 2
-text = "Routes:"
-
-[node name="RouteList" type="ItemList" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/RoutePanel"]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="AirportInfo" type="Label" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer"]
-custom_minimum_size = Vector2(300, 0)
-layout_mode = 2
-text = "Click airports to select
-Click two airports to create route"
-vertical_alignment = 1
-
-[node name="AircraftPanel" type="VBoxContainer" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer"]
-custom_minimum_size = Vector2(400, 0)
+[node name="MarketStatsPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market/VBoxContainer"]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel"]
+[node name="MarketStats" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market/VBoxContainer/MarketStatsPanel"]
 layout_mode = 2
-text = "Available Aircraft:"
+text = "Total Airlines: 5
+Total Routes: 0
+Your Market Share: 0%"
 
-[node name="AircraftList" type="ItemList" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel"]
-custom_minimum_size = Vector2(0, 80)
-layout_mode = 2
-
-[node name="PurchaseButton" type="Button" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel"]
-layout_mode = 2
-text = "Purchase Selected Aircraft"
-disabled = true
-
-[node name="FleetLabel" type="Label" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel"]
-layout_mode = 2
-text = "Your Fleet:"
-
-[node name="FleetList" type="ItemList" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel"]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="CompetitorPanel" type="VBoxContainer" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer"]
-custom_minimum_size = Vector2(300, 0)
+[node name="Separator1" type="HSeparator" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market/VBoxContainer"]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/CompetitorPanel"]
+[node name="DetailTitle" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market/VBoxContainer"]
 layout_mode = 2
-text = "Competitor Airlines:"
+theme_override_font_sizes/font_size = 16
+text = "Competitor Details"
 
-[node name="CompetitorList" type="ItemList" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/CompetitorPanel"]
+[node name="CompetitorDetailPanel" type="PanelContainer" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market/VBoxContainer"]
+custom_minimum_size = Vector2(0, 100)
 layout_mode = 2
-size_flags_vertical = 3
+
+[node name="CompetitorDetail" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market/VBoxContainer/CompetitorDetailPanel"]
+layout_mode = 2
+text = "Select a competitor to see details"
+autowrap_mode = 3
+
+[node name="Separator2" type="HSeparator" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market/VBoxContainer"]
+layout_mode = 2
+
+[node name="CompetingRoutesTitle" type="Label" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "Competing Routes"
+
+[node name="CompetingRoutes" type="ItemList" parent="MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market/VBoxContainer"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2

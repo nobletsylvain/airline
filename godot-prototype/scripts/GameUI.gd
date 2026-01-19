@@ -1,38 +1,62 @@
 extends Control
 
-## Main game UI controller
+## Main game UI controller - Map-centric design
 
-@onready var world_map: Control = $MarginContainer/VBoxContainer/WorldMap
 @onready var simulation_engine: Node = $SimulationEngine
+
+# Top Panel
 @onready var info_label: Label = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/InfoLabel
 @onready var week_label: Label = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/WeekLabel
 @onready var balance_label: Label = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/BalanceLabel
-@onready var route_list: ItemList = $MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/RoutePanel/RouteList
-@onready var airport_info: Label = $MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AirportInfo
 @onready var play_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/PlayButton
 @onready var step_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/StepButton
-@onready var aircraft_panel: VBoxContainer = $MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel
-@onready var aircraft_list: ItemList = $MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel/AircraftList
-@onready var purchase_button: Button = $MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel/PurchaseButton
-@onready var fleet_list: ItemList = $MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel/FleetList
-@onready var loans_list: ItemList = $MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoansList
-@onready var amount_input: LineEdit = $MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls/AmountContainer/AmountInput
-@onready var term_input: LineEdit = $MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls/TermContainer/TermInput
-@onready var apply_loan_button: Button = $MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls/ApplyButton
-@onready var loan_info: Label = $MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls/LoanInfo
-@onready var competitor_list: ItemList = $MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/CompetitorPanel/CompetitorList
+
+# Map (Always Visible)
+@onready var world_map: Control = $MarginContainer/VBoxContainer/MainArea/WorldMap
+
+# Right Side Panels
+@onready var airport_info: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/InfoPanel/VBoxContainer/AirportInfo
+
+# Routes Tab
+@onready var route_list: ItemList = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Routes/VBoxContainer/RouteList
+
+# Fleet Tab
+@onready var fleet_list: ItemList = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer/FleetList
+@onready var fleet_stats_label: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer/FleetStatsPanel/FleetStats
+@onready var aircraft_list: ItemList = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer/AircraftList
+@onready var aircraft_details: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer/AircraftDetailsPanel/VBoxContainer/AircraftDetails
+@onready var purchase_button: Button = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer/AircraftDetailsPanel/VBoxContainer/PurchaseButton
+
+# Financials Tab
+@onready var weekly_stats_label: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/WeeklyStatsPanel/WeeklyStats
+@onready var loans_list: ItemList = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoansList
+@onready var loan_summary_label: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanSummary
+@onready var credit_info_label: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel/VBoxContainer/CreditInfo
+@onready var amount_input: LineEdit = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel/VBoxContainer/AmountContainer/AmountInput
+@onready var term_input: LineEdit = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel/VBoxContainer/TermContainer/TermInput
+@onready var payment_preview: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel/VBoxContainer/PaymentPreview
+@onready var apply_loan_button: Button = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel/VBoxContainer/ApplyButton
+@onready var application_result: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/ApplicationResult
+
+# Market Tab
+@onready var competitor_list: ItemList = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market/VBoxContainer/CompetitorList
+@onready var market_stats_label: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market/VBoxContainer/MarketStatsPanel/MarketStats
+@onready var competitor_detail: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market/VBoxContainer/CompetitorDetailPanel/CompetitorDetail
+@onready var competing_routes_list: ItemList = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market/VBoxContainer/CompetingRoutes
 
 var selected_route: Route = null
 var selected_aircraft_model_index: int = -1
+var selected_competitor_index: int = -1
 
 func _ready() -> void:
-	# Connect signals
+	# Connect simulation signals
 	if simulation_engine:
 		simulation_engine.week_completed.connect(_on_week_completed)
 		simulation_engine.route_simulated.connect(_on_route_simulated)
 		simulation_engine.simulation_started.connect(_on_simulation_started)
 		simulation_engine.simulation_paused.connect(_on_simulation_paused)
 
+	# Connect map signals
 	if world_map:
 		world_map.airport_clicked.connect(_on_airport_clicked)
 		world_map.airport_hovered.connect(_on_airport_hovered)
@@ -43,18 +67,24 @@ func _ready() -> void:
 		play_button.pressed.connect(_on_play_button_pressed)
 	if step_button:
 		step_button.pressed.connect(_on_step_button_pressed)
-
-	if route_list:
-		route_list.item_selected.connect(_on_route_selected)
-
-	if aircraft_list:
-		aircraft_list.item_selected.connect(_on_aircraft_model_selected)
-
 	if purchase_button:
 		purchase_button.pressed.connect(_on_purchase_button_pressed)
-
 	if apply_loan_button:
 		apply_loan_button.pressed.connect(_on_apply_loan_pressed)
+
+	# Connect list signals
+	if route_list:
+		route_list.item_selected.connect(_on_route_selected)
+	if aircraft_list:
+		aircraft_list.item_selected.connect(_on_aircraft_model_selected)
+	if competitor_list:
+		competitor_list.item_selected.connect(_on_competitor_selected)
+
+	# Connect input signals for loan preview
+	if amount_input:
+		amount_input.text_changed.connect(_on_loan_input_changed)
+	if term_input:
+		term_input.text_changed.connect(_on_loan_input_changed)
 
 	# Wait for game data
 	await GameData.game_initialized
@@ -68,24 +98,21 @@ func _ready() -> void:
 	GameData.aircraft_purchased.connect(_on_aircraft_purchased)
 	GameData.loan_created.connect(_on_loan_created)
 
-	update_ui()
-	populate_aircraft_list()
-	update_fleet_list()
-	update_loans_list()
-	update_loan_info()
-	update_competitor_list()
+	# Initialize UI
+	update_all()
 
-func update_ui() -> void:
+func update_all() -> void:
 	"""Update all UI elements"""
+	update_top_panel()
+	update_route_tab()
+	update_fleet_tab()
+	update_financials_tab()
+	update_market_tab()
+
+func update_top_panel() -> void:
+	"""Update the top status bar"""
 	if not GameData.player_airline:
 		return
-
-	# Update top panel
-	if week_label:
-		week_label.text = "Week: %d" % GameData.current_week
-
-	if balance_label:
-		balance_label.text = "Balance: $%s" % format_money(GameData.player_airline.balance)
 
 	if info_label:
 		info_label.text = "%s | Grade: %s | Reputation: %.1f | Fleet: %d" % [
@@ -95,11 +122,15 @@ func update_ui() -> void:
 			GameData.player_airline.aircraft.size()
 		]
 
-	# Update route list
-	update_route_list()
+	if week_label:
+		week_label.text = "Week: %d" % GameData.current_week
 
-	# Update loan info
-	update_loan_info()
+	if balance_label:
+		balance_label.text = "Balance: $%s" % format_money(GameData.player_airline.balance)
+
+func update_route_tab() -> void:
+	"""Update Routes tab"""
+	update_route_list()
 
 func update_route_list() -> void:
 	"""Update the route list display"""
@@ -127,6 +158,12 @@ func update_route_list() -> void:
 		]
 		route_list.add_item(route_text)
 
+func update_fleet_tab() -> void:
+	"""Update Fleet tab"""
+	populate_aircraft_list()
+	update_fleet_list()
+	update_fleet_stats()
+
 func populate_aircraft_list() -> void:
 	"""Populate available aircraft for purchase"""
 	if not aircraft_list:
@@ -144,19 +181,173 @@ func populate_aircraft_list() -> void:
 		]
 		aircraft_list.add_item(text)
 
-func format_money(amount: float) -> String:
-	"""Format money with thousands separators"""
-	var abs_amount: float = abs(amount)
-	var sign: String = "-" if amount < 0 else ""
+func update_fleet_list() -> void:
+	"""Update the fleet list display"""
+	if not fleet_list or not GameData.player_airline:
+		return
 
-	if abs_amount >= 1000000000:
-		return "%s%.2fB" % [sign, abs_amount / 1000000000.0]
-	elif abs_amount >= 1000000:
-		return "%s%.2fM" % [sign, abs_amount / 1000000.0]
-	elif abs_amount >= 1000:
-		return "%s%.2fK" % [sign, abs_amount / 1000.0]
-	else:
-		return "%s%.0f" % [sign, abs_amount]
+	fleet_list.clear()
+
+	if GameData.player_airline.aircraft.is_empty():
+		fleet_list.add_item("No aircraft owned")
+		return
+
+	for aircraft in GameData.player_airline.aircraft:
+		var status_icon: String = "✓" if aircraft.is_assigned else "○"
+		var text: String = "%s %s | ID:%d | %s | Condition:%.0f%%" % [
+			status_icon,
+			aircraft.model.get_display_name(),
+			aircraft.id,
+			aircraft.get_status(),
+			aircraft.condition
+		]
+		fleet_list.add_item(text)
+
+func update_fleet_stats() -> void:
+	"""Update fleet statistics panel"""
+	if not fleet_stats_label or not GameData.player_airline:
+		return
+
+	var total: int = GameData.player_airline.aircraft.size()
+	var available: int = 0
+	var assigned: int = 0
+	var total_condition: float = 0.0
+
+	for aircraft in GameData.player_airline.aircraft:
+		if aircraft.is_assigned:
+			assigned += 1
+		else:
+			available += 1
+		total_condition += aircraft.condition
+
+	var avg_condition: float = 100.0
+	if total > 0:
+		avg_condition = total_condition / total
+
+	fleet_stats_label.text = "Total Aircraft: %d\nAvailable: %d\nAssigned: %d\nAvg Condition: %.1f%%" % [
+		total,
+		available,
+		assigned,
+		avg_condition
+	]
+
+func update_financials_tab() -> void:
+	"""Update Financials tab"""
+	update_weekly_stats()
+	update_loans_list()
+	update_loan_info()
+
+func update_weekly_stats() -> void:
+	"""Update weekly financial stats"""
+	if not weekly_stats_label or not GameData.player_airline:
+		return
+
+	weekly_stats_label.text = "Revenue: $%s\nExpenses: $%s\nProfit: $%s\nBalance: $%s" % [
+		format_money(GameData.player_airline.weekly_revenue),
+		format_money(GameData.player_airline.weekly_expenses),
+		format_money(GameData.player_airline.calculate_weekly_profit()),
+		format_money(GameData.player_airline.balance)
+	]
+
+func update_loans_list() -> void:
+	"""Update the active loans list display"""
+	if not loans_list or not GameData.player_airline:
+		return
+
+	loans_list.clear()
+
+	if GameData.player_airline.loans.is_empty():
+		loans_list.add_item("No active loans")
+		return
+
+	for loan in GameData.player_airline.loans:
+		var text: String = "Loan #%d: $%s @ %.1f%%\nPayment: $%s/wk | %d weeks left" % [
+			loan.id,
+			format_money(loan.remaining_balance),
+			loan.interest_rate * 100,
+			format_money(loan.weekly_payment),
+			loan.weeks_remaining
+		]
+		loans_list.add_item(text)
+
+func update_loan_info() -> void:
+	"""Update loan credit limit and interest rate display"""
+	if not GameData.player_airline:
+		return
+
+	var credit_limit: float = GameData.player_airline.get_credit_limit()
+	var interest_rate: float = GameData.player_airline.get_interest_rate()
+
+	if credit_info_label:
+		credit_info_label.text = "Credit Limit: $%s\nInterest Rate: %.1f%%\nGrade: %s" % [
+			format_money(credit_limit),
+			interest_rate * 100,
+			GameData.player_airline.get_grade()
+		]
+
+	if loan_summary_label:
+		loan_summary_label.text = "Total Debt: $%s | Weekly Payments: $%s" % [
+			format_money(GameData.player_airline.total_debt),
+			format_money(GameData.player_airline.weekly_loan_payment)
+		]
+
+func update_market_tab() -> void:
+	"""Update Market tab"""
+	update_competitor_list()
+	update_market_stats()
+
+func update_competitor_list() -> void:
+	"""Update the competitor airlines list"""
+	if not competitor_list:
+		return
+
+	competitor_list.clear()
+
+	for airline in GameData.airlines:
+		if airline.id == GameData.player_airline.id:
+			continue
+
+		# Find AI controller for this airline
+		var ai_personality: String = "Unknown"
+		for ai in GameData.ai_controllers:
+			if ai.controlled_airline.id == airline.id:
+				ai_personality = ai.get_personality_name()
+				break
+
+		var text: String = "%s (%s) | %s\nGrade: %s | Fleet: %d | Routes: %d\nBalance: $%s | Debt: $%s" % [
+			airline.name,
+			airline.code,
+			ai_personality,
+			airline.get_grade(),
+			airline.aircraft.size(),
+			airline.routes.size(),
+			format_money(airline.balance),
+			format_money(airline.total_debt)
+		]
+		competitor_list.add_item(text)
+
+func update_market_stats() -> void:
+	"""Update market statistics"""
+	if not market_stats_label:
+		return
+
+	var total_airlines: int = GameData.airlines.size()
+	var total_routes: int = 0
+	for airline in GameData.airlines:
+		total_routes += airline.routes.size()
+
+	var your_routes: int = GameData.player_airline.routes.size()
+	var market_share: float = 0.0
+	if total_routes > 0:
+		market_share = (float(your_routes) / float(total_routes)) * 100.0
+
+	market_stats_label.text = "Total Airlines: %d\nTotal Routes: %d\nYour Market Share: %.1f%%" % [
+		total_airlines,
+		total_routes,
+		market_share
+	]
+
+# Event Handlers
 
 func _on_airport_clicked(airport: Airport) -> void:
 	"""Handle airport click"""
@@ -171,7 +362,6 @@ func _on_airport_clicked(airport: Airport) -> void:
 
 func _on_airport_hovered(airport: Airport) -> void:
 	"""Handle airport hover"""
-	# Could show tooltip
 	pass
 
 func _on_route_created(from_airport: Airport, to_airport: Airport) -> void:
@@ -236,8 +426,9 @@ func _on_route_created(from_airport: Airport, to_airport: Airport) -> void:
 	if world_map:
 		world_map.refresh_routes()
 
-	# Update fleet list to show assignment
-	update_fleet_list()
+	# Update UI
+	update_fleet_tab()
+	update_route_tab()
 
 	# Show success message
 	if airport_info:
@@ -277,15 +468,13 @@ func _on_simulation_paused() -> void:
 
 func _on_week_completed(week: int) -> void:
 	"""Handle week simulation completion"""
-	update_ui()
-	update_competitor_list()
+	update_all()
 
 	if world_map:
 		world_map.refresh_routes()
 
 func _on_route_simulated(route: Route, passengers: int, revenue: float) -> void:
 	"""Handle individual route simulation"""
-	# Could show animation or notification
 	pass
 
 func _on_balance_changed(new_balance: float) -> void:
@@ -311,15 +500,6 @@ func _on_route_selected(index: int) -> void:
 			format_money(selected_route.weekly_profit)
 		]
 
-func format_number(num: int) -> String:
-	"""Format large numbers with M/K suffixes"""
-	if num >= 1000000:
-		return "%.1fM" % (num / 1000000.0)
-	elif num >= 1000:
-		return "%.1fK" % (num / 1000.0)
-	else:
-		return str(num)
-
 func _on_aircraft_model_selected(index: int) -> void:
 	"""Handle aircraft model selection"""
 	selected_aircraft_model_index = index
@@ -330,15 +510,16 @@ func _on_aircraft_model_selected(index: int) -> void:
 	# Show aircraft info
 	if index >= 0 and index < GameData.aircraft_models.size():
 		var model: AircraftModel = GameData.aircraft_models[index]
-		if airport_info:
-			airport_info.text = "Aircraft: %s\nCapacity: %d (%dE/%dB/%dF)\nRange: %d km\nPrice: $%s\n\nClick Purchase to buy" % [
+		if aircraft_details:
+			aircraft_details.text = "Aircraft: %s\n\nCapacity: %d passengers\n(%d Economy / %d Business / %d First)\n\nRange: %s km\nPrice: $%s\n\nAffordable: %s" % [
 				model.get_display_name(),
 				model.get_total_capacity(),
 				model.capacity_economy,
 				model.capacity_business,
 				model.capacity_first,
-				model.range_km,
-				format_money(model.price)
+				format_number(model.range_km),
+				format_money(model.price),
+				"Yes" if GameData.player_airline.balance >= model.price else "No (Need $%s more)" % format_money(model.price - GameData.player_airline.balance)
 			]
 
 func _on_purchase_button_pressed() -> void:
@@ -351,8 +532,8 @@ func _on_purchase_button_pressed() -> void:
 
 	# Check balance
 	if GameData.player_airline.balance < model.price:
-		if airport_info:
-			airport_info.text = "INSUFFICIENT FUNDS!\n\nAircraft: %s\nPrice: $%s\nYour balance: $%s\nShortfall: $%s" % [
+		if aircraft_details:
+			aircraft_details.text = "INSUFFICIENT FUNDS!\n\nAircraft: %s\nPrice: $%s\nYour balance: $%s\nShortfall: $%s" % [
 				model.get_display_name(),
 				format_money(model.price),
 				format_money(GameData.player_airline.balance),
@@ -365,8 +546,8 @@ func _on_purchase_button_pressed() -> void:
 
 	if aircraft:
 		# Success feedback
-		if airport_info:
-			airport_info.text = "PURCHASED!\n\n%s\nAircraft ID: %d\nRemaining balance: $%s" % [
+		if aircraft_details:
+			aircraft_details.text = "PURCHASED!\n\n%s\nAircraft ID: %d\nRemaining balance: $%s" % [
 				model.get_display_name(),
 				aircraft.id,
 				format_money(GameData.player_airline.balance)
@@ -374,65 +555,36 @@ func _on_purchase_button_pressed() -> void:
 
 func _on_aircraft_purchased(aircraft: AircraftInstance, airline: Airline) -> void:
 	"""Handle aircraft purchase"""
-	update_fleet_list()
-	update_ui()
+	update_fleet_tab()
+	update_top_panel()
 
-func update_fleet_list() -> void:
-	"""Update the fleet list display"""
-	if not fleet_list or not GameData.player_airline:
+func _on_loan_input_changed(new_text: String) -> void:
+	"""Update loan payment preview when inputs change"""
+	if not payment_preview or not GameData.player_airline:
 		return
 
-	fleet_list.clear()
+	var amount_text: String = amount_input.text.strip_edges()
+	var term_text: String = term_input.text.strip_edges()
 
-	if GameData.player_airline.aircraft.is_empty():
-		fleet_list.add_item("No aircraft owned")
+	if amount_text.is_empty() or term_text.is_empty():
+		payment_preview.text = "Weekly Payment: $0"
 		return
 
-	for aircraft in GameData.player_airline.aircraft:
-		var status_icon: String = "✓" if aircraft.is_assigned else "○"
-		var text: String = "%s %s | ID:%d | %s | Condition:%.0f%%" % [
-			status_icon,
-			aircraft.model.get_display_name(),
-			aircraft.id,
-			aircraft.get_status(),
-			aircraft.condition
-		]
-		fleet_list.add_item(text)
+	var amount_millions: float = amount_text.to_float()
+	var amount: float = amount_millions * 1000000.0
+	var term: int = term_text.to_int()
 
-func update_loans_list() -> void:
-	"""Update the active loans list display"""
-	if not loans_list or not GameData.player_airline:
+	if amount <= 0 or term <= 0:
+		payment_preview.text = "Weekly Payment: Invalid input"
 		return
 
-	loans_list.clear()
-
-	if GameData.player_airline.loans.is_empty():
-		loans_list.add_item("No active loans")
-		return
-
-	for loan in GameData.player_airline.loans:
-		var text: String = "Loan #%d: $%s @ %.1f%% | Payment: $%s/wk | %d weeks left" % [
-			loan.id,
-			format_money(loan.remaining_balance),
-			loan.interest_rate * 100,
-			format_money(loan.weekly_payment),
-			loan.weeks_remaining
-		]
-		loans_list.add_item(text)
-
-func update_loan_info() -> void:
-	"""Update loan credit limit and interest rate display"""
-	if not loan_info or not GameData.player_airline:
-		return
-
-	var credit_limit: float = GameData.player_airline.get_credit_limit()
+	# Calculate preview payment
 	var interest_rate: float = GameData.player_airline.get_interest_rate()
+	var weekly_interest_rate: float = interest_rate / 52.0
+	var factor: float = pow(1 + weekly_interest_rate, term)
+	var weekly_payment: float = amount * (weekly_interest_rate * factor) / (factor - 1)
 
-	loan_info.text = "Credit Limit: $%s | Rate: %.1f%% | Total Debt: $%s" % [
-		format_money(credit_limit),
-		interest_rate * 100,
-		format_money(GameData.player_airline.total_debt)
-	]
+	payment_preview.text = "Weekly Payment: $%s" % format_money(weekly_payment)
 
 func _on_apply_loan_pressed() -> void:
 	"""Handle loan application"""
@@ -444,17 +596,17 @@ func _on_apply_loan_pressed() -> void:
 	var term_text: String = term_input.text.strip_edges()
 
 	if amount_text.is_empty() or term_text.is_empty():
-		if airport_info:
-			airport_info.text = "LOAN APPLICATION FAILED!\n\nPlease enter both amount and term."
+		if application_result:
+			application_result.text = "LOAN APPLICATION FAILED!\n\nPlease enter both amount and term."
 		return
 
 	var amount_millions: float = amount_text.to_float()
-	var amount: float = amount_millions * 1000000.0  # Convert millions to actual amount
+	var amount: float = amount_millions * 1000000.0
 	var term: int = term_text.to_int()
 
 	if amount <= 0 or term <= 0:
-		if airport_info:
-			airport_info.text = "LOAN APPLICATION FAILED!\n\nAmount and term must be positive numbers."
+		if application_result:
+			application_result.text = "LOAN APPLICATION FAILED!\n\nAmount and term must be positive numbers."
 		return
 
 	# Try to create loan
@@ -462,8 +614,8 @@ func _on_apply_loan_pressed() -> void:
 
 	if loan:
 		# Success
-		if airport_info:
-			airport_info.text = "LOAN APPROVED!\n\nAmount: $%s\nTerm: %d weeks\nInterest Rate: %.1f%%\nWeekly Payment: $%s\n\nFunds have been added to your balance." % [
+		if application_result:
+			application_result.text = "✓ LOAN APPROVED!\n\nAmount: $%s\nTerm: %d weeks\nInterest Rate: %.1f%%\nWeekly Payment: $%s\n\nFunds have been added to your balance." % [
 				format_money(loan.principal),
 				loan.term_weeks,
 				loan.interest_rate * 100,
@@ -473,48 +625,111 @@ func _on_apply_loan_pressed() -> void:
 		# Clear inputs
 		amount_input.text = ""
 		term_input.text = ""
+		payment_preview.text = "Weekly Payment: $0"
 	else:
-		# Failed - GameData.create_loan already printed the reason
-		if airport_info:
+		# Failed
+		if application_result:
 			var credit_limit: float = GameData.player_airline.get_credit_limit()
-			airport_info.text = "LOAN APPLICATION DENIED!\n\nRequested: $%s\nCredit Limit: $%s\n\nYou may be over your credit limit or unable to afford the payments." % [
+			application_result.text = "✗ LOAN APPLICATION DENIED!\n\nRequested: $%s\nCredit Limit: $%s\n\nYou may be over your credit limit or unable to afford the payments." % [
 				format_money(amount),
 				format_money(credit_limit)
 			]
 
 func _on_loan_created(loan: Loan, airline: Airline) -> void:
 	"""Handle loan created event"""
-	update_loans_list()
-	update_loan_info()
-	update_ui()
+	update_financials_tab()
+	update_top_panel()
 
-func update_competitor_list() -> void:
-	"""Update the competitor airlines list"""
-	if not competitor_list:
-		return
+func _on_competitor_selected(index: int) -> void:
+	"""Handle competitor selection"""
+	selected_competitor_index = index
 
-	competitor_list.clear()
-
-	# Show all airlines except player
+	# Get competitor (skip player)
+	var competitor_index: int = 0
+	var selected_airline: Airline = null
 	for airline in GameData.airlines:
 		if airline.id == GameData.player_airline.id:
 			continue
+		if competitor_index == index:
+			selected_airline = airline
+			break
+		competitor_index += 1
 
-		# Find AI controller for this airline
-		var ai_personality: String = "Unknown"
-		for ai in GameData.ai_controllers:
-			if ai.controlled_airline.id == airline.id:
-				ai_personality = ai.get_personality_name()
-				break
+	if not selected_airline:
+		return
 
-		var text: String = "%s (%s) | %s\nGrade: %s | Fleet: %d | Routes: %d\nBalance: $%s | Debt: $%s" % [
-			airline.name,
-			airline.code,
+	# Find AI controller
+	var ai_personality: String = "Unknown"
+	for ai in GameData.ai_controllers:
+		if ai.controlled_airline.id == selected_airline.id:
+			ai_personality = ai.get_personality_name()
+			break
+
+	# Show competitor details
+	if competitor_detail:
+		competitor_detail.text = "Airline: %s (%s)\nStrategy: %s\n\nGrade: %s\nReputation: %.1f\nBalance: $%s\nDebt: $%s\n\nFleet: %d aircraft\nRoutes: %d" % [
+			selected_airline.name,
+			selected_airline.code,
 			ai_personality,
-			airline.get_grade(),
-			airline.aircraft.size(),
-			airline.routes.size(),
-			format_money(airline.balance),
-			format_money(airline.total_debt)
+			selected_airline.get_grade(),
+			selected_airline.reputation,
+			format_money(selected_airline.balance),
+			format_money(selected_airline.total_debt),
+			selected_airline.aircraft.size(),
+			selected_airline.routes.size()
 		]
-		competitor_list.add_item(text)
+
+	# Show competing routes
+	update_competing_routes(selected_airline)
+
+func update_competing_routes(competitor: Airline) -> void:
+	"""Show routes that compete with the selected airline"""
+	if not competing_routes_list:
+		return
+
+	competing_routes_list.clear()
+
+	# Find routes where you compete with this airline
+	var competition_found: bool = false
+	for your_route in GameData.player_airline.routes:
+		for their_route in competitor.routes:
+			# Check if same airport pair
+			if (your_route.from_airport == their_route.from_airport and your_route.to_airport == their_route.to_airport) or \
+			   (your_route.from_airport == their_route.to_airport and your_route.to_airport == their_route.from_airport):
+				competition_found = true
+				var text: String = "%s\nYou: %dpax @ $%s | Them: %dpax @ $%s" % [
+					your_route.get_display_name(),
+					your_route.passengers_transported,
+					format_money(your_route.price_economy),
+					their_route.passengers_transported,
+					format_money(their_route.price_economy)
+				]
+				competing_routes_list.add_item(text)
+
+	if not competition_found:
+		competing_routes_list.add_item("No competing routes with this airline")
+
+# Utility Functions
+
+func format_money(amount: float) -> String:
+	"""Format money with thousands separators"""
+	var abs_amount: float = abs(amount)
+	var sign: String = "-" if amount < 0 else ""
+
+	if abs_amount >= 1000000000:
+		return "%s%.2fB" % [sign, abs_amount / 1000000000.0]
+	elif abs_amount >= 1000000:
+		return "%s%.2fM" % [sign, abs_amount / 1000000.0]
+	elif abs_amount >= 1000:
+		return "%s%.2fK" % [sign, abs_amount / 1000.0]
+	else:
+		return "%s%.0f" % [sign, abs_amount]
+
+func format_number(num: int) -> String:
+	"""Format large numbers with M/K suffixes"""
+	if num >= 1000000:
+		return "%.1fM" % (num / 1000000.0)
+	elif num >= 1000:
+		return "%.1fK" % (num / 1000.0)
+	else:
+		return str(num)
