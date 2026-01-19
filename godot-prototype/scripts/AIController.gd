@@ -245,13 +245,13 @@ func evaluate_route_potential(route: Route, from: Airport, to: Airport) -> float
 	"""Score a route's potential profitability"""
 	var score: float = 0.0
 
-	# Airport size matters
-	score += from.size * 10
-	score += to.size * 10
+	# Hub tier matters (lower tier = bigger hub, so invert the scoring)
+	score += (5 - from.hub_tier) * 15  # Tier 1 = 60 points, Tier 4 = 15 points
+	score += (5 - to.hub_tier) * 15
 
-	# Population matters
-	score += (from.population / 1000000.0) * 5
-	score += (to.population / 1000000.0) * 5
+	# Passenger traffic matters (annual_passengers is in millions)
+	score += from.annual_passengers * 2
+	score += to.annual_passengers * 2
 
 	# Distance sweet spot (not too short, not too long)
 	if route.distance_km >= 500 and route.distance_km <= 5000:
