@@ -134,14 +134,17 @@ func _draw_airport_marker(marker: Control, airport: Airport) -> void:
 	var center: Vector2 = Vector2(12, 12)
 	var radius: float = 6.0
 
-	# Color based on size
+	# Color and size based on hub tier
 	var color: Color = Color.YELLOW
-	if airport.size >= 11:
+	if airport.hub_tier == 1:  # Mega Hub
 		color = Color.ORANGE
-		radius = 8.0
-	elif airport.size >= 8:
+		radius = 9.0
+	elif airport.hub_tier == 2:  # Major Hub
 		color = Color.GOLD
-		radius = 7.0
+		radius = 7.5
+	elif airport.hub_tier == 3:  # Regional Hub
+		color = Color.YELLOW
+		radius = 6.5
 
 	# Highlight if selected or hovered
 	if airport == selected_airport:
