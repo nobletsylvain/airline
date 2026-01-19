@@ -166,7 +166,12 @@ func update_fleet_tab() -> void:
 
 func populate_aircraft_list() -> void:
 	"""Populate available aircraft for purchase"""
+	print("populate_aircraft_list called")
+	print("  aircraft_list exists: ", aircraft_list != null)
+	print("  GameData.aircraft_models count: ", GameData.aircraft_models.size())
+
 	if not aircraft_list:
+		print("  ERROR: aircraft_list is null!")
 		return
 
 	aircraft_list.clear()
@@ -180,6 +185,7 @@ func populate_aircraft_list() -> void:
 			format_money(model.price)
 		]
 		aircraft_list.add_item(text)
+		print("  Added: ", text)
 
 func update_fleet_list() -> void:
 	"""Update the fleet list display"""
