@@ -147,7 +147,7 @@ func create_ai_airlines() -> void:
 
 		print("Created AI airline: %s (%s) - %s strategy" % [
 			airline.name,
-			airline.code,
+			airline.airline_code,
 			ai.get_personality_name()
 		])
 
