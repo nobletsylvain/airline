@@ -352,12 +352,16 @@ func update_market_stats() -> void:
 func _on_airport_clicked(airport: Airport) -> void:
 	"""Handle airport click"""
 	if airport_info:
-		airport_info.text = "Selected: %s\nCity: %s, %s\nSize: %d | Population: %s" % [
+		airport_info.text = "%s\n%s, %s (%s)\n%s | %dM pax/year\n%d runways | %d slots/week\nGDP per capita: $%s" % [
 			airport.get_display_name(),
 			airport.city,
 			airport.country,
-			airport.size,
-			format_number(airport.population)
+			airport.region,
+			airport.get_hub_name(),
+			airport.annual_passengers,
+			airport.runway_count,
+			airport.max_slots_per_week,
+			format_number(airport.gdp_per_capita)
 		]
 
 func _on_airport_hovered(airport: Airport) -> void:
