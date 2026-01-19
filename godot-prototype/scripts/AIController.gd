@@ -147,11 +147,21 @@ func consider_aircraft_purchase() -> void:
 	if chosen_model:
 		var aircraft: AircraftInstance = GameData.purchase_aircraft(controlled_airline, chosen_model)
 		if aircraft:
-			print("AI %s purchased: %s (ID:%d) for $%.0fM" % [
+			print("AI %s purchased: %s (ID:%d) for $%.1fM (Balance now: $%.1fM)" % [
 				controlled_airline.name,
 				chosen_model.get_display_name(),
 				aircraft.id,
-				chosen_model.price / 1000000.0
+				chosen_model.price / 1000000.0,
+				controlled_airline.balance / 1000000.0
+			])
+		else:
+			print("AI %s FAILED to purchase %s" % [controlled_airline.name, chosen_model.get_display_name()])
+	else:
+		if GameData.current_week % 20 == 0:  # Periodic check
+			print("AI %s: No affordable aircraft (Balance: $%.1fM, Affordable models: %d)" % [
+				controlled_airline.name,
+				controlled_airline.balance / 1000000.0,
+				affordable_models.size()
 			])
 
 func consider_route_expansion() -> void:
@@ -163,6 +173,13 @@ func consider_route_expansion() -> void:
 			available_aircraft.append(aircraft)
 
 	if available_aircraft.is_empty():
+		if GameData.current_week % 10 == 0:  # Print every 10 weeks to avoid spam
+			print("AI %s: No available aircraft (Fleet: %d, Routes: %d, Balance: $%.1fM)" % [
+				controlled_airline.name,
+				controlled_airline.aircraft.size(),
+				controlled_airline.routes.size(),
+				controlled_airline.balance / 1000000.0
+			])
 		return
 
 	# Check current route performance
