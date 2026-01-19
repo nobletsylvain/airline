@@ -89,10 +89,13 @@ func _ready() -> void:
 	if term_input:
 		term_input.text_changed.connect(_on_loan_input_changed)
 
-	print("GameUI: Waiting for GameData initialization...")
-	# Wait for game data
-	await GameData.game_initialized
-	print("GameUI: GameData initialized!")
+	# Wait for game data (only if not already initialized)
+	if not GameData.player_airline or GameData.aircraft_models.is_empty():
+		print("GameUI: Waiting for GameData initialization...")
+		await GameData.game_initialized
+		print("GameUI: GameData initialized!")
+	else:
+		print("GameUI: GameData already initialized!")
 
 	# Connect airline signals
 	if GameData.player_airline:
