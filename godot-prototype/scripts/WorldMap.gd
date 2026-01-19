@@ -47,8 +47,8 @@ func _gui_input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
 			zoom_at_point(event.position, -zoom_step)
 			accept_event()
-		# Handle panning with middle mouse button
-		elif event.button_index == MOUSE_BUTTON_MIDDLE:
+		# Handle panning with right mouse button
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			if event.pressed:
 				is_panning = true
 				last_mouse_pos = event.position
