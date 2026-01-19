@@ -49,6 +49,9 @@ var selected_aircraft_model_index: int = -1
 var selected_competitor_index: int = -1
 
 func _ready() -> void:
+	print("GameUI: _ready() called")
+	print("  aircraft_list node: ", aircraft_list)
+
 	# Connect simulation signals
 	if simulation_engine:
 		simulation_engine.week_completed.connect(_on_week_completed)
@@ -86,8 +89,10 @@ func _ready() -> void:
 	if term_input:
 		term_input.text_changed.connect(_on_loan_input_changed)
 
+	print("GameUI: Waiting for GameData initialization...")
 	# Wait for game data
 	await GameData.game_initialized
+	print("GameUI: GameData initialized!")
 
 	# Connect airline signals
 	if GameData.player_airline:
@@ -98,16 +103,20 @@ func _ready() -> void:
 	GameData.aircraft_purchased.connect(_on_aircraft_purchased)
 	GameData.loan_created.connect(_on_loan_created)
 
+	print("GameUI: Calling update_all()...")
 	# Initialize UI
 	update_all()
+	print("GameUI: _ready() complete!")
 
 func update_all() -> void:
 	"""Update all UI elements"""
+	print("GameUI: update_all() called")
 	update_top_panel()
 	update_route_tab()
 	update_fleet_tab()
 	update_financials_tab()
 	update_market_tab()
+	print("GameUI: update_all() complete")
 
 func update_top_panel() -> void:
 	"""Update the top status bar"""
@@ -160,9 +169,11 @@ func update_route_list() -> void:
 
 func update_fleet_tab() -> void:
 	"""Update Fleet tab"""
+	print("GameUI: update_fleet_tab() called")
 	populate_aircraft_list()
 	update_fleet_list()
 	update_fleet_stats()
+	print("GameUI: update_fleet_tab() complete")
 
 func populate_aircraft_list() -> void:
 	"""Populate available aircraft for purchase"""
