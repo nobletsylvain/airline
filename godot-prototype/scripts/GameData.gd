@@ -35,47 +35,61 @@ func initialize_game_data() -> void:
 	game_initialized.emit()
 
 func create_sample_airports() -> void:
-	"""Create a set of sample airports around the world"""
+	"""Create airports with realistic data (passenger traffic, hub tiers, etc.)"""
+	# Data format: iata, name, city, country, region, lat, lon, elevation, hub_tier, annual_pax(M), runways, max_slots, gdp_per_capita, landing_fee, pax_fee
 	var airport_data: Array[Dictionary] = [
-		{"iata": "JFK", "name": "John F. Kennedy International", "city": "New York", "country": "USA",
-		 "lat": 40.6413, "lon": -73.7781, "size": 12, "pop": 8000000},
-		{"iata": "LAX", "name": "Los Angeles International", "city": "Los Angeles", "country": "USA",
-		 "lat": 33.9416, "lon": -118.4085, "size": 12, "pop": 4000000},
-		{"iata": "LHR", "name": "London Heathrow", "city": "London", "country": "UK",
-		 "lat": 51.4700, "lon": -0.4543, "size": 12, "pop": 9000000},
-		{"iata": "NRT", "name": "Narita International", "city": "Tokyo", "country": "Japan",
-		 "lat": 35.7720, "lon": 140.3929, "size": 11, "pop": 14000000},
-		{"iata": "SYD", "name": "Sydney Airport", "city": "Sydney", "country": "Australia",
-		 "lat": -33.9399, "lon": 151.1753, "size": 10, "pop": 5000000},
-		{"iata": "DXB", "name": "Dubai International", "city": "Dubai", "country": "UAE",
-		 "lat": 25.2532, "lon": 55.3657, "size": 11, "pop": 3000000},
-		{"iata": "CDG", "name": "Charles de Gaulle", "city": "Paris", "country": "France",
-		 "lat": 49.0097, "lon": 2.5479, "size": 12, "pop": 11000000},
-		{"iata": "FRA", "name": "Frankfurt Airport", "city": "Frankfurt", "country": "Germany",
-		 "lat": 50.0379, "lon": 8.5622, "size": 11, "pop": 750000},
-		{"iata": "SIN", "name": "Singapore Changi", "city": "Singapore", "country": "Singapore",
-		 "lat": 1.3644, "lon": 103.9915, "size": 11, "pop": 5700000},
-		{"iata": "ORD", "name": "O'Hare International", "city": "Chicago", "country": "USA",
-		 "lat": 41.9742, "lon": -87.9073, "size": 12, "pop": 2700000},
-		{"iata": "ATL", "name": "Hartsfield-Jackson Atlanta", "city": "Atlanta", "country": "USA",
-		 "lat": 33.6407, "lon": -84.4277, "size": 12, "pop": 500000},
-		{"iata": "HND", "name": "Tokyo Haneda", "city": "Tokyo", "country": "Japan",
-		 "lat": 35.5494, "lon": 139.7798, "size": 12, "pop": 14000000},
-		{"iata": "PEK", "name": "Beijing Capital", "city": "Beijing", "country": "China",
-		 "lat": 40.0799, "lon": 116.6031, "size": 12, "pop": 21000000},
-		{"iata": "ICN", "name": "Incheon International", "city": "Seoul", "country": "South Korea",
-		 "lat": 37.4602, "lon": 126.4407, "size": 11, "pop": 10000000},
-		{"iata": "MIA", "name": "Miami International", "city": "Miami", "country": "USA",
-		 "lat": 25.7959, "lon": -80.2870, "size": 10, "pop": 470000},
+		# MEGA HUBS (Tier 1: 100M+ passengers)
+		{"iata": "ATL", "name": "Hartsfield-Jackson Atlanta", "city": "Atlanta", "country": "USA", "region": "North America",
+		 "lat": 33.6407, "lon": -84.4277, "elev": 313, "tier": 1, "pax": 110, "runways": 5, "slots": 1200, "gdp": 65000, "land_fee": 8000, "pax_fee": 12},
+		{"iata": "DXB", "name": "Dubai International", "city": "Dubai", "country": "UAE", "region": "Middle East",
+		 "lat": 25.2532, "lon": 55.3657, "elev": 19, "tier": 1, "pax": 86, "runways": 2, "slots": 900, "gdp": 44000, "land_fee": 7000, "pax_fee": 15},
+
+		# MAJOR HUBS (Tier 2: 50-100M passengers)
+		{"iata": "LHR", "name": "London Heathrow", "city": "London", "country": "UK", "region": "Europe",
+		 "lat": 51.4700, "lon": -0.4543, "elev": 25, "tier": 2, "pax": 79, "runways": 2, "slots": 800, "gdp": 48000, "land_fee": 9000, "pax_fee": 18},
+		{"iata": "HND", "name": "Tokyo Haneda", "city": "Tokyo", "country": "Japan", "region": "Asia",
+		 "lat": 35.5494, "lon": 139.7798, "elev": 11, "tier": 2, "pax": 78, "runways": 4, "slots": 850, "gdp": 42000, "land_fee": 8500, "pax_fee": 14},
+		{"iata": "LAX", "name": "Los Angeles International", "city": "Los Angeles", "country": "USA", "region": "North America",
+		 "lat": 33.9416, "lon": -118.4085, "elev": 38, "tier": 2, "pax": 75, "runways": 4, "slots": 900, "gdp": 70000, "land_fee": 7500, "pax_fee": 13},
+		{"iata": "ORD", "name": "O'Hare International", "city": "Chicago", "country": "USA", "region": "North America",
+		 "lat": 41.9742, "lon": -87.9073, "elev": 205, "tier": 2, "pax": 73, "runways": 8, "slots": 1100, "gdp": 62000, "land_fee": 7000, "pax_fee": 11},
+		{"iata": "CDG", "name": "Charles de Gaulle", "city": "Paris", "country": "France", "region": "Europe",
+		 "lat": 49.0097, "lon": 2.5479, "elev": 119, "tier": 2, "pax": 67, "runways": 4, "slots": 850, "gdp": 45000, "land_fee": 8500, "pax_fee": 16},
+		{"iata": "FRA", "name": "Frankfurt Airport", "city": "Frankfurt", "country": "Germany", "region": "Europe",
+		 "lat": 50.0379, "lon": 8.5622, "elev": 111, "tier": 2, "pax": 59, "runways": 4, "slots": 800, "gdp": 53000, "land_fee": 8000, "pax_fee": 15},
+		{"iata": "SIN", "name": "Singapore Changi", "city": "Singapore", "country": "Singapore", "region": "Asia",
+		 "lat": 1.3644, "lon": 103.9915, "elev": 7, "tier": 2, "pax": 58, "runways": 2, "slots": 750, "gdp": 72000, "land_fee": 7500, "pax_fee": 17},
+
+		# REGIONAL HUBS (Tier 3: 20-50M passengers)
+		{"iata": "JFK", "name": "John F. Kennedy International", "city": "New York", "country": "USA", "region": "North America",
+		 "lat": 40.6413, "lon": -73.7781, "elev": 4, "tier": 3, "pax": 55, "runways": 4, "slots": 700, "gdp": 75000, "land_fee": 9500, "pax_fee": 15},
+		{"iata": "ICN", "name": "Incheon International", "city": "Seoul", "country": "South Korea", "region": "Asia",
+		 "lat": 37.4602, "lon": 126.4407, "elev": 2, "tier": 3, "pax": 49, "runways": 3, "slots": 650, "gdp": 35000, "land_fee": 6500, "pax_fee": 12},
+		{"iata": "NRT", "name": "Narita International", "city": "Tokyo", "country": "Japan", "region": "Asia",
+		 "lat": 35.7720, "lon": 140.3929, "elev": 43, "tier": 3, "pax": 43, "runways": 2, "slots": 550, "gdp": 42000, "land_fee": 7000, "pax_fee": 13},
+		{"iata": "SYD", "name": "Sydney Airport", "city": "Sydney", "country": "Australia", "region": "Oceania",
+		 "lat": -33.9399, "lon": 151.1753, "elev": 6, "tier": 3, "pax": 37, "runways": 3, "slots": 500, "gdp": 58000, "land_fee": 6000, "pax_fee": 14},
+		{"iata": "MIA", "name": "Miami International", "city": "Miami", "country": "USA", "region": "North America",
+		 "lat": 25.7959, "lon": -80.2870, "elev": 3, "tier": 3, "pax": 35, "runways": 3, "slots": 550, "gdp": 60000, "land_fee": 6500, "pax_fee": 11},
+
+		# Note: PEK (Beijing) was renamed to PKX (Daxing) in 2019, keeping as PEK for recognition
+		{"iata": "PEK", "name": "Beijing Capital", "city": "Beijing", "country": "China", "region": "Asia",
+		 "lat": 40.0799, "lon": 116.6031, "elev": 35, "tier": 2, "pax": 65, "runways": 3, "slots": 800, "gdp": 22000, "land_fee": 5500, "pax_fee": 10},
 	]
 
 	for data in airport_data:
 		var airport: Airport = Airport.new(data.iata, data.name, data.city, data.country)
+		airport.region = data.region
 		airport.latitude = data.lat
 		airport.longitude = data.lon
-		airport.size = data.size
-		airport.population = data.pop
-		airport.income_level = 50 + randi() % 40  # Random income 50-90
+		airport.elevation = data.elev
+		airport.hub_tier = data.tier
+		airport.annual_passengers = data.pax
+		airport.runway_count = data.runways
+		airport.max_slots_per_week = data.slots
+		airport.gdp_per_capita = data.gdp
+		airport.landing_fee = data.land_fee
+		airport.passenger_fee = data.pax_fee
 		airports.append(airport)
 
 func create_aircraft_models() -> void:
