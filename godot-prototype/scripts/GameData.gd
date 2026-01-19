@@ -14,12 +14,14 @@ var airports: Array[Airport] = []
 var airlines: Array[Airline] = []
 var aircraft_models: Array[AircraftModel] = []
 var player_airline: Airline = null
+var ai_controllers: Array[AIController] = []
 
 # Signals
 signal week_simulated(week_number: int)
 signal game_initialized()
 signal aircraft_purchased(aircraft: AircraftInstance, airline: Airline)
 signal loan_created(loan: Loan, airline: Airline)
+signal ai_decision_made(airline: Airline, decision_type: String)
 
 func _ready() -> void:
 	initialize_game_data()
@@ -29,6 +31,7 @@ func initialize_game_data() -> void:
 	create_sample_airports()
 	create_aircraft_models()
 	create_player_airline()
+	create_ai_airlines()
 	game_initialized.emit()
 
 func create_sample_airports() -> void:
@@ -106,6 +109,35 @@ func create_player_airline() -> void:
 	player_airline.id = 1
 	player_airline.balance = 100000000.0  # Start with $100M
 	airlines.append(player_airline)
+
+func create_ai_airlines() -> void:
+	"""Create AI-controlled competitor airlines"""
+	var ai_airlines_data: Array[Dictionary] = [
+		{"name": "Global Wings", "code": "GLW", "country": "UK", "personality": AIController.AIPersonality.AGGRESSIVE},
+		{"name": "Pacific Air", "code": "PAC", "country": "Japan", "personality": AIController.AIPersonality.BALANCED},
+		{"name": "Euro Express", "code": "EEX", "country": "Germany", "personality": AIController.AIPersonality.CONSERVATIVE},
+		{"name": "TransContinental", "code": "TCN", "country": "USA", "personality": AIController.AIPersonality.BALANCED},
+	]
+
+	var next_id: int = 2  # Player is ID 1
+
+	for data in ai_airlines_data:
+		var airline: Airline = Airline.new(data.name, data.code, data.country)
+		airline.id = next_id
+		airline.balance = 100000000.0  # Same starting capital as player
+		airlines.append(airline)
+
+		# Create AI controller for this airline
+		var ai: AIController = AIController.new(airline, data.personality)
+		ai_controllers.append(ai)
+
+		print("Created AI airline: %s (%s) - %s strategy" % [
+			airline.name,
+			airline.code,
+			ai.get_personality_name()
+		])
+
+		next_id += 1
 
 func get_airport_by_iata(iata: String) -> Airport:
 	for airport in airports:

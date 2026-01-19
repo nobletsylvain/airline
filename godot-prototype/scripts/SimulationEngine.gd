@@ -57,6 +57,9 @@ func simulate_week() -> void:
 	for airline in GameData.airlines:
 		calculate_airline_finances(airline)
 
+	# Process AI decisions
+	process_ai_decisions()
+
 	week_completed.emit(GameData.current_week)
 	print("=== Week %d Complete ===" % GameData.current_week)
 
@@ -65,8 +68,17 @@ func simulate_route(route: Route, airline: Airline) -> void:
 	if not route.from_airport or not route.to_airport:
 		return
 
-	# Calculate demand based on airport characteristics
+	# Calculate base market demand (total passengers on this route across ALL airlines)
 	var base_demand: float = calculate_demand(route)
+
+	# Find competing routes (same airport pair from any airline)
+	var competing_routes: Array[Dictionary] = get_competing_routes(route)
+
+	# Calculate market share for this route
+	var market_share: float = calculate_market_share(route, airline, competing_routes)
+
+	# Apply market share to demand
+	var route_demand: float = base_demand * market_share
 
 	# Apply quality multiplier
 	var quality_multiplier: float = route.get_quality_score() / 100.0
@@ -75,10 +87,10 @@ func simulate_route(route: Route, airline: Airline) -> void:
 	# Calculate actual passengers per class
 	var total_capacity: int = route.get_total_capacity() * route.frequency
 
-	# Simplified passenger allocation
-	var economy_demand: int = int(base_demand * 0.7 * quality_multiplier)
-	var business_demand: int = int(base_demand * 0.25 * quality_multiplier)
-	var first_demand: int = int(base_demand * 0.05 * quality_multiplier)
+	# Simplified passenger allocation (after market share split)
+	var economy_demand: int = int(route_demand * 0.7 * quality_multiplier)
+	var business_demand: int = int(route_demand * 0.25 * quality_multiplier)
+	var first_demand: int = int(route_demand * 0.05 * quality_multiplier)
 
 	# Cap by capacity
 	var economy_passengers: int = mini(economy_demand, route.capacity_economy * route.frequency)
@@ -194,3 +206,64 @@ func calculate_airline_finances(airline: Airline) -> void:
 func run_single_week() -> void:
 	"""Manually trigger a single week simulation"""
 	simulate_week()
+
+func process_ai_decisions() -> void:
+	"""Process AI decision-making for all AI airlines"""
+	for ai_controller in GameData.ai_controllers:
+		ai_controller.make_decisions(GameData.current_week)
+
+func get_competing_routes(route: Route) -> Array[Dictionary]:
+	"""Find all routes operating between the same airports (including this one)"""
+	var competing: Array[Dictionary] = []
+
+	for airline in GameData.airlines:
+		for other_route in airline.routes:
+			# Check if same airport pair (bidirectional)
+			if (other_route.from_airport == route.from_airport and other_route.to_airport == route.to_airport) or \
+			   (other_route.from_airport == route.to_airport and other_route.to_airport == route.from_airport):
+				competing.append({
+					"route": other_route,
+					"airline": airline
+				})
+
+	return competing
+
+func calculate_market_share(route: Route, airline: Airline, competing_routes: Array[Dictionary]) -> float:
+	"""Calculate this route's market share based on price, quality, and reputation"""
+	if competing_routes.is_empty():
+		return 1.0  # No competition = 100% market share
+
+	# Calculate competitiveness score for this route
+	var this_score: float = calculate_route_competitiveness(route, airline)
+
+	# Calculate scores for all competing routes
+	var total_score: float = 0.0
+	for competitor in competing_routes:
+		var comp_score: float = calculate_route_competitiveness(competitor.route, competitor.airline)
+		total_score += comp_score
+
+	# Market share is proportional to competitiveness score
+	if total_score > 0:
+		return this_score / total_score
+	else:
+		return 1.0 / competing_routes.size()  # Equal split if no scores
+
+func calculate_route_competitiveness(route: Route, airline: Airline) -> float:
+	"""Calculate how competitive a route is (higher = better)"""
+	var score: float = 100.0
+
+	# Price competitiveness (lower price = higher score)
+	var avg_price: float = (route.price_economy + route.price_business + route.price_first) / 3.0
+	var price_factor: float = 1.0 / max(avg_price, 1.0)  # Inverse of price
+	score += price_factor * 50000.0  # Scale it appropriately
+
+	# Service quality
+	score += route.get_quality_score() * 2.0
+
+	# Airline reputation
+	score += airline.reputation * 1.5
+
+	# Frequency bonus (more flights = more convenient)
+	score += route.frequency * 5.0
+
+	return max(score, 1.0)  # Ensure positive score

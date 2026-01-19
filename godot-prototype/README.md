@@ -25,6 +25,8 @@ This prototype simulates the core mechanics of running an airline, including:
 - **Financial Tracking**: Weekly revenue, expenses, and profit calculations
 - **Range Restrictions**: Aircraft can only fly routes within their maximum range
 - **Loan System**: Take out loans to finance expansion with dynamic interest rates based on airline grade
+- **AI Competition**: 4 competitor airlines with different strategies (aggressive, conservative, balanced)
+- **Market Share**: Compete for passengers on the same routes based on price, quality, and reputation
 
 ### Simulation Engine
 The simulation runs weekly cycles (configurable speed) that calculate:
@@ -41,6 +43,7 @@ The simulation runs weekly cycles (configurable speed) that calculate:
 - **Aircraft Panel**: Browse available aircraft models and purchase them
 - **Fleet List**: View your owned aircraft with assignment status and condition
 - **Loan Panel**: Apply for loans and view active loan details
+- **Competitor Panel**: Monitor rival airlines' fleet size, routes, balance, debt, and strategy
 - **Control Buttons**: Play/Pause and Step Week for manual control
 
 ## How to Run
@@ -163,6 +166,39 @@ Passenger demand is based on:
 - Legendary: 3.0%
 - Mythic: 2.0%
 
+### AI Competition System
+**Competitor Airlines**:
+- 4 AI-controlled airlines: Global Wings, Pacific Air, Euro Express, TransContinental
+- Each starts with same $100M capital as the player
+- Three distinct strategies:
+  - **Aggressive**: Fast expansion, low prices (15% cheaper), high risk tolerance
+  - **Conservative**: Slow growth, premium prices (+15%), low debt usage
+  - **Balanced**: Moderate expansion and pricing strategy
+
+**AI Decision-Making**:
+- AI makes decisions every 2-4 weeks based on their personality
+- Purchases aircraft when needed (cheapest, most expensive, or mid-range based on personality)
+- Creates routes on profitable airport pairs, avoiding over-competition
+- Takes loans to finance expansion (frequency depends on personality)
+- Adjusts prices dynamically based on route load factors
+- Handles financial crisis situations with emergency measures
+
+**Market Competition**:
+- Multiple airlines can operate the same route (e.g., JFK-LAX)
+- Market share calculated based on:
+  - **Price competitiveness**: Lower prices attract more passengers
+  - **Service quality**: Better service increases market share
+  - **Airline reputation**: Higher reputation airlines get more passengers
+  - **Flight frequency**: More flights = more convenient for passengers
+- Total demand split proportionally between competing airlines
+- Watch competitors in the "Competitor Airlines" panel to track their growth
+
+**Strategic Gameplay**:
+- First-mover advantage on underserved routes
+- Can compete on price OR quality
+- Monitor competitors to identify market opportunities
+- Adjust pricing to compete or dominate routes
+
 ## Code Structure
 
 ```
@@ -179,7 +215,8 @@ godot-prototype/
     ├── Aircraft.gd           # Aircraft model classes
     ├── AircraftInstance.gd   # Individual aircraft instances
     ├── Loan.gd               # Loan data model with amortization
-    ├── SimulationEngine.gd   # Weekly simulation logic
+    ├── AIController.gd       # AI decision-making for competitor airlines
+    ├── SimulationEngine.gd   # Weekly simulation logic with competition
     ├── WorldMap.gd           # Map visualization and interaction
     └── GameUI.gd             # Main UI controller
 ```

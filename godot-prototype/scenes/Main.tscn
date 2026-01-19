@@ -189,3 +189,15 @@ text = "Your Fleet:"
 [node name="FleetList" type="ItemList" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/AircraftPanel"]
 layout_mode = 2
 size_flags_vertical = 3
+
+[node name="CompetitorPanel" type="VBoxContainer" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer"]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/CompetitorPanel"]
+layout_mode = 2
+text = "Competitor Airlines:"
+
+[node name="CompetitorList" type="ItemList" parent="MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/CompetitorPanel"]
+layout_mode = 2
+size_flags_vertical = 3

@@ -20,6 +20,7 @@ extends Control
 @onready var term_input: LineEdit = $MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls/TermContainer/TermInput
 @onready var apply_loan_button: Button = $MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls/ApplyButton
 @onready var loan_info: Label = $MarginContainer/VBoxContainer/LoanPanel/HBoxContainer/LoanControls/LoanInfo
+@onready var competitor_list: ItemList = $MarginContainer/VBoxContainer/BottomPanel/HBoxContainer/CompetitorPanel/CompetitorList
 
 var selected_route: Route = null
 var selected_aircraft_model_index: int = -1
@@ -72,6 +73,7 @@ func _ready() -> void:
 	update_fleet_list()
 	update_loans_list()
 	update_loan_info()
+	update_competitor_list()
 
 func update_ui() -> void:
 	"""Update all UI elements"""
@@ -276,6 +278,7 @@ func _on_simulation_paused() -> void:
 func _on_week_completed(week: int) -> void:
 	"""Handle week simulation completion"""
 	update_ui()
+	update_competitor_list()
 
 	if world_map:
 		world_map.refresh_routes()
@@ -484,3 +487,34 @@ func _on_loan_created(loan: Loan, airline: Airline) -> void:
 	update_loans_list()
 	update_loan_info()
 	update_ui()
+
+func update_competitor_list() -> void:
+	"""Update the competitor airlines list"""
+	if not competitor_list:
+		return
+
+	competitor_list.clear()
+
+	# Show all airlines except player
+	for airline in GameData.airlines:
+		if airline.id == GameData.player_airline.id:
+			continue
+
+		# Find AI controller for this airline
+		var ai_personality: String = "Unknown"
+		for ai in GameData.ai_controllers:
+			if ai.controlled_airline.id == airline.id:
+				ai_personality = ai.get_personality_name()
+				break
+
+		var text: String = "%s (%s) | %s\nGrade: %s | Fleet: %d | Routes: %d\nBalance: $%s | Debt: $%s" % [
+			airline.name,
+			airline.code,
+			ai_personality,
+			airline.get_grade(),
+			airline.aircraft.size(),
+			airline.routes.size(),
+			format_money(airline.balance),
+			format_money(airline.total_debt)
+		]
+		competitor_list.add_item(text)
