@@ -394,10 +394,17 @@ func complete_tutorial() -> void:
 	tutorial_completed.emit()
 
 func skip_tutorial() -> void:
-	"""Allow player to skip tutorial"""
+	"""Allow player to skip tutorial - grants same rewards as completing it"""
 	is_tutorial_active = false
-	print("Tutorial skipped")
+	tutorial_completed_flag = true
+
+	# Grant tutorial completion reward (same as completing it)
+	if GameData.player_airline:
+		GameData.player_airline.add_balance(50000000.0)  # $50M tutorial bonus
+		print("Tutorial skipped - $50M bonus granted")
+
 	clear_ui_highlights.emit()
+	tutorial_completed.emit()
 
 func is_active() -> bool:
 	return is_tutorial_active
