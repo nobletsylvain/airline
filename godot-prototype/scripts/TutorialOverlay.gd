@@ -84,8 +84,8 @@ func _on_tutorial_step_started(step: TutorialStep) -> void:
 				continue_button.visible = true  # Show for MESSAGE, HIGHLIGHT_UI, REWARD
 
 	# Always show skip button (unless tutorial is almost done)
-	if skip_button:
-		skip_button.visible = current_index < tutorial_manager.tutorial_steps.size() - 1
+	if skip_button and tutorial_manager:
+		skip_button.visible = (tutorial_manager.current_step_index + 1) < tutorial_manager.tutorial_steps.size()
 
 func _on_tutorial_step_completed(_step: TutorialStep) -> void:
 	"""Step completed"""
