@@ -49,37 +49,148 @@ static func analyze_route_opportunity(from: Airport, to: Airport, airlines: Arra
 
 static func calculate_potential_demand(from: Airport, to: Airport, distance_km: float) -> float:
 	"""
-	Calculate potential passenger demand based on:
-	- Airport sizes and populations
-	- Income levels
-	- Distance (affects travel likelihood)
-	- Economic relationship between cities
+	Calculate total bidirectional passenger demand
+	This is the sum of outbound demand (from → to) and inbound demand (to → from)
 	"""
-	# Base demand from population and airport size
-	var from_factor: float = (from.population / 1000000.0) * (from.size / 12.0)
-	var to_factor: float = (to.population / 1000000.0) * (to.size / 12.0)
+	var bidirectional: Dictionary = calculate_bidirectional_demand(from, to, distance_km)
+	return bidirectional.total_demand
 
-	# Geometric mean gives balanced influence
-	var population_demand: float = sqrt(from_factor * to_factor) * 500.0
+static func calculate_bidirectional_demand(from: Airport, to: Airport, distance_km: float) -> Dictionary:
+	"""
+	Calculate bidirectional demand with separate business and tourist components
+	Returns: {
+		outbound_business: float,
+		outbound_tourist: float,
+		inbound_business: float,
+		inbound_tourist: float,
+		outbound_total: float,
+		inbound_total: float,
+		total_demand: float
+	}
+	"""
+	# Calculate outbound demand (from → to)
+	var outbound_business: float = calculate_directional_business_demand(from, to, distance_km)
+	var outbound_tourist: float = calculate_directional_tourist_demand(from, to, distance_km)
+	var outbound_total: float = outbound_business + outbound_tourist
 
-	# Income level multiplier (higher income = more travel)
-	var avg_income: float = (from.income_level + to.income_level) / 2.0
-	var income_multiplier: float = 0.5 + (avg_income / 100.0)  # 0.5x to 1.4x
+	# Calculate inbound demand (to → from) - reverse direction
+	var inbound_business: float = calculate_directional_business_demand(to, from, distance_km)
+	var inbound_tourist: float = calculate_directional_tourist_demand(to, from, distance_km)
+	var inbound_total: float = inbound_business + inbound_tourist
 
-	# Distance impact on demand
-	var distance_factor: float = get_distance_demand_factor(distance_km)
+	return {
+		"outbound_business": outbound_business,
+		"outbound_tourist": outbound_tourist,
+		"inbound_business": inbound_business,
+		"inbound_tourist": inbound_tourist,
+		"outbound_total": outbound_total,
+		"inbound_total": inbound_total,
+		"total_demand": outbound_total + inbound_total
+	}
 
-	# Business vs leisure split affects total demand
-	var business_factor: float = 1.0
-	if distance_km < 1000:
-		business_factor = 1.3  # Short routes have more business travel
-	elif distance_km > 8000:
-		business_factor = 0.9  # Ultra-long routes have less frequent travel
+static func calculate_directional_business_demand(from: Airport, to: Airport, distance_km: float) -> float:
+	"""Calculate business traveler demand FROM one airport TO another (directional)"""
+	# Business demand driven by:
+	# 1. Origin economic strength (GDP per capita)
+	# 2. Destination business importance (hub tier, passenger volume)
+	# 3. Distance (business travel peaks at medium distances)
 
-	# Final demand calculation
-	var total_demand: float = population_demand * income_multiplier * distance_factor * business_factor
+	# Origin economic factor (wealthy cities generate more business travel)
+	var origin_gdp_factor: float = from.gdp_per_capita / 50000.0  # Normalized around $50k
+	var origin_business: float = origin_gdp_factor * from.annual_passengers * 0.8
 
-	return max(50.0, total_demand)  # Minimum viable demand
+	# Destination attractiveness for business
+	var dest_hub_factor: float = get_hub_business_factor(to.hub_tier)
+	var dest_business: float = to.annual_passengers * dest_hub_factor * 0.5
+
+	# Combined business demand (asymmetric - origin weighted more)
+	var base_business: float = (origin_business * 0.7 + dest_business * 0.3) * 2.0
+
+	# Distance factor for business travel
+	var distance_factor: float = get_business_distance_factor(distance_km)
+
+	return max(10.0, base_business * distance_factor)
+
+static func calculate_directional_tourist_demand(from: Airport, to: Airport, distance_km: float) -> float:
+	"""Calculate tourist/leisure traveler demand FROM one airport TO another (directional)"""
+	# Tourist demand driven by:
+	# 1. Origin population/wealth (ability to travel)
+	# 2. Destination tourism attractiveness
+	# 3. Distance (tourists prefer medium-long haul)
+
+	# Origin tourist generation (wealthy populations travel more)
+	var origin_wealth_factor: float = from.gdp_per_capita / 50000.0
+	var origin_tourist_gen: float = from.annual_passengers * origin_wealth_factor * 0.6
+
+	# Destination tourism attractiveness
+	var dest_tourism: float = get_tourism_attractiveness(to)
+
+	# Combined tourist demand (destination weighted heavily)
+	var base_tourist: float = (origin_tourist_gen * 0.4 + dest_tourism * 0.6) * 2.5
+
+	# Distance factor for tourism (different from business)
+	var distance_factor: float = get_tourist_distance_factor(distance_km)
+
+	return max(15.0, base_tourist * distance_factor)
+
+static func get_hub_business_factor(hub_tier: int) -> float:
+	"""Business importance multiplier by hub tier"""
+	match hub_tier:
+		1: return 2.5  # Mega hubs are major business centers
+		2: return 2.0  # Major hubs
+		3: return 1.3  # Regional hubs
+		4: return 0.8  # Small airports
+		_: return 1.0
+
+static func get_tourism_attractiveness(airport: Airport) -> float:
+	"""Calculate tourism attractiveness of destination"""
+	# Base on passenger volume and region
+	var base: float = airport.annual_passengers * 1.2
+
+	# Regional tourism multipliers (simplified - can be expanded)
+	var region_multiplier: float = 1.0
+	match airport.region:
+		"Middle East": region_multiplier = 1.4  # Dubai, etc.
+		"Europe": region_multiplier = 1.3  # High tourism
+		"Asia": region_multiplier = 1.2  # Growing tourism
+		"Oceania": region_multiplier = 1.3  # Australia, NZ
+		"North America": region_multiplier = 1.1  # Mixed
+		_: region_multiplier = 1.0
+
+	# Tier bonus (mega hubs attract tourists)
+	var tier_bonus: float = 1.0
+	if airport.hub_tier == 1:
+		tier_bonus = 1.5
+	elif airport.hub_tier == 2:
+		tier_bonus = 1.2
+
+	return base * region_multiplier * tier_bonus
+
+static func get_business_distance_factor(distance_km: float) -> float:
+	"""Business travel distance preference (peaks at medium distances)"""
+	if distance_km < 300:
+		return 0.4  # Too short, drive/train instead
+	elif distance_km < 1500:
+		return 1.5  # Perfect for business day trips
+	elif distance_km < 3500:
+		return 1.2  # Regional business travel
+	elif distance_km < 8000:
+		return 0.9  # Long haul business (less frequent)
+	else:
+		return 0.6  # Ultra long haul (rare business travel)
+
+static func get_tourist_distance_factor(distance_km: float) -> float:
+	"""Tourist travel distance preference (different from business)"""
+	if distance_km < 800:
+		return 0.5  # Too short for tourism flights
+	elif distance_km < 2500:
+		return 1.0  # Regional tourism
+	elif distance_km < 6000:
+		return 1.3  # International tourism sweet spot
+	elif distance_km < 12000:
+		return 1.1  # Long haul tourism
+	else:
+		return 0.8  # Ultra long haul (exotic destinations)
 
 static func get_distance_demand_factor(distance_km: float) -> float:
 	"""Distance sweet spot: medium routes have highest demand per capita"""

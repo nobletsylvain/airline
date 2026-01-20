@@ -172,6 +172,9 @@ func analyze_opportunities() -> void:
 		# Get market analysis
 		var analysis: Dictionary = GameData.analyze_route(hub_airport, airport)
 
+		# Get bidirectional demand breakdown
+		var bidirectional: Dictionary = MarketAnalysis.calculate_bidirectional_demand(hub_airport, airport, distance)
+
 		# Check if any owned aircraft can fly this distance
 		var can_fly: bool = false
 		var compatible_aircraft: Array[String] = []
@@ -191,6 +194,7 @@ func analyze_opportunities() -> void:
 			"distance": distance,
 			"flight_type": flight_type,
 			"analysis": analysis,
+			"bidirectional": bidirectional,  # NEW: Bidirectional demand data
 			"can_fly": can_fly,
 			"compatible_aircraft": compatible_aircraft,
 			"profitability_score": analysis.get("profitability_score", 0)
@@ -314,6 +318,7 @@ func update_destination_details() -> void:
 	var distance: float = selected_opportunity.distance
 	var flight_type: String = selected_opportunity.flight_type
 	var analysis: Dictionary = selected_opportunity.analysis
+	var bidirectional: Dictionary = selected_opportunity.get("bidirectional", {})
 	var can_fly: bool = selected_opportunity.can_fly
 	var compatible: Array[String] = selected_opportunity.compatible_aircraft
 
@@ -331,9 +336,42 @@ func update_destination_details() -> void:
 	text += "• Distance: [b]%.0f km[/b] (%s)\n" % [distance, flight_type]
 	text += "• Flight Time: [b]%.1f hours[/b]\n\n" % (distance / 800.0)
 
-	text += "[b]Market Analysis:[/b]\n"
+	# NEW: Bidirectional Demand Breakdown
+	if not bidirectional.is_empty():
+		text += "[b]Demand Analysis (Bidirectional):[/b]\n"
+
+		var outbound_business: float = bidirectional.get("outbound_business", 0)
+		var outbound_tourist: float = bidirectional.get("outbound_tourist", 0)
+		var outbound_total: float = bidirectional.get("outbound_total", 0)
+		var inbound_business: float = bidirectional.get("inbound_business", 0)
+		var inbound_tourist: float = bidirectional.get("inbound_tourist", 0)
+		var inbound_total: float = bidirectional.get("inbound_total", 0)
+
+		# Outbound direction
+		text += "• [b]Outbound[/b] (%s → %s): [color=#88DDFF]%.0f pax/week[/color]\n" % [hub_airport.iata_code, airport.iata_code, outbound_total]
+		text += "    Business: %.0f | Tourist: %.0f\n" % [outbound_business, outbound_tourist]
+
+		# Inbound direction
+		text += "• [b]Inbound[/b] (%s → %s): [color=#FFAA88]%.0f pax/week[/color]\n" % [airport.iata_code, hub_airport.iata_code, inbound_total]
+		text += "    Business: %.0f | Tourist: %.0f\n" % [inbound_business, inbound_tourist]
+
+		# Show asymmetry indicator
+		var stronger_direction: String = ""
+		var asymmetry_ratio: float = 0.0
+		if outbound_total > inbound_total * 1.2:
+			asymmetry_ratio = outbound_total / inbound_total if inbound_total > 0 else 0.0
+			stronger_direction = "[color=#88DDFF]▲ Outbound stronger (%.1fx)[/color]" % asymmetry_ratio
+		elif inbound_total > outbound_total * 1.2:
+			asymmetry_ratio = inbound_total / outbound_total if outbound_total > 0 else 0.0
+			stronger_direction = "[color=#FFAA88]▼ Inbound stronger (%.1fx)[/color]" % asymmetry_ratio
+		else:
+			stronger_direction = "[color=#AAAAAA]≈ Balanced demand[/color]"
+
+		text += "• [b]Direction:[/b] %s\n\n" % stronger_direction
+
+	text += "[b]Market Summary:[/b]\n"
 	text += "• Profitability Score: [color=%s][b]%.0f/100[/b][/color]\n" % [score_color, score]
-	text += "• Weekly Demand: [b]%.0f[/b] passengers\n" % demand
+	text += "• Total Weekly Demand: [b]%.0f[/b] passengers\n" % demand
 	text += "• Current Supply: [b]%.0f[/b] seats (%d airlines)\n" % [supply, competition]
 	text += "• Unmet Demand: [b]%.0f[/b] passengers\n\n" % max(0, gap)
 
