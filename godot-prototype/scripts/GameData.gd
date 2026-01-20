@@ -221,23 +221,12 @@ func create_player_airline() -> void:
 	player_airline.balance = starting_budget
 	airlines.append(player_airline)
 
-	print("Created player airline: %s (%s) with $%s" % [airline_name, code_base, format_money(starting_budget)])
+	print("Created player airline: %s (%s) with $%s" % [airline_name, code_base, GameData.format_money(starting_budget)])
 
 	# If a hub was selected in the menu, we'll assign it after airports are loaded
 	if hub_code.length() > 0:
 		# Store for later assignment (airports may not be loaded yet)
 		player_airline.set_meta("initial_hub_code", hub_code)
-
-func format_money(amount: float) -> String:
-	"""Format money for display"""
-	if amount >= 1_000_000_000:
-		return "%.2fB" % (amount / 1_000_000_000.0)
-	elif amount >= 1_000_000:
-		return "%.2fM" % (amount / 1_000_000.0)
-	elif amount >= 1_000:
-		return "%.2fK" % (amount / 1_000.0)
-	else:
-		return "%.0f" % amount
 
 func create_ai_airlines() -> void:
 	"""Create AI-controlled competitor airlines"""
