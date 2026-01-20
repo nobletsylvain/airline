@@ -43,9 +43,9 @@ func _process(delta: float) -> void:
 	animation_timer += delta
 
 	# Subtle background animation (gradient shift)
-	if gradient_overlay:
+	if gradient_overlay and gradient_overlay.material:
 		var shift = sin(animation_timer * 0.5) * 0.05
-		gradient_overlay.material.set_shader_parameter("shift", shift) if gradient_overlay.material else null
+		gradient_overlay.material.set_shader_parameter("shift", shift)
 
 func create_ui() -> void:
 	"""Build the main menu UI programmatically"""
