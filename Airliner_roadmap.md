@@ -82,17 +82,17 @@ Build a deep, strategic airline simulation where players must:
 
 **Goal**: Make demand realistic and reward hub strategy
 
-### 1.1 Bidirectional Demand Modeling
+### 1.1 Bidirectional Demand Modeling ✅ COMPLETE
 **Why**: Currently LAX→LHR has same demand as LHR→LAX (unrealistic)
 
 **Implementation**:
-- [ ] Split demand into outbound (from hub) and inbound (to hub)
-- [ ] Model business vs tourist travelers separately
+- [x] Split demand into outbound (from hub) and inbound (to hub)
+- [x] Model business vs tourist travelers separately
   - Business: Higher from economic centers (NYC, LHR, TYO)
   - Tourist: Higher toward destinations (MIA, LAS, DXB)
-- [ ] Income-based demand skew (wealthy cities generate more outbound)
-- [ ] Leisure vs business split by city type
-- [ ] Display bidirectional breakdown in route planning dialog
+- [x] Income-based demand skew (wealthy cities generate more outbound)
+- [x] Leisure vs business split by city type
+- [x] Display bidirectional breakdown in route planning dialog
 
 **Impact**:
 - MIA→NYC winter tourism spike vs NYC→MIA business travel

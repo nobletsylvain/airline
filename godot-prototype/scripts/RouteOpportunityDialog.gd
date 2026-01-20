@@ -398,6 +398,20 @@ func update_destination_details() -> void:
 
 		text += "• [b]Direction:[/b] %s\n\n" % stronger_direction
 
+	# === HUB NETWORK EFFECTS ===
+	var connection_analysis: Dictionary = analyze_connection_potential(airport)
+	if connection_analysis.total_connections > 0:
+		text += "[b]Hub Network Effects:[/b]\n"
+		text += "• Potential Connections: [b]%d routes[/b]\n" % connection_analysis.total_connections
+		text += "• Estimated Connecting Pax: [color=#88FF88][b]+%.0f/week[/b][/color]\n" % connection_analysis.estimated_pax
+
+		if connection_analysis.top_connections.size() > 0:
+			text += "• [i]Top Connections:[/i]\n"
+			for conn in connection_analysis.top_connections.slice(0, 3):  # Show top 3
+				text += "    %s via %s (%.0f pax/wk)\n" % [conn.route, hub_airport.iata_code, conn.pax]
+
+		text += "\n"
+
 	text += "[b]Market Summary:[/b]\n"
 	text += "• Profitability Score: [color=%s][b]%.0f/100[/b][/color]\n" % [score_color, score]
 	text += "• Total Weekly Demand: [b]%.0f[/b] passengers\n" % demand
@@ -420,6 +434,139 @@ func update_destination_details() -> void:
 		text += "\n[color=#FF6666]⚠ Low profitability expected[/color]"
 
 	destination_details_label.text = text
+
+func analyze_connection_potential(destination: Airport) -> Dictionary:
+	"""
+	Analyze the potential connecting passengers if a new route hub→destination is created
+	Returns: {
+		total_connections: int,  # Number of connecting route pairs
+		estimated_pax: float,  # Total connecting passengers per week
+		top_connections: Array[Dictionary]  # Top connections by passenger count
+	}
+	"""
+	var result: Dictionary = {
+		"total_connections": 0,
+		"estimated_pax": 0.0,
+		"top_connections": []
+	}
+
+	if not GameData.player_airline or not hub_airport:
+		return result
+
+	# This new route would be: hub → destination
+	# Check for two types of connections:
+
+	# 1. Routes ENDING at hub (origin→hub) that could connect to new route (hub→destination)
+	#    Creates: origin→hub→destination
+	for existing_route in GameData.player_airline.routes:
+		if existing_route.to_airport == hub_airport:
+			var origin: Airport = existing_route.from_airport
+
+			# Skip if origin = destination (pointless connection)
+			if origin == destination:
+				continue
+
+			# Build hypothetical connection
+			var connection: Dictionary = {
+				"first_leg": existing_route,
+				"hub": hub_airport,
+				"total_distance": existing_route.distance_km + MarketAnalysis.calculate_great_circle_distance(hub_airport, destination),
+				"connection_quality": 50.0  # Estimated quality (we don't have second leg yet)
+			}
+
+			# Estimate connection quality based on existing route frequency
+			# Assume new route would have frequency 1-7
+			var estimated_frequency: int = 3  # Assume 3x per week for new route
+			var quality: float = 50.0
+
+			# Frequency bonus
+			var min_freq: int = min(existing_route.frequency, estimated_frequency)
+			if min_freq >= 7:
+				quality += 20.0
+			elif min_freq >= 3:
+				quality += 10.0
+
+			# Hub tier adjustment
+			match hub_airport.hub_tier:
+				1: quality -= 15.0
+				2: quality -= 5.0
+				3: quality += 5.0
+				4: quality += 10.0
+
+			connection.connection_quality = clamp(quality, 0.0, 100.0)
+
+			# Calculate connecting passengers
+			var connecting_pax: float = MarketAnalysis.calculate_connecting_passenger_demand(
+				origin,
+				destination,
+				connection,
+				0.0  # Assume no direct competition
+			)
+
+			if connecting_pax > 5.0:  # Only count meaningful connections
+				result.total_connections += 1
+				result.estimated_pax += connecting_pax
+				result.top_connections.append({
+					"route": "%s→%s" % [origin.iata_code, destination.iata_code],
+					"pax": connecting_pax
+				})
+
+	# 2. Routes STARTING from hub (hub→other) that could receive connections from new route
+	#    Creates: destination→hub→other
+	for existing_route in GameData.player_airline.routes:
+		if existing_route.from_airport == hub_airport:
+			var other_destination: Airport = existing_route.to_airport
+
+			# Skip if same as destination (pointless connection)
+			if other_destination == destination:
+				continue
+
+			# Build hypothetical connection
+			var connection: Dictionary = {
+				"second_leg": existing_route,
+				"hub": hub_airport,
+				"total_distance": MarketAnalysis.calculate_great_circle_distance(destination, hub_airport) + existing_route.distance_km,
+				"connection_quality": 50.0  # Estimated quality
+			}
+
+			# Estimate connection quality
+			var estimated_frequency: int = 3
+			var quality: float = 50.0
+
+			var min_freq: int = min(existing_route.frequency, estimated_frequency)
+			if min_freq >= 7:
+				quality += 20.0
+			elif min_freq >= 3:
+				quality += 10.0
+
+			match hub_airport.hub_tier:
+				1: quality -= 15.0
+				2: quality -= 5.0
+				3: quality += 5.0
+				4: quality += 10.0
+
+			connection.connection_quality = clamp(quality, 0.0, 100.0)
+
+			# Calculate connecting passengers
+			var connecting_pax: float = MarketAnalysis.calculate_connecting_passenger_demand(
+				destination,
+				other_destination,
+				connection,
+				0.0  # Assume no direct competition
+			)
+
+			if connecting_pax > 5.0:
+				result.total_connections += 1
+				result.estimated_pax += connecting_pax
+				result.top_connections.append({
+					"route": "%s→%s" % [destination.iata_code, other_destination.iata_code],
+					"pax": connecting_pax
+				})
+
+	# Sort connections by passenger count
+	result.top_connections.sort_custom(func(a, b): return a.pax > b.pax)
+
+	return result
 
 func _on_create_route_pressed() -> void:
 	"""Create route button pressed"""

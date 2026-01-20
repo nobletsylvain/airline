@@ -335,3 +335,250 @@ static func calculate_great_circle_distance(from: Airport, to: Airport) -> float
 	var earth_radius_km: float = 6371.0
 
 	return earth_radius_km * c
+
+## ========================================
+## HUB NETWORK EFFECTS (Phase 1.2)
+## ========================================
+
+static func find_connecting_routes(origin: Airport, destination: Airport, airline: Airline) -> Array[Dictionary]:
+	"""
+	Find all possible connections from origin to destination through airline's hubs
+	Returns array of connection dictionaries with structure:
+	{
+		first_leg: Route,  # origin → hub
+		second_leg: Route,  # hub → destination
+		hub: Airport,  # connecting hub
+		total_distance: float,
+		connection_quality: float  # 0-100 score
+	}
+	"""
+	var connections: Array[Dictionary] = []
+
+	# For each route from origin
+	for first_route in airline.routes:
+		# Must originate from origin airport
+		if first_route.from_airport != origin:
+			continue
+
+		var hub: Airport = first_route.to_airport
+
+		# Hub must be in airline's hub list (for creating second leg)
+		if not airline.has_hub(hub):
+			continue
+
+		# Look for routes from this hub to destination
+		for second_route in airline.routes:
+			if second_route.from_airport == hub and second_route.to_airport == destination:
+				# Found a connection!
+				var total_distance: float = first_route.distance_km + second_route.distance_km
+				var quality: float = calculate_connection_quality(first_route, second_route, hub)
+
+				connections.append({
+					"first_leg": first_route,
+					"second_leg": second_route,
+					"hub": hub,
+					"total_distance": total_distance,
+					"connection_quality": quality
+				})
+
+	return connections
+
+static func calculate_connection_quality(first_leg: Route, second_leg: Route, hub: Airport) -> float:
+	"""
+	Calculate connection quality score (0-100)
+	Higher = better connection
+
+	Factors:
+	- Layover time compatibility (frequency-based approximation)
+	- Hub size (smaller hubs = easier connections, less congestion)
+	- Distance efficiency (total distance vs direct distance)
+	"""
+	var score: float = 50.0  # Start neutral
+
+	# 1. Frequency score (higher frequency = more connection opportunities)
+	var min_frequency: int = min(first_leg.frequency, second_leg.frequency)
+	if min_frequency >= 7:  # Daily on both legs
+		score += 20.0
+	elif min_frequency >= 3:  # 3+ times per week
+		score += 10.0
+	elif min_frequency == 1:  # Once per week (risky)
+		score -= 10.0
+
+	# 2. Hub congestion penalty (mega hubs are crowded, harder to connect)
+	match hub.hub_tier:
+		1:  # Mega hub
+			score -= 15.0  # Crowded, long walking distances
+		2:  # Major hub
+			score -= 5.0  # Some congestion
+		3:  # Regional hub
+			score += 5.0  # Good balance
+		4:  # Small airport
+			score += 10.0  # Easy connections, but less frequent flights
+
+	# 3. Distance efficiency (penalize very indirect routes)
+	# Calculate if this connection makes geographic sense
+	var direct_distance: float = calculate_great_circle_distance(
+		first_leg.from_airport,
+		second_leg.to_airport
+	)
+	var total_connection_distance: float = first_leg.distance_km + second_leg.distance_km
+
+	if direct_distance > 0:
+		var efficiency_ratio: float = direct_distance / total_connection_distance
+		if efficiency_ratio > 0.85:  # Nearly direct
+			score += 15.0
+		elif efficiency_ratio > 0.70:  # Reasonable detour
+			score += 5.0
+		elif efficiency_ratio < 0.50:  # Very indirect (backtracking)
+			score -= 20.0
+
+	return clamp(score, 0.0, 100.0)
+
+static func calculate_connecting_passenger_demand(
+	origin: Airport,
+	destination: Airport,
+	connection: Dictionary,
+	direct_demand: float
+) -> float:
+	"""
+	Calculate potential connecting passengers through a hub
+
+	Args:
+		origin: Starting airport
+		destination: Final destination
+		connection: Connection dictionary from find_connecting_routes()
+		direct_demand: Direct demand for origin→destination route (if exists)
+
+	Returns:
+		Weekly connecting passengers who would use this connection
+	"""
+	# Base connecting demand is a fraction of what direct demand would be
+	# People prefer direct flights, so connecting is always secondary
+	var base_connecting_demand: float = calculate_potential_demand(origin, destination, 0.0)
+
+	# Connection appeal factor (0.0 to 1.0)
+	# High quality connection = more people willing to connect
+	# Low quality = very few people willing to connect
+	var quality_factor: float = connection.connection_quality / 100.0
+
+	# Direct flight penalty
+	# If direct flight exists with capacity, very few people will connect
+	var direct_competition_factor: float = 1.0
+	if direct_demand > 0:
+		# Significantly reduce connecting demand if direct option exists
+		direct_competition_factor = 0.15  # Only 15% would consider connecting
+
+	# Distance penalty
+	# Long connections are less attractive
+	var distance_penalty: float = 1.0
+	if connection.total_distance > 10000:  # Very long connection
+		distance_penalty = 0.6
+	elif connection.total_distance > 6000:  # Long connection
+		distance_penalty = 0.8
+
+	# Calculate final connecting demand
+	var connecting_pax: float = base_connecting_demand * quality_factor * direct_competition_factor * distance_penalty
+
+	# Minimum threshold - very low quality connections won't attract passengers
+	if connection.connection_quality < 30.0:
+		connecting_pax *= 0.3  # Severely limit poor connections
+
+	return max(0.0, connecting_pax)
+
+static func analyze_hub_network_effects(airline: Airline, hub: Airport) -> Dictionary:
+	"""
+	Analyze the network effects of a hub
+	Shows how routes from this hub create synergies
+
+	Returns: {
+		hub: Airport,
+		inbound_routes: int,  # Routes ending at hub
+		outbound_routes: int,  # Routes starting from hub
+		potential_connections: int,  # Number of possible O-D pairs
+		high_quality_connections: int,  # Connections with quality > 70
+		estimated_connecting_pax: float  # Weekly connecting passengers
+	}
+	"""
+	var analysis: Dictionary = {
+		"hub": hub,
+		"inbound_routes": 0,
+		"outbound_routes": 0,
+		"potential_connections": 0,
+		"high_quality_connections": 0,
+		"estimated_connecting_pax": 0.0,
+		"connection_details": []  # Array of connection opportunities
+	}
+
+	# Find all routes TO this hub (inbound - bringing passengers)
+	var routes_to_hub: Array[Route] = []
+	for route in airline.routes:
+		if route.to_airport == hub:
+			routes_to_hub.append(route)
+
+	# Find all routes FROM this hub (outbound - distributing passengers)
+	var routes_from_hub: Array[Route] = []
+	for route in airline.routes:
+		if route.from_airport == hub:
+			routes_from_hub.append(route)
+
+	analysis.inbound_routes = routes_to_hub.size()
+	analysis.outbound_routes = routes_from_hub.size()
+
+	# Check all possible connections through this hub
+	# Connection = inbound route (origin→hub) + outbound route (hub→destination)
+	for inbound_route in routes_to_hub:
+		for outbound_route in routes_from_hub:
+			var origin: Airport = inbound_route.from_airport
+			var destination: Airport = outbound_route.to_airport
+
+			# Skip if origin = destination (pointless connection)
+			if origin == destination:
+				continue
+
+			analysis.potential_connections += 1
+
+			# Calculate connection quality
+			var quality: float = calculate_connection_quality(inbound_route, outbound_route, hub)
+
+			if quality > 70.0:
+				analysis.high_quality_connections += 1
+
+			# Build connection dictionary
+			var connection: Dictionary = {
+				"first_leg": inbound_route,
+				"second_leg": outbound_route,
+				"hub": hub,
+				"total_distance": inbound_route.distance_km + outbound_route.distance_km,
+				"connection_quality": quality
+			}
+
+			# Calculate distance for direct route (for comparison)
+			var direct_distance: float = calculate_great_circle_distance(origin, destination)
+
+			# Estimate connecting passengers
+			# (Assume no direct competition for now - can be enhanced later)
+			var connecting_pax: float = calculate_connecting_passenger_demand(
+				origin,
+				destination,
+				connection,
+				0.0  # No direct demand
+			)
+
+			analysis.estimated_connecting_pax += connecting_pax
+
+			# Store connection details for display
+			if quality > 50.0 and connecting_pax > 5.0:  # Only store meaningful connections
+				analysis.connection_details.append({
+					"from": origin.iata_code,
+					"via": hub.iata_code,
+					"to": destination.iata_code,
+					"quality": quality,
+					"weekly_pax": connecting_pax,
+					"first_leg_frequency": inbound_route.frequency,
+					"second_leg_frequency": outbound_route.frequency
+				})
+
+	# Sort connection details by passenger count (descending)
+	analysis.connection_details.sort_custom(func(a, b): return a.weekly_pax > b.weekly_pax)
+
+	return analysis

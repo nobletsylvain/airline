@@ -88,6 +88,10 @@ func simulate_route(route: Route, airline: Airline) -> void:
 	# Apply market share to demand
 	var route_demand: float = base_demand * market_share
 
+	# === HUB NETWORK EFFECTS: Add connecting passengers ===
+	var connecting_passengers: float = calculate_connecting_passengers_for_route(route, airline)
+	route_demand += connecting_passengers
+
 	# Apply quality multiplier
 	var quality_multiplier: float = route.get_quality_score() / 100.0
 	quality_multiplier = clamp(quality_multiplier, 0.3, 1.5)
@@ -331,3 +335,100 @@ func calculate_route_competitiveness(route: Route, airline: Airline) -> float:
 	score += route.frequency * 5.0
 
 	return max(score, 1.0)  # Ensure positive score
+
+func calculate_connecting_passengers_for_route(route: Route, airline: Airline) -> float:
+	"""
+	Calculate connecting passengers that use this route as part of a connection
+	This route can be either:
+	1. First leg (origin→hub): Passengers connecting FROM this route TO other routes
+	2. Second leg (hub→destination): Passengers connecting TO this route FROM other routes
+
+	Returns total weekly connecting passengers
+	"""
+	var total_connecting_pax: float = 0.0
+
+	# Case 1: This route is the FIRST LEG (origin→hub)
+	# Look for routes from destination (hub) to other places
+	if airline.has_hub(route.to_airport):
+		# Route ends at a hub - check for onward connections
+		var hub: Airport = route.to_airport
+
+		for second_leg in airline.routes:
+			# Must start from same hub
+			if second_leg.from_airport != hub:
+				continue
+
+			# Must go somewhere different than where we came from
+			if second_leg.to_airport == route.from_airport:
+				continue
+
+			# Calculate connecting passengers for origin→hub→destination
+			var connection: Dictionary = {
+				"first_leg": route,
+				"second_leg": second_leg,
+				"hub": hub,
+				"total_distance": route.distance_km + second_leg.distance_km,
+				"connection_quality": MarketAnalysis.calculate_connection_quality(route, second_leg, hub)
+			}
+
+			# Check if direct competition exists
+			var direct_demand: float = 0.0
+			for other_airline in GameData.airlines:
+				for other_route in other_airline.routes:
+					if (other_route.from_airport == route.from_airport and other_route.to_airport == second_leg.to_airport):
+						# Direct route exists
+						direct_demand = calculate_demand(other_route)
+						break
+
+			var connecting_pax: float = MarketAnalysis.calculate_connecting_passenger_demand(
+				route.from_airport,
+				second_leg.to_airport,
+				connection,
+				direct_demand
+			)
+
+			total_connecting_pax += connecting_pax
+
+	# Case 2: This route is the SECOND LEG (hub→destination)
+	# Look for routes to origin (hub) from other places
+	if airline.has_hub(route.from_airport):
+		# Route starts from a hub - check for inbound connections
+		var hub: Airport = route.from_airport
+
+		for first_leg in airline.routes:
+			# Must end at same hub
+			if first_leg.to_airport != hub:
+				continue
+
+			# Must come from somewhere different than where we're going
+			if first_leg.from_airport == route.to_airport:
+				continue
+
+			# Calculate connecting passengers for origin→hub→destination
+			var connection: Dictionary = {
+				"first_leg": first_leg,
+				"second_leg": route,
+				"hub": hub,
+				"total_distance": first_leg.distance_km + route.distance_km,
+				"connection_quality": MarketAnalysis.calculate_connection_quality(first_leg, route, hub)
+			}
+
+			# Check if direct competition exists
+			var direct_demand: float = 0.0
+			for other_airline in GameData.airlines:
+				for other_route in other_airline.routes:
+					if (other_route.from_airport == first_leg.from_airport and other_route.to_airport == route.to_airport):
+						# Direct route exists
+						direct_demand = calculate_demand(other_route)
+						break
+
+			var connecting_pax: float = MarketAnalysis.calculate_connecting_passenger_demand(
+				first_leg.from_airport,
+				route.to_airport,
+				connection,
+				direct_demand
+			)
+
+			total_connecting_pax += connecting_pax
+
+	return total_connecting_pax
