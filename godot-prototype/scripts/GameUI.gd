@@ -106,20 +106,26 @@ func _ready() -> void:
 		world_map.route_created.connect(_on_route_created)
 		world_map.route_clicked.connect(_on_route_clicked)
 
-	# Connect speed control buttons
+	# Connect speed control buttons and add keyboard shortcut hints
 	speed_buttons = [pause_button, speed_1x_button, speed_10x_button, speed_50x_button, speed_200x_button, speed_max_button]
 	if pause_button:
-		pause_button.pressed.connect(_on_speed_button_pressed.bind(0))  # PAUSED
+		pause_button.pressed.connect(_on_speed_button_pressed.bind(0))
+		pause_button.tooltip_text = "Pause (Space)"
 	if speed_1x_button:
-		speed_1x_button.pressed.connect(_on_speed_button_pressed.bind(1))  # REAL_TIME
+		speed_1x_button.pressed.connect(_on_speed_button_pressed.bind(1))
+		speed_1x_button.tooltip_text = "Real-Time [1]"
 	if speed_10x_button:
-		speed_10x_button.pressed.connect(_on_speed_button_pressed.bind(2))  # SLOW
+		speed_10x_button.pressed.connect(_on_speed_button_pressed.bind(2))
+		speed_10x_button.tooltip_text = "Slow (10x) [2]"
 	if speed_50x_button:
-		speed_50x_button.pressed.connect(_on_speed_button_pressed.bind(3))  # NORMAL
+		speed_50x_button.pressed.connect(_on_speed_button_pressed.bind(3))
+		speed_50x_button.tooltip_text = "Normal (50x) [3]"
 	if speed_200x_button:
-		speed_200x_button.pressed.connect(_on_speed_button_pressed.bind(4))  # FAST
+		speed_200x_button.pressed.connect(_on_speed_button_pressed.bind(4))
+		speed_200x_button.tooltip_text = "Fast (200x) [4]"
 	if speed_max_button:
-		speed_max_button.pressed.connect(_on_speed_button_pressed.bind(5))  # VERY_FAST
+		speed_max_button.pressed.connect(_on_speed_button_pressed.bind(5))
+		speed_max_button.tooltip_text = "Max Speed [5]"
 	if step_button:
 		step_button.pressed.connect(_on_step_button_pressed)
 	if purchase_button:
@@ -1549,25 +1555,49 @@ func _on_tutorial_skip_confirmed() -> void:
 	print("Tutorial skipped by user")
 
 func _input(event: InputEvent) -> void:
-	"""Handle keyboard shortcuts for tutorial"""
-	if not GameData.tutorial_manager or not GameData.tutorial_manager.is_active():
-		return
-
-	if not tutorial_panel or not tutorial_panel.visible:
-		return
-
-	# Enter/Space to continue (if continue button visible)
+	"""Handle keyboard shortcuts"""
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_ENTER or event.keycode == KEY_SPACE:
-			if tutorial_continue_button and tutorial_continue_button.visible:
-				_on_tutorial_continue_pressed()
-				get_viewport().set_input_as_handled()
+		# Speed control shortcuts (only when not typing in input fields)
+		var focus_owner = get_viewport().gui_get_focus_owner()
+		var is_typing = focus_owner is LineEdit or focus_owner is TextEdit
 
-		# ESC to open skip confirmation
-		elif event.keycode == KEY_ESCAPE:
-			if tutorial_skip_button and tutorial_skip_button.visible:
-				_on_tutorial_skip_pressed()
-				get_viewport().set_input_as_handled()
+		if not is_typing:
+			match event.keycode:
+				KEY_SPACE:
+					# Space to toggle pause
+					if simulation_engine:
+						if simulation_engine.is_running:
+							_on_speed_button_pressed(0)  # Pause
+						else:
+							_on_speed_button_pressed(3)  # Resume at normal speed
+						get_viewport().set_input_as_handled()
+				KEY_1:
+					_on_speed_button_pressed(1)  # 1x
+					get_viewport().set_input_as_handled()
+				KEY_2:
+					_on_speed_button_pressed(2)  # 10x
+					get_viewport().set_input_as_handled()
+				KEY_3:
+					_on_speed_button_pressed(3)  # 50x
+					get_viewport().set_input_as_handled()
+				KEY_4:
+					_on_speed_button_pressed(4)  # 200x
+					get_viewport().set_input_as_handled()
+				KEY_5:
+					_on_speed_button_pressed(5)  # MAX
+					get_viewport().set_input_as_handled()
+
+		# Tutorial shortcuts
+		if GameData.tutorial_manager and GameData.tutorial_manager.is_active():
+			if tutorial_panel and tutorial_panel.visible:
+				if event.keycode == KEY_ENTER:
+					if tutorial_continue_button and tutorial_continue_button.visible:
+						_on_tutorial_continue_pressed()
+						get_viewport().set_input_as_handled()
+				elif event.keycode == KEY_ESCAPE:
+					if tutorial_skip_button and tutorial_skip_button.visible:
+						_on_tutorial_skip_pressed()
+						get_viewport().set_input_as_handled()
 
 ## Route Configuration Dialog
 
