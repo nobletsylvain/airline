@@ -36,6 +36,18 @@ func _ready() -> void:
 	build_ui()
 	hide()  # Start hidden, only show when hub is selected
 
+	# Allow ESC key and close button to close dialog
+	close_requested.connect(hide)
+
+func _input(event: InputEvent) -> void:
+	"""Handle ESC key to close dialog"""
+	if not visible:
+		return
+
+	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		hide()
+		get_viewport().set_input_as_handled()
+
 func build_ui() -> void:
 	"""Build the dialog UI programmatically"""
 	var margin = MarginContainer.new()
