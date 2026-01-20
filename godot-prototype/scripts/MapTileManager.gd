@@ -1,17 +1,53 @@
 extends Node
 class_name MapTileManager
 
-## Manages OpenStreetMap tile fetching and caching with improved error handling
+## Manages map tile fetching and caching with multiple provider support
 
-# OSM tile URL pattern - using a different tile server that might work better
-const TILE_URL_PATTERNS = [
-	"https://tile.openstreetmap.org/%d/%d/%d.png",
-	"https://a.tile.openstreetmap.org/%d/%d/%d.png",
-	"https://b.tile.openstreetmap.org/%d/%d/%d.png",
-]
-const TILE_SIZE = 256  # Standard OSM tile size in pixels
+# Available tile providers
+enum TileProvider {
+	OSM,           # Standard OpenStreetMap
+	CARTO_VOYAGER, # Carto Voyager - clean with English labels
+	CARTO_DARK,    # Carto Dark Matter - dark theme
+	ESRI_NATGEO,   # ESRI NatGeo World Map - Natural Earth style
+	STAMEN_TERRAIN # Stamen Terrain - topographic
+}
 
-# Cache for loaded tiles: key = "z_x_y", value = ImageTexture
+# Tile URL patterns for each provider
+# Note: %d order is [z, x, y] for most, [z, y, x] for ESRI
+const PROVIDER_URLS = {
+	TileProvider.OSM: [
+		"https://tile.openstreetmap.org/%d/%d/%d.png",
+		"https://a.tile.openstreetmap.org/%d/%d/%d.png",
+		"https://b.tile.openstreetmap.org/%d/%d/%d.png",
+	],
+	TileProvider.CARTO_VOYAGER: [
+		"https://basemaps.cartocdn.com/rastertiles/voyager/%d/%d/%d.png",
+		"https://a.basemaps.cartocdn.com/rastertiles/voyager/%d/%d/%d.png",
+		"https://b.basemaps.cartocdn.com/rastertiles/voyager/%d/%d/%d.png",
+	],
+	TileProvider.CARTO_DARK: [
+		"https://basemaps.cartocdn.com/rastertiles/dark_all/%d/%d/%d.png",
+		"https://a.basemaps.cartocdn.com/rastertiles/dark_all/%d/%d/%d.png",
+		"https://b.basemaps.cartocdn.com/rastertiles/dark_all/%d/%d/%d.png",
+	],
+	TileProvider.ESRI_NATGEO: [
+		# ESRI uses z/y/x order (y before x)
+		"https://services.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/%d/%d/%d",
+	],
+	TileProvider.STAMEN_TERRAIN: [
+		"https://tiles.stadiamaps.com/tiles/stamen_terrain/%d/%d/%d.png",
+	],
+}
+
+# Providers that use z/y/x order instead of z/x/y
+const YX_ORDER_PROVIDERS = [TileProvider.ESRI_NATGEO]
+
+const TILE_SIZE = 256  # Standard tile size in pixels
+
+# Current provider
+var current_provider: TileProvider = TileProvider.ESRI_NATGEO
+
+# Cache for loaded tiles: key = "provider_z_x_y", value = ImageTexture
 var tile_cache: Dictionary = {}
 var pending_requests: Dictionary = {}  # Track in-flight requests
 var failed_tiles: Dictionary = {}  # Track failed tiles to avoid retrying
@@ -26,6 +62,7 @@ var fallback_texture: ImageTexture = null
 
 signal tile_loaded(z: int, x: int, y: int, texture: ImageTexture)
 signal tile_failed(z: int, x: int, y: int)
+signal provider_changed(provider: TileProvider)
 
 func _ready() -> void:
 	# Create fallback texture
@@ -43,15 +80,33 @@ func _ready() -> void:
 func _create_fallback_texture() -> void:
 	"""Create a simple fallback texture for when tiles fail to load"""
 	var img = Image.create(TILE_SIZE, TILE_SIZE, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0.15, 0.25, 0.35, 1.0))  # Ocean blue
+	img.fill(Color(0.75, 0.85, 0.92, 1.0))  # Light blue-gray (ocean)
 
-	# Draw a simple grid pattern
-	for i in range(0, TILE_SIZE, 32):
+	# Draw a subtle grid pattern
+	for i in range(0, TILE_SIZE, 64):
 		for j in range(TILE_SIZE):
-			img.set_pixel(i, j, Color(0.2, 0.3, 0.4, 1.0))
-			img.set_pixel(j, i, Color(0.2, 0.3, 0.4, 1.0))
+			img.set_pixel(i, j, Color(0.7, 0.8, 0.88, 1.0))
+			img.set_pixel(j, i, Color(0.7, 0.8, 0.88, 1.0))
 
 	fallback_texture = ImageTexture.create_from_image(img)
+
+func set_provider(provider: TileProvider) -> void:
+	"""Change the tile provider and clear cache"""
+	if provider != current_provider:
+		current_provider = provider
+		clear_cache()
+		provider_changed.emit(provider)
+		print("Map provider changed to: %s" % get_provider_name(provider))
+
+func get_provider_name(provider: TileProvider) -> String:
+	"""Get human-readable name for provider"""
+	match provider:
+		TileProvider.OSM: return "OpenStreetMap"
+		TileProvider.CARTO_VOYAGER: return "Carto Voyager"
+		TileProvider.CARTO_DARK: return "Carto Dark"
+		TileProvider.ESRI_NATGEO: return "Natural Earth (ESRI)"
+		TileProvider.STAMEN_TERRAIN: return "Stamen Terrain"
+	return "Unknown"
 
 func _process(_delta: float) -> void:
 	# Process queued requests
@@ -92,16 +147,23 @@ func get_tile(z: int, x: int, y: int) -> ImageTexture:
 	return fallback_texture
 
 func _fetch_tile(z: int, x: int, y: int, http: HTTPRequest) -> void:
-	"""Fetch a tile from OpenStreetMap"""
-	# Try different URL patterns
-	var url_index = (z + x + y) % TILE_URL_PATTERNS.size()
-	var url = TILE_URL_PATTERNS[url_index] % [z, x, y]
+	"""Fetch a tile from the current provider"""
+	var urls = PROVIDER_URLS[current_provider]
+	var url_index = (z + x + y) % urls.size()
+	var url_pattern = urls[url_index]
 	var key = _tile_key(z, x, y)
 
-	# Set user agent (required by OSM policy)
+	# Build URL with correct coordinate order
+	var url: String
+	if current_provider in YX_ORDER_PROVIDERS:
+		url = url_pattern % [z, y, x]  # z/y/x order
+	else:
+		url = url_pattern % [z, x, y]  # z/x/y order
+
+	# Set headers
 	var headers = [
 		"User-Agent: GodotAirlineGame/1.0 (Educational Project)",
-		"Accept: image/png,image/*",
+		"Accept: image/png,image/jpeg,image/*",
 	]
 
 	http.set_meta("tile_key", key)
@@ -132,9 +194,13 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 		tile_failed.emit(z, x, y)
 		return
 
-	# Load image from PNG data
+	# Load image from buffer (try PNG first, then JPEG)
 	var image = Image.new()
 	var error = image.load_png_from_buffer(body)
+
+	if error != OK:
+		# Try JPEG (ESRI tiles are often JPEG)
+		error = image.load_jpg_from_buffer(body)
 
 	if error != OK:
 		print("Failed to load tile image %s: error %d" % [key, error])
@@ -149,7 +215,7 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 	tile_loaded.emit(z, x, y, texture)
 
 func _tile_key(z: int, x: int, y: int) -> String:
-	return "%d_%d_%d" % [z, x, y]
+	return "%d_%d_%d_%d" % [current_provider, z, x, y]
 
 # Coordinate conversion functions
 
@@ -193,6 +259,8 @@ func clear_cache() -> void:
 	"""Clear the tile cache"""
 	tile_cache.clear()
 	failed_tiles.clear()
+	pending_requests.clear()
+	request_queue.clear()
 
 func get_cache_size() -> int:
 	"""Get number of cached tiles"""
