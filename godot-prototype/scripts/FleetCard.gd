@@ -125,13 +125,19 @@ func set_aircraft(ac: AircraftInstance) -> void:
 	# Model name with ID
 	model_label.text = "%s [#%d]" % [aircraft.model.get_display_name(), aircraft.id]
 
-	# Status
+	# Status badge styling
 	if aircraft.is_assigned:
-		status_label.text = "✈ Assigned"
-		status_label.add_theme_color_override("font_color", UITheme.PROFIT_COLOR)
+		status_label.text = "  In Flight  "
+		status_label.add_theme_color_override("font_color", UITheme.TEXT_WHITE)
+		var badge_style = UITheme.create_badge_style(UITheme.PROFIT_COLOR)
+		badge_style.bg_color = UITheme.PROFIT_COLOR
+		status_label.add_theme_stylebox_override("normal", badge_style)
 	else:
-		status_label.text = "○ Available"
-		status_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+		status_label.text = "  Available  "
+		status_label.add_theme_color_override("font_color", UITheme.TEXT_WHITE)
+		var badge_style = UITheme.create_badge_style(UITheme.TEXT_MUTED)
+		badge_style.bg_color = UITheme.TEXT_MUTED
+		status_label.add_theme_stylebox_override("normal", badge_style)
 
 	# Details
 	var config = aircraft.configuration

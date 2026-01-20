@@ -22,6 +22,9 @@ var objective_system: ObjectiveSystem = null
 var simulation_engine: Node = null  # Reference to SimulationEngine for plane animations
 var is_first_time_player: bool = true
 
+# New game settings (from main menu)
+var new_game_settings: Dictionary = {}
+
 # Signals
 signal week_simulated(week_number: int)
 signal game_initialized()
@@ -202,11 +205,39 @@ func create_aircraft_models() -> void:
 		aircraft_models.append(model)
 
 func create_player_airline() -> void:
-	"""Create the player's airline"""
-	player_airline = Airline.new("SkyLine Airways", "SKY", "USA")
+	"""Create the player's airline using settings from main menu"""
+	# Get settings from main menu, or use defaults
+	var airline_name = new_game_settings.get("airline_name", "SkyLine Airways")
+	var starting_budget = new_game_settings.get("starting_budget", 100000000.0)
+	var hub_code = new_game_settings.get("hub_code", "")
+
+	# Generate airline code from name (first 3 letters uppercase)
+	var code_base = airline_name.replace(" ", "").substr(0, 3).to_upper()
+	if code_base.length() < 3:
+		code_base = (code_base + "XXX").substr(0, 3)
+
+	player_airline = Airline.new(airline_name, code_base, "International")
 	player_airline.id = 1
-	player_airline.balance = 100000000.0  # Start with $100M
+	player_airline.balance = starting_budget
 	airlines.append(player_airline)
+
+	print("Created player airline: %s (%s) with $%s" % [airline_name, code_base, format_money(starting_budget)])
+
+	# If a hub was selected in the menu, we'll assign it after airports are loaded
+	if hub_code.length() > 0:
+		# Store for later assignment (airports may not be loaded yet)
+		player_airline.set_meta("initial_hub_code", hub_code)
+
+func format_money(amount: float) -> String:
+	"""Format money for display"""
+	if amount >= 1_000_000_000:
+		return "%.2fB" % (amount / 1_000_000_000.0)
+	elif amount >= 1_000_000:
+		return "%.2fM" % (amount / 1_000_000.0)
+	elif amount >= 1_000:
+		return "%.2fK" % (amount / 1_000.0)
+	else:
+		return "%.0f" % amount
 
 func create_ai_airlines() -> void:
 	"""Create AI-controlled competitor airlines"""

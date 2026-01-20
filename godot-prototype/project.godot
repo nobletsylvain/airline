@@ -12,7 +12,7 @@ config_version=5
 
 config/name="Airline Tycoon Prototype"
 config/description="A prototype airline tycoon game based on airline-club.com"
-run/main_scene="res://scenes/Main.tscn"
+run/main_scene="res://scenes/MainMenu.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 config/icon="res://icon.svg"
 

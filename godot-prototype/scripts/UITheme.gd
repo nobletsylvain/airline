@@ -2,81 +2,110 @@ extends Node
 class_name UITheme
 
 ## Centralized UI Theme - Colors, Fonts, and Style Constants
-## Use UITheme.PROFIT_COLOR, UITheme.create_card(), etc.
+## Based on Figma mockup design - Modern airline tycoon dashboard
 
 # ============================================================================
-# COLOR PALETTE
+# COLOR PALETTE - Matching Figma mockup (Tailwind-inspired)
 # ============================================================================
 
-# Profit/Loss Colors
-const PROFIT_COLOR = Color("#4CAF50")       # Green - positive values
-const PROFIT_COLOR_LIGHT = Color("#81C784") # Light green - subtle positive
-const LOSS_COLOR = Color("#F44336")         # Red - negative values
-const LOSS_COLOR_LIGHT = Color("#E57373")   # Light red - subtle negative
-const NEUTRAL_COLOR = Color("#9E9E9E")      # Gray - neutral/zero values
+# Primary Brand Colors
+const PRIMARY_BLUE = Color("#3b82f6")        # Blue-500 - Primary accent
+const PRIMARY_BLUE_DARK = Color("#2563eb")   # Blue-600 - Hover states
+const PRIMARY_BLUE_LIGHT = Color("#60a5fa")  # Blue-400 - Light accent
+
+# Profit/Loss Colors (Tailwind emerald/red)
+const PROFIT_COLOR = Color("#10b981")        # Emerald-500 - Positive values
+const PROFIT_COLOR_LIGHT = Color("#34d399")  # Emerald-400 - Light positive
+const PROFIT_BG = Color("#ecfdf5")           # Emerald-50 - Background
+const LOSS_COLOR = Color("#ef4444")          # Red-500 - Negative values
+const LOSS_COLOR_LIGHT = Color("#f87171")    # Red-400 - Light negative
+const LOSS_BG = Color("#fef2f2")             # Red-50 - Background
+const NEUTRAL_COLOR = Color("#64748b")       # Slate-500 - Neutral/zero
 
 # Status Colors
-const INFO_COLOR = Color("#2196F3")         # Blue - information
-const WARNING_COLOR = Color("#FF9800")      # Orange - warnings
-const SUCCESS_COLOR = Color("#4CAF50")      # Green - success (same as profit)
-const ERROR_COLOR = Color("#F44336")        # Red - errors (same as loss)
+const INFO_COLOR = Color("#3b82f6")          # Blue-500 - Information
+const WARNING_COLOR = Color("#f59e0b")       # Amber-500 - Warnings
+const SUCCESS_COLOR = Color("#10b981")       # Emerald-500 - Success
+const ERROR_COLOR = Color("#ef4444")         # Red-500 - Errors
 
 # UI Element Colors
-const HUB_COLOR = Color("#FFD700")          # Gold - player hubs
-const PLAYER_ROUTE_COLOR = Color("#00BCD4") # Cyan - player routes
-const COMPETITOR_ROUTE_COLOR = Color("#78909C") # Blue-gray - competitor routes
-const SELECTED_COLOR = Color("#E1F5FE")     # Light blue - selected items
-const HOVER_COLOR = Color("#F5F5F5")        # Light gray - hovered items
+const HUB_COLOR = Color("#eab308")           # Yellow-500 - Player hubs
+const PLAYER_ROUTE_COLOR = Color("#3b82f6")  # Blue-500 - Player routes
+const COMPETITOR_ROUTE_COLOR = Color("#94a3b8") # Slate-400 - Competitor routes
+const SELECTED_COLOR = Color("#dbeafe")      # Blue-100 - Selected items
+const HOVER_COLOR = Color("#f8fafc")         # Slate-50 - Hovered items
 
 # Grade Badge Colors
-const GRADE_S_COLOR = Color("#FFD700")      # Gold - S rank
-const GRADE_A_COLOR = Color("#9C27B0")      # Purple - A rank
-const GRADE_B_COLOR = Color("#2196F3")      # Blue - B rank
-const GRADE_C_COLOR = Color("#4CAF50")      # Green - C rank
-const GRADE_NEW_COLOR = Color("#9E9E9E")    # Gray - New
+const GRADE_S_COLOR = Color("#eab308")       # Yellow-500 - S rank (gold)
+const GRADE_A_COLOR = Color("#8b5cf6")       # Violet-500 - A rank
+const GRADE_B_COLOR = Color("#3b82f6")       # Blue-500 - B rank
+const GRADE_C_COLOR = Color("#10b981")       # Emerald-500 - C rank
+const GRADE_NEW_COLOR = Color("#94a3b8")     # Slate-400 - New
 
-# Panel Colors
-const PANEL_BG_COLOR = Color(0.12, 0.12, 0.14, 0.95)      # Dark background
-const PANEL_BORDER_COLOR = Color(0.3, 0.3, 0.35, 1.0)     # Subtle border
-const CARD_BG_COLOR = Color(0.15, 0.15, 0.18, 1.0)        # Card background
-const CARD_HOVER_BG = Color(0.2, 0.2, 0.24, 1.0)          # Card hover
-const CARD_SELECTED_BG = Color(0.2, 0.25, 0.35, 1.0)      # Card selected
+# Sidebar Colors (Dark theme)
+const SIDEBAR_BG = Color("#0f172a")          # Slate-900 - Sidebar background
+const SIDEBAR_ACTIVE = Color("#3b82f6")      # Blue-500 - Active nav item
+const SIDEBAR_HOVER = Color("#1e293b")       # Slate-800 - Hover state
+const SIDEBAR_TEXT = Color("#94a3b8")        # Slate-400 - Inactive text
+const SIDEBAR_TEXT_ACTIVE = Color("#ffffff") # White - Active text
+
+# Panel Colors (Light theme - for main content)
+const PANEL_BG_COLOR = Color("#ffffff")      # White - Card background
+const PANEL_BORDER_COLOR = Color("#e2e8f0")  # Slate-200 - Subtle border
+const CARD_BG_COLOR = Color("#ffffff")       # White - Card background
+const CARD_HOVER_BG = Color("#f8fafc")       # Slate-50 - Card hover
+const CARD_SELECTED_BG = Color("#eff6ff")    # Blue-50 - Card selected
+const CARD_BORDER = Color("#e2e8f0")         # Slate-200 - Card border
+
+# Dark Panel Colors (for overlays, floating panels)
+const DARK_PANEL_BG = Color("#0f172a")       # Slate-900 - Dark background
+const DARK_PANEL_BORDER = Color("#334155")   # Slate-700 - Dark border
+const DARK_CARD_BG = Color("#1e293b")        # Slate-800 - Dark card
 
 # Text Colors
-const TEXT_PRIMARY = Color(0.95, 0.95, 0.95)    # White - primary text
-const TEXT_SECONDARY = Color(0.7, 0.7, 0.7)     # Gray - secondary text
-const TEXT_MUTED = Color(0.5, 0.5, 0.5)         # Dark gray - muted text
-const TEXT_ACCENT = Color(0.4, 0.7, 1.0)        # Light blue - accent text
+const TEXT_PRIMARY = Color("#1e293b")        # Slate-800 - Primary text (dark)
+const TEXT_SECONDARY = Color("#64748b")      # Slate-500 - Secondary text
+const TEXT_MUTED = Color("#94a3b8")          # Slate-400 - Muted text
+const TEXT_ACCENT = Color("#3b82f6")         # Blue-500 - Accent text
+const TEXT_WHITE = Color("#ffffff")          # White - Light on dark
+const TEXT_LIGHT = Color("#f1f5f9")          # Slate-100 - Light text
+
+# Background Colors
+const BG_MAIN = Color("#f8fafc")             # Slate-50 - Main area background
+const BG_DARK = Color("#0f172a")             # Slate-900 - Dark background
 
 # ============================================================================
 # SIZING CONSTANTS
 # ============================================================================
 
 const CARD_MIN_HEIGHT = 80
-const CARD_PADDING = 12
-const CARD_MARGIN = 8
-const CARD_BORDER_RADIUS = 8
+const CARD_PADDING = 16
+const CARD_MARGIN = 12
+const CARD_BORDER_RADIUS = 16               # Rounded-2xl equivalent
 
-const PANEL_PADDING = 16
-const PANEL_MARGIN = 10
+const PANEL_PADDING = 24
+const PANEL_MARGIN = 16
+const PANEL_BORDER_RADIUS = 16
 
-const BUTTON_HEIGHT = 36
-const BUTTON_PADDING_H = 16
-const BUTTON_PADDING_V = 8
+const BUTTON_HEIGHT = 40
+const BUTTON_PADDING_H = 20
+const BUTTON_PADDING_V = 10
+const BUTTON_BORDER_RADIUS = 8
 
 const FLOATING_PANEL_WIDTH = 320
 const FLOATING_PANEL_MAX_HEIGHT = 400
 
-const RIGHT_PANEL_WIDTH = 500  # Reduced from 700
+const RIGHT_PANEL_WIDTH = 500
+const SIDEBAR_WIDTH = 256                   # w-64 equivalent
 
 # ============================================================================
 # FONT SIZES
 # ============================================================================
 
-const FONT_SIZE_TITLE = 20
-const FONT_SIZE_HEADER = 16
-const FONT_SIZE_BODY = 14
-const FONT_SIZE_SMALL = 12
+const FONT_SIZE_TITLE = 24                  # text-2xl
+const FONT_SIZE_HEADER = 18                 # text-lg
+const FONT_SIZE_BODY = 14                   # text-sm
+const FONT_SIZE_SMALL = 12                  # text-xs
 const FONT_SIZE_TINY = 10
 
 # ============================================================================
@@ -116,7 +145,7 @@ static func get_load_factor_color(load_factor: float) -> Color:
 	if load_factor >= 85:
 		return PROFIT_COLOR  # Excellent
 	elif load_factor >= 70:
-		return Color("#8BC34A")  # Good - lime green
+		return Color("#84cc16")  # Lime-500 - Good
 	elif load_factor >= 50:
 		return WARNING_COLOR  # Moderate
 	else:
@@ -132,17 +161,19 @@ static func get_condition_color(condition: float) -> Color:
 		return LOSS_COLOR
 
 # ============================================================================
-# UI COMPONENT FACTORIES
+# UI COMPONENT FACTORIES - Light Theme (Main Content)
 # ============================================================================
 
 static func create_panel_style() -> StyleBoxFlat:
-	"""Create standard panel style"""
+	"""Create standard light panel style"""
 	var style = StyleBoxFlat.new()
 	style.bg_color = PANEL_BG_COLOR
 	style.border_color = PANEL_BORDER_COLOR
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(8)
+	style.set_corner_radius_all(PANEL_BORDER_RADIUS)
 	style.set_content_margin_all(PANEL_PADDING)
+	style.shadow_color = Color(0, 0, 0, 0.05)
+	style.shadow_size = 4
 	return style
 
 static func create_card_style(selected: bool = false, profit: float = 0.0) -> StyleBoxFlat:
@@ -151,49 +182,151 @@ static func create_card_style(selected: bool = false, profit: float = 0.0) -> St
 	style.bg_color = CARD_SELECTED_BG if selected else CARD_BG_COLOR
 	style.set_corner_radius_all(CARD_BORDER_RADIUS)
 	style.set_content_margin_all(CARD_PADDING)
+	style.shadow_color = Color(0, 0, 0, 0.05)
+	style.shadow_size = 2
 
 	# Profit-colored left border
 	if profit != 0:
 		style.border_color = get_profit_color(profit)
 		style.border_width_left = 4
 	else:
-		style.border_color = PANEL_BORDER_COLOR
+		style.border_color = CARD_BORDER
 		style.set_border_width_all(1)
 
 	return style
 
-static func create_floating_panel_style() -> StyleBoxFlat:
-	"""Create floating panel style (semi-transparent)"""
+static func create_kpi_card_style(accent_color: Color = PRIMARY_BLUE) -> StyleBoxFlat:
+	"""Create KPI card style (white card with colored accent)"""
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.1, 0.12, 0.95)
-	style.border_color = Color(0.4, 0.4, 0.45, 1.0)
+	style.bg_color = CARD_BG_COLOR
+	style.border_color = CARD_BORDER
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(CARD_BORDER_RADIUS)
+	style.set_content_margin_all(20)
+	style.shadow_color = Color(0, 0, 0, 0.05)
+	style.shadow_size = 4
+	return style
+
+# ============================================================================
+# UI COMPONENT FACTORIES - Dark Theme (Sidebar, Overlays)
+# ============================================================================
+
+static func create_sidebar_style() -> StyleBoxFlat:
+	"""Create dark sidebar style"""
+	var style = StyleBoxFlat.new()
+	style.bg_color = SIDEBAR_BG
+	style.border_color = Color("#1e293b")  # Slate-800
+	style.border_width_right = 1
+	return style
+
+static func create_sidebar_button_style(active: bool = false) -> StyleBoxFlat:
+	"""Create sidebar navigation button style"""
+	var style = StyleBoxFlat.new()
+	if active:
+		style.bg_color = SIDEBAR_ACTIVE
+		style.shadow_color = Color(0.231, 0.510, 0.965, 0.3)  # Blue glow
+		style.shadow_size = 8
+	else:
+		style.bg_color = Color(0, 0, 0, 0)  # Transparent
+	style.set_corner_radius_all(12)
+	style.set_content_margin_all(12)
+	return style
+
+static func create_floating_panel_style() -> StyleBoxFlat:
+	"""Create floating panel style (dark, semi-transparent)"""
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(DARK_PANEL_BG.r, DARK_PANEL_BG.g, DARK_PANEL_BG.b, 0.95)
+	style.border_color = DARK_PANEL_BORDER
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(16)
+	style.set_content_margin_all(20)
+	style.shadow_color = Color(0, 0, 0, 0.3)
+	style.shadow_size = 16
+	style.shadow_offset = Vector2(0, 8)
+	return style
+
+static func create_menu_panel_style() -> StyleBoxFlat:
+	"""Create main menu panel style (dark, glass-like)"""
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0.6)
+	style.border_color = Color(1, 1, 1, 0.1)
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(12)
-	style.set_content_margin_all(16)
-	style.shadow_color = Color(0, 0, 0, 0.3)
-	style.shadow_size = 8
-	style.shadow_offset = Vector2(0, 4)
+	style.set_content_margin_all(32)
 	return style
+
+# ============================================================================
+# BUTTON STYLES
+# ============================================================================
 
 static func create_button_style(accent: bool = false) -> StyleBoxFlat:
 	"""Create button style"""
 	var style = StyleBoxFlat.new()
 	if accent:
-		style.bg_color = INFO_COLOR
+		style.bg_color = PRIMARY_BLUE
 	else:
-		style.bg_color = Color(0.25, 0.25, 0.3)
-	style.set_corner_radius_all(6)
-	style.set_content_margin_all(8)
+		style.bg_color = Color("#f1f5f9")  # Slate-100
+	style.set_corner_radius_all(BUTTON_BORDER_RADIUS)
+	style.set_content_margin_all(10)
 	return style
 
-static func create_progress_bar_style(filled: bool = true) -> StyleBoxFlat:
+static func create_primary_button_style() -> StyleBoxFlat:
+	"""Create primary action button (blue)"""
+	var style = StyleBoxFlat.new()
+	style.bg_color = PRIMARY_BLUE
+	style.set_corner_radius_all(BUTTON_BORDER_RADIUS)
+	style.set_content_margin_all(12)
+	style.shadow_color = Color(0.231, 0.510, 0.965, 0.3)
+	style.shadow_size = 8
+	return style
+
+static func create_secondary_button_style() -> StyleBoxFlat:
+	"""Create secondary button (transparent with border)"""
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0)
+	style.border_color = Color(1, 1, 1, 0.2)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(BUTTON_BORDER_RADIUS)
+	style.set_content_margin_all(12)
+	return style
+
+static func create_menu_button_style() -> StyleBoxFlat:
+	"""Create main menu button style"""
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(1, 1, 1, 0.05)
+	style.border_color = Color(1, 1, 1, 0.1)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(8)
+	style.set_content_margin_all(16)
+	return style
+
+# ============================================================================
+# PROGRESS BAR STYLES
+# ============================================================================
+
+static func create_progress_bar_style(filled: bool = true, color: Color = PROFIT_COLOR) -> StyleBoxFlat:
 	"""Create progress bar background or fill style"""
 	var style = StyleBoxFlat.new()
 	if filled:
-		style.bg_color = PROFIT_COLOR
+		style.bg_color = color
 	else:
-		style.bg_color = Color(0.2, 0.2, 0.25)
+		style.bg_color = Color("#e2e8f0")  # Slate-200
 	style.set_corner_radius_all(4)
+	return style
+
+# ============================================================================
+# BADGE/TAG STYLES
+# ============================================================================
+
+static func create_badge_style(color: Color) -> StyleBoxFlat:
+	"""Create status badge style"""
+	var style = StyleBoxFlat.new()
+	# Use lighter version of color for background
+	style.bg_color = Color(color.r, color.g, color.b, 0.15)
+	style.set_corner_radius_all(9999)  # Fully rounded
+	style.set_content_margin_all(6)
+	style.content_margin_left = 10
+	style.content_margin_right = 10
 	return style
 
 # ============================================================================
@@ -238,3 +371,22 @@ static func format_number(value: int) -> String:
 		return "%.1fK" % (value / 1_000.0)
 	else:
 		return str(value)
+
+# ============================================================================
+# ICON HELPERS (Unicode symbols)
+# ============================================================================
+
+const ICON_PLANE = "✈"
+const ICON_MONEY = "$"
+const ICON_UP = "▲"
+const ICON_DOWN = "▼"
+const ICON_NEUTRAL = "─"
+const ICON_CHECK = "✓"
+const ICON_CROSS = "✗"
+const ICON_STAR = "★"
+const ICON_DIAMOND = "◆"
+const ICON_CIRCLE = "●"
+const ICON_CIRCLE_HALF = "◐"
+const ICON_CIRCLE_EMPTY = "○"
+const ICON_ARROW_RIGHT = "→"
+const ICON_ARROW_UP_RIGHT = "↗"
