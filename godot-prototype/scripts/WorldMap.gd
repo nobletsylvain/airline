@@ -18,6 +18,8 @@ var tile_manager: MapTileManager = null
 var osm_zoom: int = 2  # OSM zoom level (0-19, 2 = world view)
 var min_osm_zoom: int = 1
 var max_osm_zoom: int = 6
+var zoom_scale: float = 1.0  # Sub-zoom scale (0.7 to 1.4) for smoother zooming
+var zoom_sensitivity: float = 0.08  # How much each scroll changes zoom_scale
 
 # Plane animation system
 var plane_sprites: Array[PlaneSprite] = []
@@ -84,8 +86,8 @@ func _fit_map_to_viewport() -> void:
 	_constrain_pan()
 
 func get_world_size() -> Vector2:
-	"""Get the world size in pixels at current zoom level"""
-	var world_pixels = MapTileManager.get_world_size_pixels(osm_zoom)
+	"""Get the world size in pixels at current zoom level with sub-zoom scale"""
+	var world_pixels = MapTileManager.get_world_size_pixels(osm_zoom) * zoom_scale
 	return Vector2(world_pixels, world_pixels)
 
 func _on_tile_loaded(_z: int, _x: int, _y: int, _texture: ImageTexture) -> void:
@@ -243,30 +245,60 @@ func update_plane_hover() -> void:
 	hover_plane = closest_plane
 
 func zoom_at_point(point: Vector2, direction: int) -> void:
-	"""Zoom in/out at a specific point using OSM zoom levels"""
-	var old_zoom: int = osm_zoom
+	"""Zoom in/out at a specific point with smooth sub-zoom scaling"""
+	var old_osm_zoom: int = osm_zoom
+	var old_zoom_scale: float = zoom_scale
 
+	# Get the world position at the mouse before zoom change
+	var mouse_world_before = screen_to_world(point)
+
+	# Apply smooth zoom change
 	if direction > 0:
-		osm_zoom = mini(osm_zoom + 1, max_osm_zoom)
+		zoom_scale *= (1.0 + zoom_sensitivity)
 	else:
-		osm_zoom = maxi(osm_zoom - 1, min_osm_zoom)
+		zoom_scale /= (1.0 + zoom_sensitivity)
+
+	# Check if we need to change OSM zoom level
+	if zoom_scale > 1.4 and osm_zoom < max_osm_zoom:
+		osm_zoom += 1
+		zoom_scale = 0.7  # Reset to lower bound (0.7 * 2 = 1.4)
+	elif zoom_scale < 0.7 and osm_zoom > min_osm_zoom:
+		osm_zoom -= 1
+		zoom_scale = 1.4  # Reset to upper bound
+
+	# Clamp zoom_scale to valid range
+	zoom_scale = clamp(zoom_scale, 0.7, 1.4)
 
 	# Check minimum zoom to ensure map fills viewport
 	var world_size = get_world_size()
-	while (world_size.x < size.x or world_size.y < size.y) and osm_zoom < max_osm_zoom:
-		osm_zoom += 1
+	while (world_size.x < size.x or world_size.y < size.y):
+		if zoom_scale < 1.4:
+			zoom_scale *= (1.0 + zoom_sensitivity)
+			if zoom_scale > 1.4:
+				zoom_scale = 0.7
+				if osm_zoom < max_osm_zoom:
+					osm_zoom += 1
+				else:
+					zoom_scale = 1.4
+					break
+		elif osm_zoom < max_osm_zoom:
+			osm_zoom += 1
+			zoom_scale = 0.7
+		else:
+			break
 		world_size = get_world_size()
 
-	if old_zoom != osm_zoom:
-		# Get the lat/lon at the mouse position before zoom
-		var mouse_world = screen_to_world(point)
-		var lat_lon = MapTileManager.pixel_to_lat_lon(mouse_world, old_zoom)
+	# Calculate the effective zoom change for repositioning
+	var old_effective_zoom = old_zoom_scale * pow(2, old_osm_zoom)
+	var new_effective_zoom = zoom_scale * pow(2, osm_zoom)
 
-		# Recalculate pixel position at new zoom
-		var new_pixel = MapTileManager.lat_lon_to_pixel(lat_lon.x, lat_lon.y, osm_zoom)
+	if old_effective_zoom != new_effective_zoom:
+		# Scale the mouse world position by the zoom ratio
+		var zoom_ratio = new_effective_zoom / old_effective_zoom
+		var mouse_world_after = mouse_world_before * zoom_ratio
 
 		# Adjust pan so the point under mouse stays in place
-		pan_offset = point - new_pixel
+		pan_offset = point - mouse_world_after
 
 		# Constrain pan to keep map in bounds
 		_constrain_pan()
@@ -294,15 +326,16 @@ func _draw() -> void:
 	draw_plane_tooltip()
 
 func draw_map_tiles() -> void:
-	"""Draw visible OpenStreetMap tiles"""
+	"""Draw visible OpenStreetMap tiles with sub-zoom scaling"""
 	if not tile_manager:
 		return
 
 	var tile_size = MapTileManager.TILE_SIZE
+	var scaled_tile_size = tile_size * zoom_scale
 
-	# Calculate visible tile range based on screen bounds
-	var top_left = screen_to_world(Vector2.ZERO)
-	var bottom_right = screen_to_world(size)
+	# Calculate visible tile range based on screen bounds (in unscaled tile coordinates)
+	var top_left = screen_to_world(Vector2.ZERO) / zoom_scale
+	var bottom_right = screen_to_world(size) / zoom_scale
 
 	var start_tile_x = int(floor(top_left.x / tile_size))
 	var start_tile_y = int(floor(top_left.y / tile_size))
@@ -316,25 +349,30 @@ func draw_map_tiles() -> void:
 	end_tile_x = clampi(end_tile_x, 0, max_tile)
 	end_tile_y = clampi(end_tile_y, 0, max_tile)
 
-	# Draw tiles
+	# Draw tiles with scaling
 	for ty in range(start_tile_y, end_tile_y + 1):
 		for tx in range(start_tile_x, end_tile_x + 1):
 			var texture = tile_manager.get_tile(osm_zoom, tx, ty)
-			var tile_pos = Vector2(tx * tile_size, ty * tile_size)
-			var screen_pos = world_to_screen(tile_pos)
+			# Calculate screen position for this tile (accounting for zoom_scale)
+			var tile_world_pos = Vector2(tx * tile_size, ty * tile_size) * zoom_scale
+			var screen_pos = world_to_screen(tile_world_pos)
 
 			if texture:
-				draw_texture(texture, screen_pos)
+				# Draw scaled tile
+				var dest_rect = Rect2(screen_pos, Vector2(scaled_tile_size, scaled_tile_size))
+				draw_texture_rect(texture, dest_rect, false)
 
 # Coordinate conversion functions for OSM tile system
 
 func lat_lon_to_pixel(lat: float, lon: float) -> Vector2:
-	"""Convert lat/lon to pixel coordinates at current zoom"""
-	return MapTileManager.lat_lon_to_pixel(lat, lon, osm_zoom)
+	"""Convert lat/lon to world pixel coordinates at current zoom with sub-zoom scale"""
+	var base_pixel = MapTileManager.lat_lon_to_pixel(lat, lon, osm_zoom)
+	return base_pixel * zoom_scale
 
 func pixel_to_lat_lon(pixel: Vector2) -> Vector2:
-	"""Convert pixel coordinates to lat/lon at current zoom"""
-	return MapTileManager.pixel_to_lat_lon(pixel, osm_zoom)
+	"""Convert world pixel coordinates to lat/lon at current zoom"""
+	var base_pixel = pixel / zoom_scale
+	return MapTileManager.pixel_to_lat_lon(base_pixel, osm_zoom)
 
 func lat_lon_to_screen_pos(lat: float, lon: float) -> Vector2:
 	"""Convert lat/lon to screen position"""
