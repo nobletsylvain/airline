@@ -5,11 +5,12 @@ class_name MapTileManager
 
 # Available tile providers
 enum TileProvider {
-	OSM,           # Standard OpenStreetMap
-	CARTO_VOYAGER, # Carto Voyager - clean with English labels
-	CARTO_DARK,    # Carto Dark Matter - dark theme
-	ESRI_NATGEO,   # ESRI NatGeo World Map - Natural Earth style
-	STAMEN_TERRAIN # Stamen Terrain - topographic
+	OSM,                 # Standard OpenStreetMap
+	CARTO_VOYAGER,       # Carto Voyager - clean with English labels
+	CARTO_LIGHT_NOLABELS,# Carto Light - no labels, clean borders
+	CARTO_DARK,          # Carto Dark Matter - dark theme
+	ESRI_NATGEO,         # ESRI NatGeo World Map - Natural Earth style
+	STAMEN_TERRAIN       # Stamen Terrain - topographic
 }
 
 # Tile URL patterns for each provider
@@ -24,6 +25,11 @@ const PROVIDER_URLS = {
 		"https://basemaps.cartocdn.com/rastertiles/voyager/%d/%d/%d.png",
 		"https://a.basemaps.cartocdn.com/rastertiles/voyager/%d/%d/%d.png",
 		"https://b.basemaps.cartocdn.com/rastertiles/voyager/%d/%d/%d.png",
+	],
+	TileProvider.CARTO_LIGHT_NOLABELS: [
+		"https://basemaps.cartocdn.com/light_nolabels/%d/%d/%d.png",
+		"https://a.basemaps.cartocdn.com/light_nolabels/%d/%d/%d.png",
+		"https://b.basemaps.cartocdn.com/light_nolabels/%d/%d/%d.png",
 	],
 	TileProvider.CARTO_DARK: [
 		"https://basemaps.cartocdn.com/rastertiles/dark_all/%d/%d/%d.png",
@@ -45,7 +51,7 @@ const YX_ORDER_PROVIDERS = [TileProvider.ESRI_NATGEO]
 const TILE_SIZE = 256  # Standard tile size in pixels
 
 # Current provider
-var current_provider: TileProvider = TileProvider.CARTO_VOYAGER
+var current_provider: TileProvider = TileProvider.CARTO_LIGHT_NOLABELS
 
 # Cache for loaded tiles: key = "provider_z_x_y", value = ImageTexture
 var tile_cache: Dictionary = {}
@@ -103,6 +109,7 @@ func get_provider_name(provider: TileProvider) -> String:
 	match provider:
 		TileProvider.OSM: return "OpenStreetMap"
 		TileProvider.CARTO_VOYAGER: return "Carto Voyager"
+		TileProvider.CARTO_LIGHT_NOLABELS: return "Carto Light (No Labels)"
 		TileProvider.CARTO_DARK: return "Carto Dark"
 		TileProvider.ESRI_NATGEO: return "Natural Earth (ESRI)"
 		TileProvider.STAMEN_TERRAIN: return "Stamen Terrain"
