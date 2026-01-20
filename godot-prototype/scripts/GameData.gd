@@ -16,14 +16,31 @@ var aircraft_models: Array[AircraftModel] = []
 var player_airline: Airline = null
 var ai_controllers: Array[AIController] = []
 
+# Tutorial & Progression
+var tutorial_manager: TutorialManager = null
+var objective_system: ObjectiveSystem = null
+var is_first_time_player: bool = true
+
 # Signals
 signal week_simulated(week_number: int)
 signal game_initialized()
 signal aircraft_purchased(aircraft: AircraftInstance, airline: Airline)
 signal loan_created(loan: Loan, airline: Airline)
 signal ai_decision_made(airline: Airline, decision_type: String)
+signal route_created(route: Route, airline: Airline)
 
 func _ready() -> void:
+	# Create tutorial and objective systems first
+	tutorial_manager = TutorialManager.new()
+	add_child(tutorial_manager)
+
+	objective_system = ObjectiveSystem.new()
+	add_child(objective_system)
+
+	# Connect tutorial signals
+	tutorial_manager.tutorial_completed.connect(_on_tutorial_completed)
+
+	# Initialize game data
 	initialize_game_data()
 
 func initialize_game_data() -> void:
@@ -33,6 +50,17 @@ func initialize_game_data() -> void:
 	create_player_airline()
 	create_ai_airlines()
 	game_initialized.emit()
+
+	# Start tutorial for first-time players
+	if is_first_time_player:
+		print("\nStarting tutorial in 2 seconds...")
+		await get_tree().create_timer(2.0).timeout
+		tutorial_manager.start_tutorial()
+
+func _on_tutorial_completed() -> void:
+	"""Called when tutorial is finished"""
+	is_first_time_player = false
+	print("\nObjectives are now active! Check your progress anytime.")
 
 func create_sample_airports() -> void:
 	"""Create airports with realistic data (passenger traffic, hub tiers, etc.)"""
@@ -258,6 +286,14 @@ func purchase_aircraft(airline: Airline, model: AircraftModel, config: AircraftC
 	# Emit signal
 	aircraft_purchased.emit(aircraft, airline)
 
+	# Notify tutorial if this is player's purchase
+	if airline == player_airline and tutorial_manager:
+		tutorial_manager.on_action_performed("purchase_aircraft")
+
+	# Update objectives
+	if airline == player_airline and objective_system:
+		objective_system.check_objectives_from_game_state()
+
 	print("Purchased %s [%s] for $%.0f (Balance: $%.0f)" % [
 		model.get_display_name(),
 		final_config.get_config_summary(),
@@ -320,3 +356,45 @@ func get_recommended_pricing_for_route(from: Airport, to: Airport) -> Dictionary
 		analysis.distance_km,
 		analysis.competition
 	)
+
+func create_route_for_airline(airline: Airline, from: Airport, to: Airport, aircraft: AircraftInstance = null) -> Route:
+	"""Helper function to create a route with tutorial/objective hooks"""
+	if not airline or not from or not to:
+		return null
+
+	# Create route
+	var route: Route = Route.new(from, to, airline.id)
+
+	# Get recommended pricing
+	var pricing: Dictionary = get_recommended_pricing_for_route(from, to)
+	route.price_economy = pricing.economy
+	route.price_business = pricing.business
+	route.price_first = pricing.first
+
+	# Assign aircraft if provided
+	if aircraft and not aircraft.is_assigned:
+		route.assign_aircraft(aircraft)
+
+	# Add to airline
+	airline.add_route(route)
+
+	# Emit signal
+	route_created.emit(route, airline)
+
+	# Notify tutorial if player route
+	if airline == player_airline and tutorial_manager:
+		tutorial_manager.on_action_performed("create_route")
+
+	# Update objectives
+	if airline == player_airline and objective_system:
+		objective_system.check_objectives_from_game_state()
+
+	print("Created route: %s (Freq: %d, Pricing: Y:$%.0f J:$%.0f F:$%.0f)" % [
+		route.get_display_name(),
+		route.frequency,
+		route.price_economy,
+		route.price_business,
+		route.price_first
+	])
+
+	return route

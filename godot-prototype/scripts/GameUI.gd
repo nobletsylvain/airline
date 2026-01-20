@@ -843,3 +843,78 @@ func analyze_existing_route(route: Route) -> void:
 		recommended.business,
 		recommended.first
 	])
+
+## Tutorial System Integration
+
+func continue_tutorial() -> void:
+	"""Advance to next tutorial step (call this when player clicks Continue)"""
+	if GameData.tutorial_manager:
+		GameData.tutorial_manager.complete_current_step()
+
+func skip_tutorial() -> void:
+	"""Skip the tutorial entirely"""
+	if GameData.tutorial_manager:
+		GameData.tutorial_manager.skip_tutorial()
+		print("Tutorial skipped - you can explore on your own!")
+
+func show_current_tutorial_step() -> void:
+	"""Display current tutorial step info"""
+	if not GameData.tutorial_manager or not GameData.tutorial_manager.is_active():
+		print("No active tutorial")
+		return
+
+	var step: TutorialStep = GameData.tutorial_manager.get_current_step()
+	if step:
+		print("\n" + "─".repeat(50))
+		print("📖 TUTORIAL: %s" % step.title)
+		print("─".repeat(50))
+		print(step.message)
+		print("─".repeat(50))
+
+		if step.is_action_step():
+			print("⚠ ACTION REQUIRED: %s" % step.action_hint)
+		else:
+			print("(Type 'continue_tutorial()' or press Continue to advance)")
+
+## Objective System Integration
+
+func show_objectives() -> void:
+	"""Display current objectives"""
+	if not GameData.objective_system:
+		print("Objective system not initialized")
+		return
+
+	GameData.objective_system.print_objectives_status()
+
+func check_objective_progress() -> void:
+	"""Update and display objective progress"""
+	if GameData.objective_system:
+		GameData.objective_system.check_objectives_from_game_state()
+		show_objectives()
+
+## Quick Tutorial Commands
+
+func tutorial_start() -> void:
+	"""Start the tutorial"""
+	if GameData.tutorial_manager:
+		GameData.tutorial_manager.start_tutorial()
+
+func tutorial_next() -> void:
+	"""Go to next tutorial step"""
+	continue_tutorial()
+
+func help_tutorial() -> void:
+	"""Show tutorial help"""
+	print("\n=== TUTORIAL COMMANDS ===")
+	print("tutorial_start() - Start the tutorial")
+	print("tutorial_next() or continue_tutorial() - Advance to next step")
+	print("skip_tutorial() - Skip tutorial entirely")
+	print("show_current_tutorial_step() - View current step")
+	print("")
+	print("=== OBJECTIVE COMMANDS ===")
+	print("show_objectives() - View all objectives")
+	print("check_objective_progress() - Update and view progress")
+	print("")
+	print("=== QUICK ACTIONS ===")
+	print("show_route_opportunities(airport) - Find profitable routes")
+	print("analyze_existing_route(route) - Analyze route performance")

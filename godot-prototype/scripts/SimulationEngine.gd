@@ -60,6 +60,14 @@ func simulate_week() -> void:
 	# Process AI decisions
 	process_ai_decisions()
 
+	# Update objectives after simulation
+	if GameData.objective_system:
+		GameData.objective_system.check_objectives_from_game_state()
+
+	# Notify tutorial of simulation
+	if GameData.tutorial_manager:
+		GameData.tutorial_manager.on_action_performed("run_simulation")
+
 	week_completed.emit(GameData.current_week)
 	print("=== Week %d Complete ===" % GameData.current_week)
 
