@@ -114,18 +114,18 @@ MIA → LAX (Winter):
 Asymmetric! LAX→MIA is 2x more profitable in winter.
 ```
 
-### 1.2 Hub Network Effects ⭐ HIGH PRIORITY
+### 1.2 Hub Network Effects ✅ COMPLETE
 **Why**: Currently no benefit to concentrated hub vs scattered routes
 
 **Implementation**:
-- [ ] Calculate connecting passenger demand
-- [ ] Routes from same hub create transfer passengers
-- [ ] Connection quality scoring:
-  - Compatible flight times (layover 1-4 hours)
-  - Same airline bonus (no baggage re-check)
+- [x] Calculate connecting passenger demand
+- [x] Routes from same hub create transfer passengers
+- [x] Connection quality scoring:
+  - Compatible flight times (frequency-based approximation)
+  - Same airline bonus (implicit - only same airline connections)
   - Hub size penalty (overcrowding)
-- [ ] Display connection potential in route planning
-- [ ] Revenue split for connecting passengers (origin + destination legs)
+- [x] Display connection potential in route planning
+- [x] Revenue added for connecting passengers on both legs
 
 **Impact**:
 - Building LAX hub with 10 routes creates exponential value
