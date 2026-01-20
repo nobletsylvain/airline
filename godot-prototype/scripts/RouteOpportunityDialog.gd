@@ -34,6 +34,7 @@ func _init() -> void:
 
 func _ready() -> void:
 	build_ui()
+	hide()  # Start hidden, only show when hub is selected
 
 func build_ui() -> void:
 	"""Build the dialog UI programmatically"""

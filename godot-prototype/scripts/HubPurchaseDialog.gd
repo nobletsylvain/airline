@@ -24,6 +24,7 @@ func _init() -> void:
 func _ready() -> void:
 	build_ui()
 	confirmed.connect(_on_confirmed)
+	hide()  # Start hidden, only show when explicitly opened
 
 func build_ui() -> void:
 	"""Build the dialog UI programmatically"""
