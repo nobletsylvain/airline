@@ -8,6 +8,9 @@ extends Control
 @onready var info_label: Label = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/InfoLabel
 @onready var week_label: Label = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/WeekLabel
 @onready var balance_label: Label = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/BalanceLabel
+
+# Grade badge (created dynamically)
+var grade_badge: Label = null
 # Speed control buttons
 @onready var pause_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/PlayButton
 @onready var speed_1x_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/Speed1xButton
@@ -166,6 +169,36 @@ func _ready() -> void:
 	# Create hub purchase dialog and button
 	create_hub_purchase_ui()
 
+	# Create grade badge in top bar
+	create_grade_badge()
+
+func create_grade_badge() -> void:
+	"""Create colored grade badge in top panel"""
+	var top_panel = get_node_or_null("MarginContainer/VBoxContainer/TopPanel/HBoxContainer")
+	if not top_panel:
+		return
+
+	# Create grade badge label
+	grade_badge = Label.new()
+	grade_badge.name = "GradeBadge"
+	grade_badge.custom_minimum_size = Vector2(60, 30)
+	grade_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	grade_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	grade_badge.add_theme_font_size_override("font_size", 16)
+
+	# Style the badge with background
+	var style = StyleBoxFlat.new()
+	style.bg_color = UITheme.GRADE_NEW_COLOR
+	style.set_corner_radius_all(4)
+	style.set_content_margin_all(6)
+	grade_badge.add_theme_stylebox_override("normal", style)
+
+	# Insert after info_label (index 1)
+	top_panel.add_child(grade_badge)
+	top_panel.move_child(grade_badge, 1)
+
+	print("Grade badge created in top panel")
+
 func update_all() -> void:
 	"""Update all UI elements"""
 	print("GameUI: update_all() called")
@@ -181,19 +214,42 @@ func update_top_panel() -> void:
 	if not GameData.player_airline:
 		return
 
+	var grade = GameData.player_airline.get_grade()
+
 	if info_label:
-		info_label.text = "%s | Grade: %s | Reputation: %.1f | Fleet: %d" % [
+		info_label.text = "%s | Rep: %.1f | Fleet: %d | Routes: %d" % [
 			GameData.player_airline.name,
-			GameData.player_airline.get_grade(),
 			GameData.player_airline.reputation,
-			GameData.player_airline.aircraft.size()
+			GameData.player_airline.aircraft.size(),
+			GameData.player_airline.routes.size()
 		]
+
+	# Update grade badge with color
+	if grade_badge:
+		grade_badge.text = grade
+		var grade_color = UITheme.get_grade_color(grade)
+		grade_badge.add_theme_color_override("font_color", Color.WHITE)
+		var style = StyleBoxFlat.new()
+		style.bg_color = grade_color
+		style.set_corner_radius_all(4)
+		style.set_content_margin_all(6)
+		grade_badge.add_theme_stylebox_override("normal", style)
 
 	if week_label:
 		week_label.text = "Week: %d" % GameData.current_week
 
 	if balance_label:
-		balance_label.text = "Balance: $%s" % format_money(GameData.player_airline.balance)
+		var weekly_profit = GameData.player_airline.calculate_weekly_profit()
+		var trend_arrow = ""
+		if weekly_profit > 0:
+			trend_arrow = " ▲"
+			balance_label.add_theme_color_override("font_color", UITheme.PROFIT_COLOR)
+		elif weekly_profit < 0:
+			trend_arrow = " ▼"
+			balance_label.add_theme_color_override("font_color", UITheme.LOSS_COLOR)
+		else:
+			balance_label.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+		balance_label.text = "$%s%s" % [format_money(GameData.player_airline.balance), trend_arrow]
 
 func update_route_tab() -> void:
 	"""Update Routes tab"""
@@ -213,15 +269,38 @@ func update_route_list() -> void:
 	for route in GameData.player_airline.routes:
 		var aircraft_info: String = ""
 		if not route.assigned_aircraft.is_empty():
-			aircraft_info = " [AC:%d]" % route.assigned_aircraft[0].id
+			aircraft_info = " ✈ %s" % route.assigned_aircraft[0].model.model_name
 
-		var profit_color: String = "+" if route.weekly_profit >= 0 else ""
-		var route_text: String = "%s%s | %dpax | %s$%s" % [
+		# Profit indicator
+		var profit_indicator: String
+		if route.weekly_profit > 0:
+			profit_indicator = "▲ +$%s" % format_money(route.weekly_profit)
+		elif route.weekly_profit < 0:
+			profit_indicator = "▼ -$%s" % format_money(abs(route.weekly_profit))
+		else:
+			profit_indicator = "─ $0"
+
+		# Load factor indicator
+		var load_factor: float = 0.0
+		if route.get_total_capacity() > 0 and route.frequency > 0:
+			load_factor = (route.passengers_transported / float(route.get_total_capacity() * route.frequency)) * 100
+
+		var load_indicator = ""
+		if load_factor >= 85:
+			load_indicator = "●"  # Full
+		elif load_factor >= 70:
+			load_indicator = "◐"  # Good
+		elif load_factor >= 50:
+			load_indicator = "◔"  # Moderate
+		else:
+			load_indicator = "○"  # Poor
+
+		var route_text: String = "%s%s\n%s %.0f%% | %s" % [
 			route.get_display_name(),
 			aircraft_info,
-			route.passengers_transported,
-			profit_color,
-			format_money(route.weekly_profit)
+			load_indicator,
+			load_factor,
+			profit_indicator
 		]
 		route_list.add_item(route_text)
 
@@ -268,12 +347,23 @@ func update_fleet_list() -> void:
 		return
 
 	for aircraft in GameData.player_airline.aircraft:
-		var status_icon: String = "✓" if aircraft.is_assigned else "○"
-		var text: String = "%s %s | ID:%d | %s | Condition:%.0f%%" % [
+		var status_icon: String = "✈" if aircraft.is_assigned else "○"
+
+		# Condition indicator
+		var condition_icon: String
+		if aircraft.condition >= 80:
+			condition_icon = "●"  # Good
+		elif aircraft.condition >= 50:
+			condition_icon = "◐"  # Warning
+		else:
+			condition_icon = "○"  # Poor
+
+		var text: String = "%s %s [#%d]\n   %s | %s %.0f%%" % [
 			status_icon,
 			aircraft.model.get_display_name(),
 			aircraft.id,
 			aircraft.get_status(),
+			condition_icon,
 			aircraft.condition
 		]
 		fleet_list.add_item(text)
@@ -299,12 +389,25 @@ func update_fleet_stats() -> void:
 	if total > 0:
 		avg_condition = total_condition / total
 
-	fleet_stats_label.text = "Total Aircraft: %d\nAvailable: %d\nAssigned: %d\nAvg Condition: %.1f%%" % [
+	# Get condition status indicator
+	var condition_indicator = ""
+	if avg_condition >= 80:
+		condition_indicator = "●"  # Good
+	elif avg_condition >= 50:
+		condition_indicator = "◐"  # Warning
+	else:
+		condition_indicator = "○"  # Poor
+
+	fleet_stats_label.text = "Total Aircraft: %d\nAvailable: %d | Assigned: %d\nAvg Condition: %s %.1f%%" % [
 		total,
 		available,
 		assigned,
+		condition_indicator,
 		avg_condition
 	]
+
+	# Color based on condition
+	fleet_stats_label.add_theme_color_override("font_color", UITheme.get_condition_color(avg_condition))
 
 func update_financials_tab() -> void:
 	"""Update Financials tab"""
@@ -317,12 +420,20 @@ func update_weekly_stats() -> void:
 	if not weekly_stats_label or not GameData.player_airline:
 		return
 
-	weekly_stats_label.text = "Revenue: $%s\nExpenses: $%s\nProfit: $%s\nBalance: $%s" % [
+	var profit = GameData.player_airline.calculate_weekly_profit()
+	var profit_sign = "+" if profit >= 0 else ""
+	var profit_text = "%s$%s" % [profit_sign, format_money(profit)]
+
+	weekly_stats_label.text = "Revenue: $%s\nExpenses: $%s\nProfit: %s\nBalance: $%s" % [
 		format_money(GameData.player_airline.weekly_revenue),
 		format_money(GameData.player_airline.weekly_expenses),
-		format_money(GameData.player_airline.calculate_weekly_profit()),
+		profit_text,
 		format_money(GameData.player_airline.balance)
 	]
+
+	# Color the profit line based on value
+	var profit_color = UITheme.get_profit_color(profit)
+	weekly_stats_label.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
 
 func update_loans_list() -> void:
 	"""Update the active loans list display"""
@@ -389,15 +500,36 @@ func update_competitor_list() -> void:
 				ai_personality = ai.get_personality_name()
 				break
 
-		var text: String = "%s (%s) | %s\nGrade: %s | Fleet: %d | Routes: %d\nBalance: $%s | Debt: $%s" % [
+		var grade = airline.get_grade()
+
+		# Grade indicator icon
+		var grade_icon = ""
+		match grade.to_upper():
+			"S", "S+": grade_icon = "★"
+			"A", "A+": grade_icon = "◆"
+			"B", "B+": grade_icon = "●"
+			"C", "C+": grade_icon = "○"
+			_: grade_icon = "·"
+
+		# Financial health indicator
+		var health_icon = ""
+		if airline.balance > airline.total_debt * 2:
+			health_icon = "▲"
+		elif airline.balance < airline.total_debt:
+			health_icon = "▼"
+		else:
+			health_icon = "─"
+
+		var text: String = "%s %s (%s)\n   %s | %s | ✈%d | ↗%d | %s$%s" % [
+			grade_icon,
 			airline.name,
 			airline.airline_code,
+			grade,
 			ai_personality,
-			airline.get_grade(),
 			airline.aircraft.size(),
 			airline.routes.size(),
-			format_money(airline.balance),
-			format_money(airline.total_debt)
+			health_icon,
+			format_money(airline.balance)
 		]
 		competitor_list.add_item(text)
 
@@ -569,8 +701,18 @@ func _on_route_simulated(route: Route, passengers: int, revenue: float) -> void:
 
 func _on_balance_changed(new_balance: float) -> void:
 	"""Handle airline balance change"""
-	if balance_label:
-		balance_label.text = "Balance: $%s" % format_money(new_balance)
+	if balance_label and GameData.player_airline:
+		var weekly_profit = GameData.player_airline.calculate_weekly_profit()
+		var trend_arrow = ""
+		if weekly_profit > 0:
+			trend_arrow = " ▲"
+			balance_label.add_theme_color_override("font_color", UITheme.PROFIT_COLOR)
+		elif weekly_profit < 0:
+			trend_arrow = " ▼"
+			balance_label.add_theme_color_override("font_color", UITheme.LOSS_COLOR)
+		else:
+			balance_label.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+		balance_label.text = "$%s%s" % [format_money(new_balance), trend_arrow]
 
 func _on_route_selected(index: int) -> void:
 	"""Handle route selection from list"""

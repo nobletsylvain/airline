@@ -13,6 +13,11 @@ var hover_route: Route = null
 var selected_route: Route = null
 var preview_mouse_pos: Vector2 = Vector2.ZERO  # Track mouse for preview line
 
+# Floating info panel
+var floating_panel: PanelContainer = null
+var floating_panel_position: Vector2 = Vector2.ZERO
+var floating_panel_target: Variant = null  # Can be Airport or Route
+
 # OpenStreetMap tile system
 var tile_manager: MapTileManager = null
 var osm_zoom: int = 2  # OSM zoom level (0-19, 2 = world view)
@@ -66,6 +71,9 @@ func _ready() -> void:
 	# Enable processing for plane animations
 	set_process(true)
 
+	# Create floating info panel
+	create_floating_panel()
+
 func _fit_map_to_viewport() -> void:
 	"""Fit the map to fill the viewport while maintaining bounds"""
 	# Calculate minimum zoom to fill the viewport
@@ -115,6 +123,18 @@ func _constrain_pan() -> void:
 		pan_offset.y = clamp(pan_offset.y, size.y - world_size.y, 0)
 
 func _gui_input(event: InputEvent) -> void:
+	# Handle ESC key to dismiss floating panel and clear selection
+	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		if floating_panel and floating_panel.visible:
+			hide_floating_panel()
+			accept_event()
+			return
+		elif selected_airport:
+			clear_selection()
+			queue_redraw()
+			accept_event()
+			return
+
 	# Handle zoom with mouse wheel
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
@@ -131,15 +151,22 @@ func _gui_input(event: InputEvent) -> void:
 			else:
 				is_panning = false
 			accept_event()
-		# Handle left click for route selection
+		# Handle left click for route selection or dismiss floating panel
 		elif event.button_index == MOUSE_BUTTON_LEFT and event.pressed and not is_panning:
 			var world_pos: Vector2 = screen_to_world(event.position)
 			var clicked_route: Route = find_route_at_position(world_pos)
 			if clicked_route:
+				hide_floating_panel()
 				selected_route = clicked_route
+				# Show floating panel for route
+				show_floating_panel_for_route(clicked_route, event.position)
 				route_clicked.emit(clicked_route)
 				queue_redraw()
 				accept_event()
+			elif floating_panel and floating_panel.visible:
+				# Click elsewhere dismisses floating panel
+				hide_floating_panel()
+				queue_redraw()
 
 	# Handle mouse motion for hover and panning
 	if event is InputEventMouseMotion:
@@ -757,6 +784,9 @@ func _on_airport_marker_mouse_exited() -> void:
 			airport_markers[prev_hover.iata_code].queue_redraw()
 
 func _on_airport_clicked(airport: Airport) -> void:
+	# Hide any existing floating panel first
+	hide_floating_panel()
+
 	# If we have a selected airport and click another, create route
 	if selected_airport != null and selected_airport != airport:
 		route_created.emit(selected_airport, airport)
@@ -770,6 +800,10 @@ func _on_airport_clicked(airport: Airport) -> void:
 		var prev_selected: Airport = selected_airport
 		selected_airport = airport
 		airport_clicked.emit(airport)
+
+		# Show floating panel near the airport
+		var screen_pos = world_to_screen(airport.position_2d)
+		show_floating_panel_for_airport(airport, screen_pos)
 
 		# Redraw affected markers
 		if prev_selected and prev_selected.iata_code in airport_markers:
@@ -848,3 +882,277 @@ func distance_to_route_line(point: Vector2, route: Route) -> float:
 
 	# Return distance to projection
 	return point.distance_to(projection)
+
+# ============================================================================
+# FLOATING INFO PANEL SYSTEM
+# ============================================================================
+
+func create_floating_panel() -> void:
+	"""Create the floating info panel (initially hidden)"""
+	floating_panel = PanelContainer.new()
+	floating_panel.name = "FloatingInfoPanel"
+	floating_panel.visible = false
+	floating_panel.custom_minimum_size = Vector2(280, 100)
+	floating_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	# Apply themed style
+	var style = UITheme.create_floating_panel_style()
+	floating_panel.add_theme_stylebox_override("panel", style)
+
+	# Create content container
+	var vbox = VBoxContainer.new()
+	vbox.name = "Content"
+	vbox.add_theme_constant_override("separation", 8)
+	floating_panel.add_child(vbox)
+
+	# Title label
+	var title_label = Label.new()
+	title_label.name = "TitleLabel"
+	title_label.add_theme_font_size_override("font_size", UITheme.FONT_SIZE_HEADER)
+	title_label.add_theme_color_override("font_color", UITheme.TEXT_ACCENT)
+	vbox.add_child(title_label)
+
+	# Info label (multi-line)
+	var info_label = Label.new()
+	info_label.name = "InfoLabel"
+	info_label.add_theme_font_size_override("font_size", UITheme.FONT_SIZE_BODY)
+	info_label.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD
+	vbox.add_child(info_label)
+
+	# Stats label (for colored stats)
+	var stats_label = Label.new()
+	stats_label.name = "StatsLabel"
+	stats_label.add_theme_font_size_override("font_size", UITheme.FONT_SIZE_BODY)
+	vbox.add_child(stats_label)
+
+	# Button container
+	var button_box = HBoxContainer.new()
+	button_box.name = "ButtonBox"
+	button_box.add_theme_constant_override("separation", 8)
+	vbox.add_child(button_box)
+
+	# Action button 1
+	var action1_btn = Button.new()
+	action1_btn.name = "Action1Button"
+	action1_btn.custom_minimum_size = Vector2(100, 32)
+	action1_btn.add_theme_font_size_override("font_size", UITheme.FONT_SIZE_SMALL)
+	action1_btn.pressed.connect(_on_floating_panel_action1)
+	button_box.add_child(action1_btn)
+
+	# Action button 2
+	var action2_btn = Button.new()
+	action2_btn.name = "Action2Button"
+	action2_btn.custom_minimum_size = Vector2(100, 32)
+	action2_btn.add_theme_font_size_override("font_size", UITheme.FONT_SIZE_SMALL)
+	action2_btn.pressed.connect(_on_floating_panel_action2)
+	button_box.add_child(action2_btn)
+
+	# Close button (small X)
+	var close_btn = Button.new()
+	close_btn.name = "CloseButton"
+	close_btn.text = "✕"
+	close_btn.flat = true
+	close_btn.custom_minimum_size = Vector2(24, 24)
+	close_btn.add_theme_font_size_override("font_size", 14)
+	close_btn.pressed.connect(hide_floating_panel)
+
+	# Position close button at top-right
+	close_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	close_btn.position = Vector2(-28, 4)
+	floating_panel.add_child(close_btn)
+
+	add_child(floating_panel)
+	print("Floating info panel created")
+
+func show_floating_panel_for_airport(airport: Airport, screen_pos: Vector2) -> void:
+	"""Show floating panel with airport info"""
+	if not floating_panel or not airport:
+		return
+
+	floating_panel_target = airport
+
+	# Get panel content nodes
+	var vbox = floating_panel.get_node("Content")
+	var title_label: Label = vbox.get_node("TitleLabel")
+	var info_label: Label = vbox.get_node("InfoLabel")
+	var stats_label: Label = vbox.get_node("StatsLabel")
+	var button_box: HBoxContainer = vbox.get_node("ButtonBox")
+	var action1_btn: Button = button_box.get_node("Action1Button")
+	var action2_btn: Button = button_box.get_node("Action2Button")
+
+	# Check if player hub
+	var is_player_hub = GameData.player_airline and GameData.player_airline.has_hub(airport)
+
+	# Set title with hub indicator
+	if is_player_hub:
+		title_label.text = "★ %s - %s" % [airport.iata_code, airport.name]
+		title_label.add_theme_color_override("font_color", UITheme.HUB_COLOR)
+	else:
+		title_label.text = "%s - %s" % [airport.iata_code, airport.name]
+		title_label.add_theme_color_override("font_color", UITheme.TEXT_ACCENT)
+
+	# Set info
+	info_label.text = "%s, %s\n%s | %d runways" % [
+		airport.city,
+		airport.country,
+		airport.get_hub_name(),
+		airport.runway_count
+	]
+
+	# Set stats with formatting
+	var pax_millions = airport.annual_passengers
+	stats_label.text = "Traffic: %dM pax/year\nGDP: $%s per capita" % [
+		pax_millions,
+		UITheme.format_number(airport.gdp_per_capita)
+	]
+	stats_label.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+
+	# Configure buttons
+	if is_player_hub:
+		action1_btn.text = "Plan Route"
+		action1_btn.visible = true
+		action2_btn.text = "View Routes"
+		action2_btn.visible = GameData.player_airline.routes.size() > 0
+	else:
+		action1_btn.text = "Select"
+		action1_btn.visible = true
+		action2_btn.visible = false
+
+	# Position and show panel
+	_position_floating_panel(screen_pos)
+	floating_panel.visible = true
+
+func show_floating_panel_for_route(route: Route, screen_pos: Vector2) -> void:
+	"""Show floating panel with route info"""
+	if not floating_panel or not route:
+		return
+
+	floating_panel_target = route
+
+	# Get panel content nodes
+	var vbox = floating_panel.get_node("Content")
+	var title_label: Label = vbox.get_node("TitleLabel")
+	var info_label: Label = vbox.get_node("InfoLabel")
+	var stats_label: Label = vbox.get_node("StatsLabel")
+	var button_box: HBoxContainer = vbox.get_node("ButtonBox")
+	var action1_btn: Button = button_box.get_node("Action1Button")
+	var action2_btn: Button = button_box.get_node("Action2Button")
+
+	# Determine if player's route
+	var is_player_route = route.airline_id == GameData.player_airline.id
+
+	# Set title
+	title_label.text = route.get_display_name()
+	if is_player_route:
+		title_label.add_theme_color_override("font_color", UITheme.PLAYER_ROUTE_COLOR)
+	else:
+		title_label.add_theme_color_override("font_color", UITheme.COMPETITOR_ROUTE_COLOR)
+
+	# Set info
+	var aircraft_name = "No aircraft"
+	if not route.assigned_aircraft.is_empty():
+		aircraft_name = route.assigned_aircraft[0].model.get_display_name()
+
+	info_label.text = "✈ %s\n%.0f km | %.1f hrs | %dx/week" % [
+		aircraft_name,
+		route.distance_km,
+		route.flight_duration_hours,
+		route.frequency
+	]
+
+	# Set stats with profit coloring
+	var profit = route.weekly_profit
+	var profit_color = UITheme.get_profit_color(profit)
+	var profit_sign = "+" if profit >= 0 else ""
+
+	# Calculate load factor
+	var load_factor: float = 0.0
+	if route.get_total_capacity() > 0 and route.frequency > 0:
+		load_factor = (route.passengers_transported / float(route.get_total_capacity() * route.frequency)) * 100
+
+	var load_color = UITheme.get_load_factor_color(load_factor)
+
+	stats_label.text = "Load: %.0f%% | Pax: %d\nProfit: %s$%s/wk" % [
+		load_factor,
+		route.passengers_transported,
+		profit_sign,
+		UITheme.format_money(abs(profit))
+	]
+	stats_label.add_theme_color_override("font_color", profit_color)
+
+	# Configure buttons
+	if is_player_route:
+		action1_btn.text = "Edit Route"
+		action1_btn.visible = true
+		action2_btn.text = "Cancel Route"
+		action2_btn.visible = true
+	else:
+		action1_btn.text = "View Details"
+		action1_btn.visible = true
+		action2_btn.visible = false
+
+	# Position and show panel
+	_position_floating_panel(screen_pos)
+	floating_panel.visible = true
+
+func _position_floating_panel(near_pos: Vector2) -> void:
+	"""Position floating panel near the given screen position, keeping within viewport"""
+	if not floating_panel:
+		return
+
+	# Get panel size
+	var panel_size = floating_panel.get_combined_minimum_size()
+
+	# Default position: to the right and below
+	var panel_pos = near_pos + Vector2(20, 10)
+
+	# Keep within viewport bounds
+	if panel_pos.x + panel_size.x > size.x - 10:
+		panel_pos.x = near_pos.x - panel_size.x - 20
+
+	if panel_pos.y + panel_size.y > size.y - 10:
+		panel_pos.y = near_pos.y - panel_size.y - 10
+
+	if panel_pos.x < 10:
+		panel_pos.x = 10
+
+	if panel_pos.y < 10:
+		panel_pos.y = 10
+
+	floating_panel.position = panel_pos
+
+func hide_floating_panel() -> void:
+	"""Hide the floating info panel"""
+	if floating_panel:
+		floating_panel.visible = false
+		floating_panel_target = null
+
+func _on_floating_panel_action1() -> void:
+	"""Handle first action button click"""
+	if floating_panel_target is Airport:
+		var airport: Airport = floating_panel_target
+		var is_player_hub = GameData.player_airline and GameData.player_airline.has_hub(airport)
+		if is_player_hub:
+			# Emit signal to open route planning dialog
+			airport_clicked.emit(airport)
+		else:
+			# Select this airport for route creation
+			selected_airport = airport
+			queue_redraw()
+		hide_floating_panel()
+	elif floating_panel_target is Route:
+		var route: Route = floating_panel_target
+		if route.airline_id == GameData.player_airline.id:
+			# Emit signal to open route editor
+			route_clicked.emit(route)
+		hide_floating_panel()
+
+func _on_floating_panel_action2() -> void:
+	"""Handle second action button click"""
+	if floating_panel_target is Route:
+		var route: Route = floating_panel_target
+		if route.airline_id == GameData.player_airline.id:
+			# TODO: Cancel/delete route confirmation
+			print("Cancel route requested for: %s" % route.get_display_name())
+	hide_floating_panel()
