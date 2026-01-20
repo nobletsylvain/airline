@@ -20,9 +20,7 @@ var plane_sprites: Array[PlaneSprite] = []
 var hover_plane: PlaneSprite = null
 var last_route_count: int = 0  # Track when routes change to respawn planes
 
-# Plane animation timing (separate from simulation for visual appeal)
-var plane_time_accumulator: float = 0.0
-var plane_cycle_duration: float = 60.0  # 60 seconds for one visual "week" cycle
+# Plane animation now syncs with simulation time
 
 # Route visualization settings
 var show_route_labels: bool = true
@@ -114,7 +112,7 @@ func _gui_input(event: InputEvent) -> void:
 			if selected_airport:
 				queue_redraw()
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	"""Update plane positions each frame"""
 	# Check if routes have changed (need to respawn planes)
 	var current_route_count: int = get_total_route_count()
@@ -122,12 +120,7 @@ func _process(delta: float) -> void:
 		spawn_planes()
 		last_route_count = current_route_count
 
-	# Update plane animation time (runs continuously, independent of simulation)
-	plane_time_accumulator += delta
-	if plane_time_accumulator >= plane_cycle_duration:
-		plane_time_accumulator = fmod(plane_time_accumulator, plane_cycle_duration)
-
-	# Calculate current hour within the week
+	# Calculate current hour within the week (synced with simulation)
 	var current_week_hour: float = get_current_week_hour()
 
 	# Update all plane positions
@@ -149,9 +142,10 @@ func get_total_route_count() -> int:
 
 func get_current_week_hour() -> float:
 	"""Calculate current hour within the week (0-168) for plane animations"""
-	# Use separate plane animation time (slower, more visual)
-	var progress_through_week: float = plane_time_accumulator / plane_cycle_duration
-	return progress_through_week * 168.0  # 168 hours in a week
+	# Sync with simulation time
+	if GameData.simulation_engine:
+		return GameData.simulation_engine.get_current_week_hour()
+	return 0.0
 
 func spawn_planes() -> void:
 	"""Create plane sprites for all active routes"""

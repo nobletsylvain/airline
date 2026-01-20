@@ -60,6 +60,25 @@ vertical_alignment = 1
 layout_mode = 2
 text = "Play"
 
+[node name="SlowerButton" type="Button" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(30, 0)
+text = "<<"
+tooltip_text = "Slower"
+
+[node name="SpeedLabel" type="Label" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(80, 0)
+text = "Normal"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="FasterButton" type="Button" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
+layout_mode = 2
+custom_minimum_size = Vector2(30, 0)
+text = ">>"
+tooltip_text = "Faster"
+
 [node name="StepButton" type="Button" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
 layout_mode = 2
 text = "Step Week"

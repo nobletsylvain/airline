@@ -2,26 +2,56 @@ extends Node
 
 ## Handles the weekly simulation cycle
 
-@export var simulation_speed: float = 1.0  # 1.0 = normal, 2.0 = 2x speed
+# Speed presets: maps game hours to real seconds
+# Real-time: 1 game hour = 60 real seconds (1 week = 2.8 hours)
+# Slow: 1 game hour = 10 real seconds (1 week = 28 minutes)
+# Normal: 1 game hour = 2 real seconds (1 week = 5.6 minutes)
+# Fast: 1 game hour = 0.5 real seconds (1 week = 84 seconds)
+# Very Fast: 1 game hour = 0.1 real seconds (1 week = 16.8 seconds)
+
+enum SpeedLevel { PAUSED, REAL_TIME, SLOW, NORMAL, FAST, VERY_FAST }
+
+# Seconds per game hour for each speed level
+const SPEED_PRESETS: Dictionary = {
+	SpeedLevel.PAUSED: 0.0,
+	SpeedLevel.REAL_TIME: 60.0,    # 1 hour = 1 minute real time
+	SpeedLevel.SLOW: 10.0,         # 1 hour = 10 seconds
+	SpeedLevel.NORMAL: 2.0,        # 1 hour = 2 seconds
+	SpeedLevel.FAST: 0.5,          # 1 hour = 0.5 seconds
+	SpeedLevel.VERY_FAST: 0.1,     # 1 hour = 0.1 seconds
+}
+
+const SPEED_NAMES: Dictionary = {
+	SpeedLevel.PAUSED: "Paused",
+	SpeedLevel.REAL_TIME: "Real-Time",
+	SpeedLevel.SLOW: "Slow",
+	SpeedLevel.NORMAL: "Normal",
+	SpeedLevel.FAST: "Fast",
+	SpeedLevel.VERY_FAST: "Very Fast",
+}
+
 @export var auto_simulate: bool = false
 
 var is_running: bool = false
-var time_accumulator: float = 0.0
-var week_duration: float = 5.0  # 5 seconds per week in real-time
+var time_accumulator: float = 0.0  # Accumulates in game hours
+var current_speed_level: SpeedLevel = SpeedLevel.NORMAL
+var seconds_per_hour: float = 2.0  # Current speed setting
 
 signal simulation_started()
 signal simulation_paused()
+signal speed_changed(speed_level: SpeedLevel, speed_name: String)
 signal week_completed(week_number: int)
 signal route_simulated(route: Route, passengers: int, revenue: float)
 
 func _ready() -> void:
 	set_process(false)
+	set_speed(SpeedLevel.NORMAL)
 
 func start_simulation() -> void:
 	is_running = true
 	set_process(true)
 	simulation_started.emit()
-	print("Simulation started")
+	print("Simulation started at %s speed" % get_speed_name())
 
 func pause_simulation() -> void:
 	is_running = false
@@ -29,14 +59,47 @@ func pause_simulation() -> void:
 	simulation_paused.emit()
 	print("Simulation paused")
 
+func toggle_pause() -> void:
+	if is_running:
+		pause_simulation()
+	else:
+		start_simulation()
+
+func set_speed(level: SpeedLevel) -> void:
+	"""Set simulation speed to a preset level"""
+	current_speed_level = level
+	seconds_per_hour = SPEED_PRESETS[level]
+	speed_changed.emit(level, SPEED_NAMES[level])
+	print("Speed set to: %s (%.1f sec/hour)" % [SPEED_NAMES[level], seconds_per_hour])
+
+func increase_speed() -> void:
+	"""Increase speed to next level"""
+	var next_level: int = mini(current_speed_level + 1, SpeedLevel.VERY_FAST)
+	set_speed(next_level as SpeedLevel)
+
+func decrease_speed() -> void:
+	"""Decrease speed to previous level"""
+	var prev_level: int = maxi(current_speed_level - 1, SpeedLevel.PAUSED)
+	set_speed(prev_level as SpeedLevel)
+
+func get_speed_name() -> String:
+	return SPEED_NAMES[current_speed_level]
+
+func get_current_week_hour() -> float:
+	"""Get current hour within the week (0-168)"""
+	return time_accumulator
+
 func _process(delta: float) -> void:
-	if not is_running:
+	if not is_running or current_speed_level == SpeedLevel.PAUSED:
 		return
 
-	time_accumulator += delta * simulation_speed
+	# Convert real seconds to game hours based on speed
+	var hours_elapsed: float = delta / seconds_per_hour
+	time_accumulator += hours_elapsed
 
-	if time_accumulator >= week_duration:
-		time_accumulator = 0.0
+	# Check if a week has passed (168 hours)
+	if time_accumulator >= 168.0:
+		time_accumulator = fmod(time_accumulator, 168.0)
 		simulate_week()
 
 func simulate_week() -> void:

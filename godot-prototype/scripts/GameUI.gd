@@ -9,6 +9,9 @@ extends Control
 @onready var week_label: Label = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/WeekLabel
 @onready var balance_label: Label = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/BalanceLabel
 @onready var play_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/PlayButton
+@onready var slower_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/SlowerButton
+@onready var speed_label: Label = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/SpeedLabel
+@onready var faster_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/FasterButton
 @onready var step_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/StepButton
 
 # Map (Always Visible)
@@ -81,6 +84,7 @@ func _ready() -> void:
 		simulation_engine.route_simulated.connect(_on_route_simulated)
 		simulation_engine.simulation_started.connect(_on_simulation_started)
 		simulation_engine.simulation_paused.connect(_on_simulation_paused)
+		simulation_engine.speed_changed.connect(_on_speed_changed)
 
 	# Connect map signals
 	if world_map:
@@ -92,6 +96,10 @@ func _ready() -> void:
 	# Connect button signals
 	if play_button:
 		play_button.pressed.connect(_on_play_button_pressed)
+	if slower_button:
+		slower_button.pressed.connect(_on_slower_button_pressed)
+	if faster_button:
+		faster_button.pressed.connect(_on_faster_button_pressed)
 	if step_button:
 		step_button.pressed.connect(_on_step_button_pressed)
 	if purchase_button:
@@ -524,6 +532,21 @@ func _on_simulation_started() -> void:
 func _on_simulation_paused() -> void:
 	if play_button:
 		play_button.text = "Play"
+
+func _on_slower_button_pressed() -> void:
+	"""Decrease simulation speed"""
+	if simulation_engine:
+		simulation_engine.decrease_speed()
+
+func _on_faster_button_pressed() -> void:
+	"""Increase simulation speed"""
+	if simulation_engine:
+		simulation_engine.increase_speed()
+
+func _on_speed_changed(_speed_level: int, speed_name: String) -> void:
+	"""Update speed label when speed changes"""
+	if speed_label:
+		speed_label.text = speed_name
 
 func _on_week_completed(week: int) -> void:
 	"""Handle week simulation completion"""
