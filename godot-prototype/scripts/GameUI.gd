@@ -1,70 +1,24 @@
 extends Control
 
-## Main game UI controller - Map-centric design
+## Main game UI controller - Dashboard layout integration
+## Bridges DashboardUI, WorldMap, and SimulationEngine
 
 @onready var simulation_engine: Node = $SimulationEngine
+@onready var dashboard_ui: DashboardUI = $DashboardUI
+@onready var world_map: Control = $WorldMap
 
-# Top Panel
-@onready var info_label: Label = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/InfoLabel
-@onready var week_label: Label = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/WeekLabel
-@onready var balance_label: Label = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/BalanceLabel
+# Content panels for different tabs
+var fleet_panel: Control = null
+var routes_panel: Control = null
+var finances_panel: Control = null
+var market_panel: Control = null
 
-# Grade badge (created dynamically)
-var grade_badge: Label = null
-# Speed control buttons
-@onready var pause_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/PlayButton
-@onready var speed_1x_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/Speed1xButton
-@onready var speed_10x_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/Speed10xButton
-@onready var speed_50x_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/Speed50xButton
-@onready var speed_200x_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/Speed200xButton
-@onready var speed_max_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/SpeedMaxButton
-@onready var step_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/StepButton
-var speed_buttons: Array[Button] = []
+# Dialog references
+var route_config_dialog: RouteConfigDialog = null
+var route_opportunity_dialog: RouteOpportunityDialog = null
+var hub_purchase_dialog: HubPurchaseDialog = null
 
-# Map (Always Visible)
-@onready var world_map: Control = $MarginContainer/VBoxContainer/MainArea/WorldMap
-
-# Right Side Panels
-@onready var airport_info: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/InfoPanel/VBoxContainer/AirportInfo
-
-# Routes Tab
-@onready var route_list: ItemList = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Routes/VBoxContainer/RouteList
-var route_cards_container: VBoxContainer = null
-var route_cards: Array[RouteCard] = []
-var selected_route_card: RouteCard = null
-
-# Fleet Tab
-@onready var fleet_list: ItemList = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer/FleetList
-@onready var fleet_stats_label: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer/FleetStatsPanel/FleetStats
-@onready var aircraft_list: ItemList = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer/AircraftList
-@onready var aircraft_details: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer/AircraftDetailsPanel/VBoxContainer/AircraftDetails
-@onready var purchase_button: Button = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer/AircraftDetailsPanel/VBoxContainer/PurchaseButton
-var fleet_cards_container: VBoxContainer = null
-var fleet_cards: Array[FleetCard] = []
-var selected_fleet_card: FleetCard = null
-
-# Financials Tab
-@onready var weekly_stats_label: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/WeeklyStatsPanel/WeeklyStats
-@onready var loans_list: ItemList = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoansList
-@onready var loan_summary_label: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanSummary
-@onready var credit_info_label: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel/VBoxContainer/CreditInfo
-@onready var amount_input: LineEdit = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel/VBoxContainer/AmountContainer/AmountInput
-@onready var term_input: LineEdit = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel/VBoxContainer/TermContainer/TermInput
-@onready var payment_preview: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel/VBoxContainer/PaymentPreview
-@onready var apply_loan_button: Button = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/LoanPanel/VBoxContainer/ApplyButton
-@onready var application_result: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/ApplicationResult
-
-# Market Tab
-@onready var competitor_list: ItemList = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market/VBoxContainer/CompetitorList
-@onready var market_stats_label: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market/VBoxContainer/MarketStatsPanel/MarketStats
-@onready var competitor_detail: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market/VBoxContainer/CompetitorDetailPanel/CompetitorDetail
-@onready var competing_routes_list: ItemList = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market/VBoxContainer/CompetingRoutes
-
-var selected_route: Route = null
-var selected_aircraft_model_index: int = -1
-var selected_competitor_index: int = -1
-
-# Tutorial UI
+# Tutorial system
 var tutorial_overlay_layer: CanvasLayer = null
 var tutorial_panel: Panel = null
 var tutorial_title: Label = null
@@ -74,1553 +28,482 @@ var tutorial_skip_button: Button = null
 var tutorial_continue_button: Button = null
 var tutorial_skip_dialog: ConfirmationDialog = null
 
-# Route configuration dialog
-var route_config_dialog: RouteConfigDialog = null
-
-# Route opportunity dialog (for planning from hubs)
-var route_opportunity_dialog: RouteOpportunityDialog = null
-
-# Hub purchase dialog
-var hub_purchase_dialog: HubPurchaseDialog = null
-var purchase_hub_button: Button = null
-
 func _ready() -> void:
 	print("GameUI: _ready() called")
-	print("  aircraft_list node: ", aircraft_list)
 
-	# Connect simulation signals
+	# Wait for game data initialization
+	if not GameData.player_airline or GameData.aircraft_models.is_empty():
+		print("GameUI: Waiting for GameData initialization...")
+		await GameData.game_initialized
+		print("GameUI: GameData initialized!")
+
+	# Setup simulation engine
+	setup_simulation_engine()
+
+	# Setup dashboard UI
+	setup_dashboard()
+
+	# Setup world map
+	setup_world_map()
+
+	# Create dialogs
+	create_dialogs()
+
+	# Create tutorial overlay
+	create_tutorial_overlay()
+
+	# Connect signals
+	connect_signals()
+
+	# Initial UI update
+	update_all()
+
+	print("GameUI: _ready() complete!")
+
+func setup_simulation_engine() -> void:
+	"""Configure simulation engine"""
 	if simulation_engine:
-		# Store reference in GameData for plane animations
 		GameData.simulation_engine = simulation_engine
-
 		simulation_engine.week_completed.connect(_on_week_completed)
 		simulation_engine.route_simulated.connect(_on_route_simulated)
 		simulation_engine.simulation_started.connect(_on_simulation_started)
 		simulation_engine.simulation_paused.connect(_on_simulation_paused)
 		simulation_engine.speed_changed.connect(_on_speed_changed)
 
-	# Connect map signals
+func setup_dashboard() -> void:
+	"""Configure dashboard UI and embed content"""
+	if not dashboard_ui:
+		push_error("DashboardUI not found!")
+		return
+
+	# Connect dashboard to simulation engine
+	dashboard_ui.simulation_engine = simulation_engine
+
+	# Connect tab change signal
+	dashboard_ui.tab_changed.connect(_on_tab_changed)
+
+	# Get main content area
+	var main_content = dashboard_ui.get_main_content()
+	if not main_content:
+		push_error("DashboardUI main content not found!")
+		return
+
+	# Reparent WorldMap into main content
+	if world_map:
+		world_map.visible = true
+		world_map.get_parent().remove_child(world_map)
+		main_content.add_child(world_map)
+		world_map.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		print("WorldMap embedded into dashboard main content")
+
+	# Create other content panels (hidden by default)
+	create_content_panels(main_content)
+
+func setup_world_map() -> void:
+	"""Configure world map signals"""
 	if world_map:
 		world_map.airport_clicked.connect(_on_airport_clicked)
 		world_map.airport_hovered.connect(_on_airport_hovered)
 		world_map.route_created.connect(_on_route_created)
 		world_map.route_clicked.connect(_on_route_clicked)
 
-	# Connect speed control buttons and add keyboard shortcut hints
-	speed_buttons = [pause_button, speed_1x_button, speed_10x_button, speed_50x_button, speed_200x_button, speed_max_button]
-	if pause_button:
-		pause_button.pressed.connect(_on_speed_button_pressed.bind(0))
-		pause_button.tooltip_text = "Pause (Space)"
-	if speed_1x_button:
-		speed_1x_button.pressed.connect(_on_speed_button_pressed.bind(1))
-		speed_1x_button.tooltip_text = "Real-Time [1]"
-	if speed_10x_button:
-		speed_10x_button.pressed.connect(_on_speed_button_pressed.bind(2))
-		speed_10x_button.tooltip_text = "Slow (10x) [2]"
-	if speed_50x_button:
-		speed_50x_button.pressed.connect(_on_speed_button_pressed.bind(3))
-		speed_50x_button.tooltip_text = "Normal (50x) [3]"
-	if speed_200x_button:
-		speed_200x_button.pressed.connect(_on_speed_button_pressed.bind(4))
-		speed_200x_button.tooltip_text = "Fast (200x) [4]"
-	if speed_max_button:
-		speed_max_button.pressed.connect(_on_speed_button_pressed.bind(5))
-		speed_max_button.tooltip_text = "Max Speed [5]"
-	if step_button:
-		step_button.pressed.connect(_on_step_button_pressed)
-	if purchase_button:
-		purchase_button.pressed.connect(_on_purchase_button_pressed)
-	if apply_loan_button:
-		apply_loan_button.pressed.connect(_on_apply_loan_pressed)
+func create_content_panels(parent: Control) -> void:
+	"""Create content panels for non-map tabs"""
 
-	# Connect list signals
-	if route_list:
-		route_list.item_selected.connect(_on_route_selected)
-	if aircraft_list:
-		aircraft_list.item_selected.connect(_on_aircraft_model_selected)
-	if competitor_list:
-		competitor_list.item_selected.connect(_on_competitor_selected)
+	# Fleet Panel
+	fleet_panel = create_fleet_panel()
+	fleet_panel.visible = false
+	parent.add_child(fleet_panel)
 
-	# Connect input signals for loan preview
-	if amount_input:
-		amount_input.text_changed.connect(_on_loan_input_changed)
-	if term_input:
-		term_input.text_changed.connect(_on_loan_input_changed)
+	# Routes Panel
+	routes_panel = create_routes_panel()
+	routes_panel.visible = false
+	parent.add_child(routes_panel)
 
-	# Wait for game data (only if not already initialized)
-	if not GameData.player_airline or GameData.aircraft_models.is_empty():
-		print("GameUI: Waiting for GameData initialization...")
-		await GameData.game_initialized
-		print("GameUI: GameData initialized!")
-	else:
-		print("GameUI: GameData already initialized!")
+	# Finances Panel
+	finances_panel = create_finances_panel()
+	finances_panel.visible = false
+	parent.add_child(finances_panel)
 
-	# Connect airline signals
+	# Market Panel
+	market_panel = create_market_panel()
+	market_panel.visible = false
+	parent.add_child(market_panel)
+
+func create_fleet_panel() -> Control:
+	"""Create fleet management panel"""
+	var panel = PanelContainer.new()
+	panel.name = "FleetPanel"
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	var style = UITheme.create_panel_style()
+	style.bg_color = UITheme.BG_MAIN
+	panel.add_theme_stylebox_override("panel", style)
+
+	var margin = MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 24)
+	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_top", 24)
+	margin.add_theme_constant_override("margin_bottom", 24)
+	panel.add_child(margin)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 16)
+	margin.add_child(vbox)
+
+	# Title
+	var title = Label.new()
+	title.text = "Fleet Management"
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+	vbox.add_child(title)
+
+	# Fleet content will be populated dynamically
+	var content = Label.new()
+	content.name = "FleetContent"
+	content.text = "Your fleet will be displayed here.\n\nPurchase aircraft from the market to grow your fleet."
+	content.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	vbox.add_child(content)
+
+	return panel
+
+func create_routes_panel() -> Control:
+	"""Create routes management panel"""
+	var panel = PanelContainer.new()
+	panel.name = "RoutesPanel"
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	var style = UITheme.create_panel_style()
+	style.bg_color = UITheme.BG_MAIN
+	panel.add_theme_stylebox_override("panel", style)
+
+	var margin = MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 24)
+	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_top", 24)
+	margin.add_theme_constant_override("margin_bottom", 24)
+	panel.add_child(margin)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 16)
+	margin.add_child(vbox)
+
+	# Title
+	var title = Label.new()
+	title.text = "Route Network"
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+	vbox.add_child(title)
+
+	var content = Label.new()
+	content.name = "RoutesContent"
+	content.text = "Your routes will be displayed here.\n\nClick on the map to create new routes."
+	content.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	vbox.add_child(content)
+
+	return panel
+
+func create_finances_panel() -> Control:
+	"""Create finances panel"""
+	var panel = PanelContainer.new()
+	panel.name = "FinancesPanel"
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	var style = UITheme.create_panel_style()
+	style.bg_color = UITheme.BG_MAIN
+	panel.add_theme_stylebox_override("panel", style)
+
+	var margin = MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 24)
+	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_top", 24)
+	margin.add_theme_constant_override("margin_bottom", 24)
+	panel.add_child(margin)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 16)
+	margin.add_child(vbox)
+
+	var title = Label.new()
+	title.text = "Financial Overview"
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+	vbox.add_child(title)
+
+	var content = Label.new()
+	content.name = "FinancesContent"
+	content.text = "Financial data will be displayed here."
+	content.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	vbox.add_child(content)
+
+	return panel
+
+func create_market_panel() -> Control:
+	"""Create market panel"""
+	var panel = PanelContainer.new()
+	panel.name = "MarketPanel"
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	var style = UITheme.create_panel_style()
+	style.bg_color = UITheme.BG_MAIN
+	panel.add_theme_stylebox_override("panel", style)
+
+	var margin = MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 24)
+	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_top", 24)
+	margin.add_theme_constant_override("margin_bottom", 24)
+	panel.add_child(margin)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 16)
+	margin.add_child(vbox)
+
+	var title = Label.new()
+	title.text = "Market & Competitors"
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+	vbox.add_child(title)
+
+	var content = Label.new()
+	content.name = "MarketContent"
+	content.text = "Market data and competitors will be displayed here."
+	content.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	vbox.add_child(content)
+
+	return panel
+
+func create_dialogs() -> void:
+	"""Create all dialog windows"""
+	# Route configuration dialog
+	route_config_dialog = RouteConfigDialog.new()
+	add_child(route_config_dialog)
+	route_config_dialog.route_configured.connect(_on_route_configured)
+
+	# Route opportunity dialog
+	route_opportunity_dialog = RouteOpportunityDialog.new()
+	add_child(route_opportunity_dialog)
+	route_opportunity_dialog.route_selected.connect(_on_route_opportunity_selected)
+
+	# Hub purchase dialog
+	hub_purchase_dialog = HubPurchaseDialog.new()
+	add_child(hub_purchase_dialog)
+	hub_purchase_dialog.hub_purchased.connect(_on_hub_purchased)
+
+	print("Dialogs created")
+
+func connect_signals() -> void:
+	"""Connect game data signals"""
 	if GameData.player_airline:
 		GameData.player_airline.balance_changed.connect(_on_balance_changed)
 		GameData.player_airline.route_added.connect(_on_route_added)
 
-	# Connect global signals
 	GameData.aircraft_purchased.connect(_on_aircraft_purchased)
 	GameData.loan_created.connect(_on_loan_created)
 
-	print("GameUI: Calling update_all()...")
-	# Initialize UI
-	update_all()
-	print("GameUI: _ready() complete!")
+func _on_tab_changed(tab_name: String) -> void:
+	"""Handle tab navigation"""
+	print("Tab changed to: ", tab_name)
 
-	# Create tutorial overlay
-	create_tutorial_overlay()
+	# Hide all content panels
+	if world_map:
+		world_map.visible = false
+	if fleet_panel:
+		fleet_panel.visible = false
+	if routes_panel:
+		routes_panel.visible = false
+	if finances_panel:
+		finances_panel.visible = false
+	if market_panel:
+		market_panel.visible = false
 
-	# Create route configuration dialog
-	create_route_config_dialog()
-
-	# Create route opportunity dialog
-	create_route_opportunity_dialog()
-
-	# Create hub purchase dialog and button
-	create_hub_purchase_ui()
-
-	# Create grade badge in top bar
-	create_grade_badge()
-
-	# Create route cards container (replace ItemList)
-	create_route_cards_container()
-
-	# Create fleet cards container (replace ItemList)
-	create_fleet_cards_container()
-
-func create_grade_badge() -> void:
-	"""Create colored grade badge in top panel"""
-	var top_panel = get_node_or_null("MarginContainer/VBoxContainer/TopPanel/HBoxContainer")
-	if not top_panel:
-		return
-
-	# Create grade badge label
-	grade_badge = Label.new()
-	grade_badge.name = "GradeBadge"
-	grade_badge.custom_minimum_size = Vector2(60, 30)
-	grade_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	grade_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	grade_badge.add_theme_font_size_override("font_size", 16)
-
-	# Style the badge with background
-	var style = StyleBoxFlat.new()
-	style.bg_color = UITheme.GRADE_NEW_COLOR
-	style.set_corner_radius_all(4)
-	style.set_content_margin_all(6)
-	grade_badge.add_theme_stylebox_override("normal", style)
-
-	# Insert after info_label (index 1)
-	top_panel.add_child(grade_badge)
-	top_panel.move_child(grade_badge, 1)
-
-	print("Grade badge created in top panel")
-
-func create_route_cards_container() -> void:
-	"""Create a VBoxContainer to hold RouteCards instead of ItemList"""
-	if not route_list:
-		return
-
-	# Get the parent of the ItemList
-	var parent = route_list.get_parent()
-	if not parent:
-		return
-
-	# Hide the old ItemList
-	route_list.visible = false
-
-	# Create new scroll container and cards container
-	var scroll = ScrollContainer.new()
-	scroll.name = "RouteCardsScroll"
-	scroll.custom_minimum_size = Vector2(0, 300)
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	parent.add_child(scroll)
-
-	route_cards_container = VBoxContainer.new()
-	route_cards_container.name = "RouteCardsContainer"
-	route_cards_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	route_cards_container.add_theme_constant_override("separation", UITheme.CARD_MARGIN)
-	scroll.add_child(route_cards_container)
-
-	print("Route cards container created")
-
-func create_fleet_cards_container() -> void:
-	"""Create a VBoxContainer to hold FleetCards instead of ItemList"""
-	if not fleet_list:
-		return
-
-	# Get the parent of the ItemList
-	var parent = fleet_list.get_parent()
-	if not parent:
-		return
-
-	# Hide the old ItemList
-	fleet_list.visible = false
-
-	# Create new scroll container and cards container
-	var scroll = ScrollContainer.new()
-	scroll.name = "FleetCardsScroll"
-	scroll.custom_minimum_size = Vector2(0, 180)
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-
-	# Insert after the hidden fleet_list
-	var list_index = fleet_list.get_index()
-	parent.add_child(scroll)
-	parent.move_child(scroll, list_index + 1)
-
-	fleet_cards_container = VBoxContainer.new()
-	fleet_cards_container.name = "FleetCardsContainer"
-	fleet_cards_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	fleet_cards_container.add_theme_constant_override("separation", 6)
-	scroll.add_child(fleet_cards_container)
-
-	print("Fleet cards container created")
+	# Show selected panel
+	match tab_name:
+		"map":
+			if world_map:
+				world_map.visible = true
+		"fleet":
+			if fleet_panel:
+				fleet_panel.visible = true
+				update_fleet_panel()
+		"routes":
+			if routes_panel:
+				routes_panel.visible = true
+				update_routes_panel()
+		"finances":
+			if finances_panel:
+				finances_panel.visible = true
+				update_finances_panel()
+		"market":
+			if market_panel:
+				market_panel.visible = true
+				update_market_panel()
 
 func update_all() -> void:
 	"""Update all UI elements"""
-	print("GameUI: update_all() called")
-	update_top_panel()
-	update_route_tab()
-	update_fleet_tab()
-	update_financials_tab()
-	update_market_tab()
-	print("GameUI: update_all() complete")
+	if dashboard_ui:
+		dashboard_ui.update_stats()
 
-func update_top_panel() -> void:
-	"""Update the top status bar"""
-	if not GameData.player_airline:
+func update_fleet_panel() -> void:
+	"""Update fleet panel content"""
+	if not fleet_panel or not GameData.player_airline:
 		return
 
-	var grade = GameData.player_airline.get_grade()
-
-	if info_label:
-		info_label.text = "%s | Rep: %.1f | Fleet: %d | Routes: %d" % [
-			GameData.player_airline.name,
-			GameData.player_airline.reputation,
-			GameData.player_airline.aircraft.size(),
-			GameData.player_airline.routes.size()
-		]
-
-	# Update grade badge with color
-	if grade_badge:
-		grade_badge.text = grade
-		var grade_color = UITheme.get_grade_color(grade)
-		grade_badge.add_theme_color_override("font_color", Color.WHITE)
-		var style = StyleBoxFlat.new()
-		style.bg_color = grade_color
-		style.set_corner_radius_all(4)
-		style.set_content_margin_all(6)
-		grade_badge.add_theme_stylebox_override("normal", style)
-
-	if week_label:
-		week_label.text = "Week: %d" % GameData.current_week
-
-	if balance_label:
-		var weekly_profit = GameData.player_airline.calculate_weekly_profit()
-		var trend_arrow = ""
-		if weekly_profit > 0:
-			trend_arrow = " ▲"
-			balance_label.add_theme_color_override("font_color", UITheme.PROFIT_COLOR)
-		elif weekly_profit < 0:
-			trend_arrow = " ▼"
-			balance_label.add_theme_color_override("font_color", UITheme.LOSS_COLOR)
+	var content = fleet_panel.get_node_or_null("MarginContainer/VBoxContainer/FleetContent")
+	if content and content is Label:
+		var aircraft = GameData.player_airline.aircraft
+		if aircraft.is_empty():
+			content.text = "No aircraft in your fleet yet.\n\nPurchase aircraft to start operations."
 		else:
-			balance_label.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
-		balance_label.text = "$%s%s" % [format_money(GameData.player_airline.balance), trend_arrow]
+			var text = "Total Aircraft: %d\n\n" % aircraft.size()
+			for ac in aircraft:
+				var status = "In Flight" if ac.is_assigned else "Available"
+				text += "%s [#%d] - %s - Condition: %.0f%%\n" % [
+					ac.model.get_display_name(),
+					ac.id,
+					status,
+					ac.condition
+				]
+			content.text = text
 
-func update_route_tab() -> void:
-	"""Update Routes tab"""
-	update_route_list()
-
-func update_route_list() -> void:
-	"""Update the route list display with RouteCards"""
-	if not GameData.player_airline:
+func update_routes_panel() -> void:
+	"""Update routes panel content"""
+	if not routes_panel or not GameData.player_airline:
 		return
 
-	# Use new card system if container exists
-	if route_cards_container:
-		_update_route_cards()
-		return
-
-	# Fallback to old ItemList for compatibility
-	if not route_list:
-		return
-
-	route_list.clear()
-
-	if GameData.player_airline.routes.is_empty():
-		route_list.add_item("No routes created")
-		return
-
-	for route in GameData.player_airline.routes:
-		var aircraft_info: String = ""
-		if not route.assigned_aircraft.is_empty():
-			aircraft_info = " ✈ %s" % route.assigned_aircraft[0].model.model_name
-
-		var profit_indicator: String
-		if route.weekly_profit > 0:
-			profit_indicator = "▲ +$%s" % format_money(route.weekly_profit)
-		elif route.weekly_profit < 0:
-			profit_indicator = "▼ -$%s" % format_money(abs(route.weekly_profit))
+	var content = routes_panel.get_node_or_null("MarginContainer/VBoxContainer/RoutesContent")
+	if content and content is Label:
+		var routes = GameData.player_airline.routes
+		if routes.is_empty():
+			content.text = "No routes created yet.\n\nClick on your hub airport on the map,\nthen select a destination to create a route."
 		else:
-			profit_indicator = "─ $0"
+			var text = "Active Routes: %d\n\n" % routes.size()
+			for route in routes:
+				var profit_sign = "+" if route.weekly_profit >= 0 else ""
+				text += "%s\n  %d flights/wk | %d pax | %s$%s/wk\n\n" % [
+					route.get_display_name(),
+					route.frequency,
+					route.passengers_transported,
+					profit_sign,
+					format_money(route.weekly_profit)
+				]
+			content.text = text
 
-		var load_factor: float = 0.0
-		if route.get_total_capacity() > 0 and route.frequency > 0:
-			load_factor = (route.passengers_transported / float(route.get_total_capacity() * route.frequency)) * 100
-
-		var route_text: String = "%s%s | %.0f%% | %s" % [
-			route.get_display_name(),
-			aircraft_info,
-			load_factor,
-			profit_indicator
-		]
-		route_list.add_item(route_text)
-
-func _update_route_cards() -> void:
-	"""Update route cards display"""
-	# Clear existing cards
-	for card in route_cards:
-		card.queue_free()
-	route_cards.clear()
-	selected_route_card = null
-
-	if GameData.player_airline.routes.is_empty():
-		# Show empty state
-		var empty_label = Label.new()
-		empty_label.text = "No routes created\n\nClick on your hub airport, then\nclick a destination to create a route."
-		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		empty_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
-		empty_label.add_theme_font_size_override("font_size", UITheme.FONT_SIZE_BODY)
-		route_cards_container.add_child(empty_label)
+func update_finances_panel() -> void:
+	"""Update finances panel content"""
+	if not finances_panel or not GameData.player_airline:
 		return
 
-	# Create a card for each route
-	for route in GameData.player_airline.routes:
-		var card = RouteCard.new()
-		route_cards_container.add_child(card)
-		card.set_route(route)
-		card.route_selected.connect(_on_route_card_selected)
-		card.route_edit_requested.connect(_on_route_card_edit_requested)
-		route_cards.append(card)
+	var content = finances_panel.get_node_or_null("MarginContainer/VBoxContainer/FinancesContent")
+	if content and content is Label:
+		var airline = GameData.player_airline
+		var profit = airline.calculate_weekly_profit()
+		var profit_sign = "+" if profit >= 0 else ""
 
-func _on_route_card_selected(route: Route) -> void:
-	"""Handle route card selection"""
-	# Deselect previous card
-	if selected_route_card:
-		selected_route_card.set_selected(false)
+		content.text = """Balance: $%s
 
-	# Find and select the new card
-	for card in route_cards:
-		if card.route == route:
-			card.set_selected(true)
-			selected_route_card = card
-			break
+Weekly Summary:
+  Revenue: $%s
+  Expenses: $%s
+  Profit: %s$%s
 
-	selected_route = route
+Loans:
+  Total Debt: $%s
+  Weekly Payments: $%s
+  Credit Limit: $%s
 
-	# Update info panel
-	if airport_info:
-		airport_info.text = "Route: %s\nDistance: %.0f km\nFrequency: %d/week\nPassengers: %d\nRevenue: $%s\nProfit: $%s" % [
-			selected_route.get_display_name(),
-			selected_route.distance_km,
-			selected_route.frequency,
-			selected_route.passengers_transported,
-			format_money(selected_route.revenue_generated),
-			format_money(selected_route.weekly_profit)
+Grade: %s
+Reputation: %.1f""" % [
+			format_money(airline.balance),
+			format_money(airline.weekly_revenue),
+			format_money(airline.weekly_expenses),
+			profit_sign,
+			format_money(profit),
+			format_money(airline.total_debt),
+			format_money(airline.weekly_loan_payment),
+			format_money(airline.get_credit_limit()),
+			airline.get_grade(),
+			airline.reputation
 		]
 
-	# Highlight on map
-	if world_map:
-		world_map.selected_route = route
-		world_map.queue_redraw()
-
-func _on_route_card_edit_requested(route: Route) -> void:
-	"""Handle route card double-click to edit"""
-	if route_config_dialog:
-		route_config_dialog.setup_edit_route(route)
-		route_config_dialog.popup_centered()
-		print("Opening route editor for %s" % route.get_display_name())
-
-func update_fleet_tab() -> void:
-	"""Update Fleet tab"""
-	print("GameUI: update_fleet_tab() called")
-	populate_aircraft_list()
-	update_fleet_list()
-	update_fleet_stats()
-	print("GameUI: update_fleet_tab() complete")
-
-func populate_aircraft_list() -> void:
-	"""Populate available aircraft for purchase"""
-	print("populate_aircraft_list called")
-	print("  aircraft_list exists: ", aircraft_list != null)
-	print("  GameData.aircraft_models count: ", GameData.aircraft_models.size())
-
-	if not aircraft_list:
-		print("  ERROR: aircraft_list is null!")
+func update_market_panel() -> void:
+	"""Update market panel content"""
+	if not market_panel:
 		return
 
-	aircraft_list.clear()
-
-	for model in GameData.aircraft_models:
-		var text: String = "%s %s - Cap: %d - Range: %dkm - $%s" % [
-			model.manufacturer,
-			model.model_name,
-			model.get_total_capacity(),
-			model.range_km,
-			format_money(model.price)
-		]
-		aircraft_list.add_item(text)
-		print("  Added: ", text)
-
-func update_fleet_list() -> void:
-	"""Update the fleet list display with FleetCards"""
-	if not GameData.player_airline:
-		return
-
-	# Use new card system if container exists
-	if fleet_cards_container:
-		_update_fleet_cards()
-		return
-
-	# Fallback to old ItemList
-	if not fleet_list:
-		return
-
-	fleet_list.clear()
-
-	if GameData.player_airline.aircraft.is_empty():
-		fleet_list.add_item("No aircraft owned")
-		return
-
-	for aircraft in GameData.player_airline.aircraft:
-		var status_icon: String = "✈" if aircraft.is_assigned else "○"
-		var condition_icon: String
-		if aircraft.condition >= 80:
-			condition_icon = "●"
-		elif aircraft.condition >= 50:
-			condition_icon = "◐"
-		else:
-			condition_icon = "○"
-
-		var text: String = "%s %s [#%d] | %s | %s %.0f%%" % [
-			status_icon,
-			aircraft.model.get_display_name(),
-			aircraft.id,
-			aircraft.get_status(),
-			condition_icon,
-			aircraft.condition
-		]
-		fleet_list.add_item(text)
-
-func _update_fleet_cards() -> void:
-	"""Update fleet cards display"""
-	# Clear existing cards
-	for card in fleet_cards:
-		card.queue_free()
-	fleet_cards.clear()
-	selected_fleet_card = null
-
-	if GameData.player_airline.aircraft.is_empty():
-		# Show empty state
-		var empty_label = Label.new()
-		empty_label.text = "No aircraft owned\n\nPurchase aircraft from the\nmarket below to start operations."
-		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		empty_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
-		empty_label.add_theme_font_size_override("font_size", UITheme.FONT_SIZE_BODY)
-		fleet_cards_container.add_child(empty_label)
-		return
-
-	# Create a card for each aircraft
-	for aircraft in GameData.player_airline.aircraft:
-		var card = FleetCard.new()
-		fleet_cards_container.add_child(card)
-		card.set_aircraft(aircraft)
-		card.aircraft_selected.connect(_on_fleet_card_selected)
-		card.aircraft_assign_requested.connect(_on_fleet_card_assign_requested)
-		fleet_cards.append(card)
-
-func _on_fleet_card_selected(aircraft: AircraftInstance) -> void:
-	"""Handle fleet card selection"""
-	# Deselect previous card
-	if selected_fleet_card:
-		selected_fleet_card.set_selected(false)
-
-	# Find and select the new card
-	for card in fleet_cards:
-		if card.aircraft == aircraft:
-			card.set_selected(true)
-			selected_fleet_card = card
-			break
-
-	# Update info panel
-	if airport_info:
-		var status = "Assigned" if aircraft.is_assigned else "Available"
-		var route_info = ""
-		if aircraft.is_assigned:
-			# Find the route this aircraft is assigned to
-			for route in GameData.player_airline.routes:
-				if aircraft in route.assigned_aircraft:
-					route_info = "\nAssigned to: %s" % route.get_display_name()
-					break
-
-		airport_info.text = "Aircraft #%d\n%s\n\nStatus: %s%s\nCondition: %.1f%%\n\nCapacity: %d pax\nRange: %d km" % [
-			aircraft.id,
-			aircraft.model.get_display_name(),
-			status,
-			route_info,
-			aircraft.condition,
-			aircraft.configuration.economy + aircraft.configuration.business + aircraft.configuration.first_class,
-			aircraft.model.range_km
-		]
-
-func _on_fleet_card_assign_requested(aircraft: AircraftInstance) -> void:
-	"""Handle fleet card double-click to assign"""
-	if aircraft.is_assigned:
-		print("Aircraft #%d is already assigned" % aircraft.id)
-		return
-
-	# Could open a route selection dialog here
-	print("Assignment requested for aircraft #%d - select a route to assign" % aircraft.id)
-
-func update_fleet_stats() -> void:
-	"""Update fleet statistics panel"""
-	if not fleet_stats_label or not GameData.player_airline:
-		return
-
-	var total: int = GameData.player_airline.aircraft.size()
-	var available: int = 0
-	var assigned: int = 0
-	var total_condition: float = 0.0
-
-	for aircraft in GameData.player_airline.aircraft:
-		if aircraft.is_assigned:
-			assigned += 1
-		else:
-			available += 1
-		total_condition += aircraft.condition
-
-	var avg_condition: float = 100.0
-	if total > 0:
-		avg_condition = total_condition / total
-
-	# Get condition status indicator
-	var condition_indicator = ""
-	if avg_condition >= 80:
-		condition_indicator = "●"  # Good
-	elif avg_condition >= 50:
-		condition_indicator = "◐"  # Warning
-	else:
-		condition_indicator = "○"  # Poor
-
-	fleet_stats_label.text = "Total Aircraft: %d\nAvailable: %d | Assigned: %d\nAvg Condition: %s %.1f%%" % [
-		total,
-		available,
-		assigned,
-		condition_indicator,
-		avg_condition
-	]
-
-	# Color based on condition
-	fleet_stats_label.add_theme_color_override("font_color", UITheme.get_condition_color(avg_condition))
-
-func update_financials_tab() -> void:
-	"""Update Financials tab"""
-	update_weekly_stats()
-	update_loans_list()
-	update_loan_info()
-
-func update_weekly_stats() -> void:
-	"""Update weekly financial stats"""
-	if not weekly_stats_label or not GameData.player_airline:
-		return
-
-	var profit = GameData.player_airline.calculate_weekly_profit()
-	var profit_sign = "+" if profit >= 0 else ""
-	var profit_text = "%s$%s" % [profit_sign, format_money(profit)]
-
-	weekly_stats_label.text = "Revenue: $%s\nExpenses: $%s\nProfit: %s\nBalance: $%s" % [
-		format_money(GameData.player_airline.weekly_revenue),
-		format_money(GameData.player_airline.weekly_expenses),
-		profit_text,
-		format_money(GameData.player_airline.balance)
-	]
-
-	# Color the profit line based on value
-	var profit_color = UITheme.get_profit_color(profit)
-	weekly_stats_label.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
-
-func update_loans_list() -> void:
-	"""Update the active loans list display"""
-	if not loans_list or not GameData.player_airline:
-		return
-
-	loans_list.clear()
-
-	if GameData.player_airline.loans.is_empty():
-		loans_list.add_item("No active loans")
-		return
-
-	for loan in GameData.player_airline.loans:
-		var text: String = "Loan #%d: $%s @ %.1f%%\nPayment: $%s/wk | %d weeks left" % [
-			loan.id,
-			format_money(loan.remaining_balance),
-			loan.interest_rate * 100,
-			format_money(loan.weekly_payment),
-			loan.weeks_remaining
-		]
-		loans_list.add_item(text)
-
-func update_loan_info() -> void:
-	"""Update loan credit limit and interest rate display"""
-	if not GameData.player_airline:
-		return
-
-	var credit_limit: float = GameData.player_airline.get_credit_limit()
-	var interest_rate: float = GameData.player_airline.get_interest_rate()
-
-	if credit_info_label:
-		credit_info_label.text = "Credit Limit: $%s\nInterest Rate: %.1f%%\nGrade: %s" % [
-			format_money(credit_limit),
-			interest_rate * 100,
-			GameData.player_airline.get_grade()
-		]
-
-	if loan_summary_label:
-		loan_summary_label.text = "Total Debt: $%s | Weekly Payments: $%s" % [
-			format_money(GameData.player_airline.total_debt),
-			format_money(GameData.player_airline.weekly_loan_payment)
-		]
-
-func update_market_tab() -> void:
-	"""Update Market tab"""
-	update_competitor_list()
-	update_market_stats()
-
-func update_competitor_list() -> void:
-	"""Update the competitor airlines list"""
-	if not competitor_list:
-		return
-
-	competitor_list.clear()
-
-	for airline in GameData.airlines:
-		if airline.id == GameData.player_airline.id:
-			continue
-
-		# Find AI controller for this airline
-		var ai_personality: String = "Unknown"
-		for ai in GameData.ai_controllers:
-			if ai.controlled_airline.id == airline.id:
-				ai_personality = ai.get_personality_name()
-				break
-
-		var grade = airline.get_grade()
-
-		# Grade indicator icon
-		var grade_icon = ""
-		match grade.to_upper():
-			"S", "S+": grade_icon = "★"
-			"A", "A+": grade_icon = "◆"
-			"B", "B+": grade_icon = "●"
-			"C", "C+": grade_icon = "○"
-			_: grade_icon = "·"
-
-		# Financial health indicator
-		var health_icon = ""
-		if airline.balance > airline.total_debt * 2:
-			health_icon = "▲"
-		elif airline.balance < airline.total_debt:
-			health_icon = "▼"
-		else:
-			health_icon = "─"
-
-		var text: String = "%s %s (%s)\n   %s | %s | ✈%d | ↗%d | %s$%s" % [
-			grade_icon,
-			airline.name,
-			airline.airline_code,
-			grade,
-			ai_personality,
-			airline.aircraft.size(),
-			airline.routes.size(),
-			health_icon,
-			format_money(airline.balance)
-		]
-		competitor_list.add_item(text)
-
-func update_market_stats() -> void:
-	"""Update market statistics"""
-	if not market_stats_label:
-		return
-
-	var total_airlines: int = GameData.airlines.size()
-	var total_routes: int = 0
-	for airline in GameData.airlines:
-		total_routes += airline.routes.size()
-
-	var your_routes: int = GameData.player_airline.routes.size()
-	var market_share: float = 0.0
-	if total_routes > 0:
-		market_share = (float(your_routes) / float(total_routes)) * 100.0
-
-	market_stats_label.text = "Total Airlines: %d\nTotal Routes: %d\nYour Market Share: %.1f%%" % [
-		total_airlines,
-		total_routes,
-		market_share
-	]
+	var content = market_panel.get_node_or_null("MarginContainer/VBoxContainer/MarketContent")
+	if content and content is Label:
+		var text = "Competitor Airlines:\n\n"
+		for airline in GameData.airlines:
+			if airline.id == GameData.player_airline.id:
+				continue
+			text += "%s (%s)\n  Grade: %s | Fleet: %d | Routes: %d\n\n" % [
+				airline.name,
+				airline.airline_code,
+				airline.get_grade(),
+				airline.aircraft.size(),
+				airline.routes.size()
+			]
+		content.text = text
 
 # Event Handlers
 
 func _on_airport_clicked(airport: Airport) -> void:
 	"""Handle airport click"""
-	# Check if tutorial is waiting for hub selection
-	if GameData.tutorial_manager and GameData.tutorial_manager.is_tutorial_active:
-		var current_step = GameData.tutorial_manager.tutorial_steps[GameData.tutorial_manager.current_step_index]
-		if current_step.required_action == "select_hub":
-			# Establish this airport as the player's first hub
-			GameData.purchase_hub_for_airline(GameData.player_airline, airport)
-			if airport_info:
-				airport_info.text = "✓ HUB ESTABLISHED!\n\n%s is now your operational hub!\n\n%s, %s\n%s\n%dM passengers/year\n\nAll routes must originate from your hubs. You can purchase additional hubs later." % [
-					airport.iata_code,
-					airport.get_display_name(),
-					airport.city,
-					airport.country,
-					airport.annual_passengers
-				]
-			# Notify tutorial
-			GameData.tutorial_manager.on_action_performed("select_hub")
-			# Refresh map to show hub
-			if world_map:
-				world_map.queue_redraw()
-			return
-
-	# Check if clicking on a player hub - show route planning dialog
+	# Check if clicking on a player hub
 	if GameData.player_airline and GameData.player_airline.has_hub(airport):
 		if route_opportunity_dialog:
 			route_opportunity_dialog.show_for_hub(airport)
 		return
 
-	# Normal airport click info
-	if airport_info:
-		airport_info.text = "%s\n%s, %s (%s)\n%s | %dM pax/year\n%d runways | %d slots/week\nGDP per capita: $%s" % [
-			airport.get_display_name(),
-			airport.city,
-			airport.country,
-			airport.region,
-			airport.get_hub_name(),
-			airport.annual_passengers,
-			airport.runway_count,
-			airport.max_slots_per_week,
-			format_number(airport.gdp_per_capita)
-		]
+	print("Airport clicked: %s" % airport.iata_code)
 
 func _on_airport_hovered(airport: Airport) -> void:
-	"""Handle airport hover"""
 	pass
 
 func _on_route_created(from_airport: Airport, to_airport: Airport) -> void:
-	"""Handle route creation request - show configuration dialog"""
+	"""Handle route creation request"""
 	if not GameData.player_airline:
 		return
 
-	# Check if route originates from a hub
 	if not GameData.player_airline.can_create_route_from(from_airport, to_airport):
-		if airport_info:
-			airport_info.text = "CANNOT CREATE ROUTE!\n\n%s is not one of your hubs.\n\nRoutes must originate from your hub airports.\n\nYour hubs: %s\n\nTo open a hub at %s, purchase hub access from the Market tab." % [
-				from_airport.iata_code,
-				GameData.player_airline.get_hub_names(),
-				from_airport.iata_code
-			]
 		print("Cannot create route: %s is not a hub" % from_airport.iata_code)
 		return
 
-	# Check if there are any available aircraft
 	var available_aircraft: Array[AircraftInstance] = []
 	for aircraft in GameData.player_airline.aircraft:
 		if not aircraft.is_assigned:
 			available_aircraft.append(aircraft)
 
 	if available_aircraft.is_empty():
-		if airport_info:
-			airport_info.text = "CANNOT CREATE ROUTE!\n\nNo available aircraft in your fleet.\n\nYou need to:\n1. Purchase an aircraft first\n2. Then create your route"
 		print("Cannot create route: No available aircraft")
 		return
 
-	# Show route configuration dialog
 	if route_config_dialog:
 		route_config_dialog.setup_route(from_airport, to_airport)
 		route_config_dialog.popup_centered()
-		print("Opening route configuration dialog for %s → %s" % [from_airport.iata_code, to_airport.iata_code])
-
-func _on_route_added(route: Route) -> void:
-	"""Handle new route added to airline"""
-	update_route_list()
 
 func _on_route_clicked(route: Route) -> void:
-	"""Handle route click on map - open edit dialog"""
+	"""Handle route click on map"""
 	if not route or not GameData.player_airline:
 		return
 
-	# Only allow editing player's routes
 	if route.airline_id != GameData.player_airline.id:
-		print("Cannot edit competitor route")
 		return
 
-	# Show route configuration dialog in edit mode
 	if route_config_dialog:
 		route_config_dialog.setup_edit_route(route)
 		route_config_dialog.popup_centered()
-		print("Opening route editor for %s → %s" % [route.from_airport.iata_code, route.to_airport.iata_code])
-
-func _on_speed_button_pressed(speed_level: int) -> void:
-	"""Handle speed button click - set speed and update button states"""
-	if simulation_engine:
-		simulation_engine.set_speed(speed_level)
-		# Start simulation if not running (unless paused)
-		if speed_level > 0 and not simulation_engine.is_running:
-			simulation_engine.start_simulation()
-		elif speed_level == 0:
-			simulation_engine.pause_simulation()
-	_update_speed_button_states(speed_level)
-
-func _update_speed_button_states(active_level: int) -> void:
-	"""Update toggle states of speed buttons"""
-	for i in range(speed_buttons.size()):
-		if speed_buttons[i]:
-			speed_buttons[i].button_pressed = (i == active_level)
-
-func _on_step_button_pressed() -> void:
-	"""Run a single week simulation"""
-	simulation_engine.run_single_week()
-
-func _on_simulation_started() -> void:
-	pass  # No longer need to update play button text
-
-func _on_simulation_paused() -> void:
-	_update_speed_button_states(0)  # Highlight pause button
-
-func _on_speed_changed(speed_level: int, _speed_name: String) -> void:
-	"""Update button states when speed changes"""
-	_update_speed_button_states(speed_level)
-
-func _on_week_completed(week: int) -> void:
-	"""Handle week simulation completion"""
-	update_all()
-
-	if world_map:
-		world_map.refresh_routes()
-
-func _on_route_simulated(route: Route, passengers: int, revenue: float) -> void:
-	"""Handle individual route simulation"""
-	pass
-
-func _on_balance_changed(new_balance: float) -> void:
-	"""Handle airline balance change"""
-	if balance_label and GameData.player_airline:
-		var weekly_profit = GameData.player_airline.calculate_weekly_profit()
-		var trend_arrow = ""
-		if weekly_profit > 0:
-			trend_arrow = " ▲"
-			balance_label.add_theme_color_override("font_color", UITheme.PROFIT_COLOR)
-		elif weekly_profit < 0:
-			trend_arrow = " ▼"
-			balance_label.add_theme_color_override("font_color", UITheme.LOSS_COLOR)
-		else:
-			balance_label.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
-		balance_label.text = "$%s%s" % [format_money(new_balance), trend_arrow]
-
-func _on_route_selected(index: int) -> void:
-	"""Handle route selection from list"""
-	if index < 0 or index >= GameData.player_airline.routes.size():
-		return
-
-	selected_route = GameData.player_airline.routes[index]
-
-	# Show route details
-	if airport_info:
-		airport_info.text = "Route: %s\nDistance: %.0f km\nFrequency: %d/week\nPassengers: %d\nRevenue: $%s\nProfit: $%s" % [
-			selected_route.get_display_name(),
-			selected_route.distance_km,
-			selected_route.frequency,
-			selected_route.passengers_transported,
-			format_money(selected_route.revenue_generated),
-			format_money(selected_route.weekly_profit)
-		]
-
-func _on_aircraft_model_selected(index: int) -> void:
-	"""Handle aircraft model selection"""
-	selected_aircraft_model_index = index
-
-	if purchase_button:
-		purchase_button.disabled = false
-
-	# Show aircraft info
-	if index >= 0 and index < GameData.aircraft_models.size():
-		var model: AircraftModel = GameData.aircraft_models[index]
-		if aircraft_details:
-			aircraft_details.text = "Aircraft: %s\n\nCapacity: %d passengers\n(%d Economy / %d Business / %d First)\n\nRange: %s km\nPrice: $%s\n\nAffordable: %s" % [
-				model.get_display_name(),
-				model.get_total_capacity(),
-				model.default_economy,
-				model.default_business,
-				model.default_first,
-				format_number(model.range_km),
-				format_money(model.price),
-				"Yes" if GameData.player_airline.balance >= model.price else "No (Need $%s more)" % format_money(model.price - GameData.player_airline.balance)
-			]
-
-func _on_purchase_button_pressed() -> void:
-	"""Handle purchase button press"""
-	if selected_aircraft_model_index < 0 or selected_aircraft_model_index >= GameData.aircraft_models.size():
-		print("No aircraft selected")
-		return
-
-	var model: AircraftModel = GameData.aircraft_models[selected_aircraft_model_index]
-
-	# Check balance
-	if GameData.player_airline.balance < model.price:
-		if aircraft_details:
-			aircraft_details.text = "INSUFFICIENT FUNDS!\n\nAircraft: %s\nPrice: $%s\nYour balance: $%s\nShortfall: $%s" % [
-				model.get_display_name(),
-				format_money(model.price),
-				format_money(GameData.player_airline.balance),
-				format_money(model.price - GameData.player_airline.balance)
-			]
-		return
-
-	# Purchase aircraft
-	var aircraft: AircraftInstance = GameData.purchase_aircraft(GameData.player_airline, model)
-
-	if aircraft:
-		# Success feedback
-		if aircraft_details:
-			aircraft_details.text = "PURCHASED!\n\n%s\nAircraft ID: %d\nRemaining balance: $%s" % [
-				model.get_display_name(),
-				aircraft.id,
-				format_money(GameData.player_airline.balance)
-			]
-
-func _on_aircraft_purchased(aircraft: AircraftInstance, airline: Airline) -> void:
-	"""Handle aircraft purchase"""
-	update_fleet_tab()
-	update_top_panel()
-
-func _on_loan_input_changed(new_text: String) -> void:
-	"""Update loan payment preview when inputs change"""
-	if not payment_preview or not GameData.player_airline:
-		return
-
-	var amount_text: String = amount_input.text.strip_edges()
-	var term_text: String = term_input.text.strip_edges()
-
-	if amount_text.is_empty() or term_text.is_empty():
-		payment_preview.text = "Weekly Payment: $0"
-		return
-
-	var amount_millions: float = amount_text.to_float()
-	var amount: float = amount_millions * 1000000.0
-	var term: int = term_text.to_int()
-
-	if amount <= 0 or term <= 0:
-		payment_preview.text = "Weekly Payment: Invalid input"
-		return
-
-	# Calculate preview payment
-	var interest_rate: float = GameData.player_airline.get_interest_rate()
-	var weekly_interest_rate: float = interest_rate / 52.0
-	var factor: float = pow(1 + weekly_interest_rate, term)
-	var weekly_payment: float = amount * (weekly_interest_rate * factor) / (factor - 1)
-
-	payment_preview.text = "Weekly Payment: $%s" % format_money(weekly_payment)
-
-func _on_apply_loan_pressed() -> void:
-	"""Handle loan application"""
-	if not GameData.player_airline:
-		return
-
-	# Parse inputs
-	var amount_text: String = amount_input.text.strip_edges()
-	var term_text: String = term_input.text.strip_edges()
-
-	if amount_text.is_empty() or term_text.is_empty():
-		if application_result:
-			application_result.text = "LOAN APPLICATION FAILED!\n\nPlease enter both amount and term."
-		return
-
-	var amount_millions: float = amount_text.to_float()
-	var amount: float = amount_millions * 1000000.0
-	var term: int = term_text.to_int()
-
-	if amount <= 0 or term <= 0:
-		if application_result:
-			application_result.text = "LOAN APPLICATION FAILED!\n\nAmount and term must be positive numbers."
-		return
-
-	# Try to create loan
-	var loan: Loan = GameData.create_loan(GameData.player_airline, amount, term)
-
-	if loan:
-		# Success
-		if application_result:
-			application_result.text = "✓ LOAN APPROVED!\n\nAmount: $%s\nTerm: %d weeks\nInterest Rate: %.1f%%\nWeekly Payment: $%s\n\nFunds have been added to your balance." % [
-				format_money(loan.principal),
-				loan.term_weeks,
-				loan.interest_rate * 100,
-				format_money(loan.weekly_payment)
-			]
-
-		# Clear inputs
-		amount_input.text = ""
-		term_input.text = ""
-		payment_preview.text = "Weekly Payment: $0"
-	else:
-		# Failed
-		if application_result:
-			var credit_limit: float = GameData.player_airline.get_credit_limit()
-			application_result.text = "✗ LOAN APPLICATION DENIED!\n\nRequested: $%s\nCredit Limit: $%s\n\nYou may be over your credit limit or unable to afford the payments." % [
-				format_money(amount),
-				format_money(credit_limit)
-			]
-
-func _on_loan_created(loan: Loan, airline: Airline) -> void:
-	"""Handle loan created event"""
-	update_financials_tab()
-	update_top_panel()
-
-func _on_competitor_selected(index: int) -> void:
-	"""Handle competitor selection"""
-	selected_competitor_index = index
-
-	# Get competitor (skip player)
-	var competitor_index: int = 0
-	var selected_airline: Airline = null
-	for airline in GameData.airlines:
-		if airline.id == GameData.player_airline.id:
-			continue
-		if competitor_index == index:
-			selected_airline = airline
-			break
-		competitor_index += 1
-
-	if not selected_airline:
-		return
-
-	# Find AI controller
-	var ai_personality: String = "Unknown"
-	for ai in GameData.ai_controllers:
-		if ai.controlled_airline.id == selected_airline.id:
-			ai_personality = ai.get_personality_name()
-			break
-
-	# Show competitor details
-	if competitor_detail:
-		competitor_detail.text = "Airline: %s (%s)\nStrategy: %s\n\nGrade: %s\nReputation: %.1f\nBalance: $%s\nDebt: $%s\n\nFleet: %d aircraft\nRoutes: %d" % [
-			selected_airline.name,
-			selected_airline.airline_code,
-			ai_personality,
-			selected_airline.get_grade(),
-			selected_airline.reputation,
-			format_money(selected_airline.balance),
-			format_money(selected_airline.total_debt),
-			selected_airline.aircraft.size(),
-			selected_airline.routes.size()
-		]
-
-	# Show competing routes
-	update_competing_routes(selected_airline)
-
-func update_competing_routes(competitor: Airline) -> void:
-	"""Show routes that compete with the selected airline"""
-	if not competing_routes_list:
-		return
-
-	competing_routes_list.clear()
-
-	# Find routes where you compete with this airline
-	var competition_found: bool = false
-	for your_route in GameData.player_airline.routes:
-		for their_route in competitor.routes:
-			# Check if same airport pair
-			if (your_route.from_airport == their_route.from_airport and your_route.to_airport == their_route.to_airport) or \
-			   (your_route.from_airport == their_route.to_airport and your_route.to_airport == their_route.from_airport):
-				competition_found = true
-				var text: String = "%s\nYou: %dpax @ $%s | Them: %dpax @ $%s" % [
-					your_route.get_display_name(),
-					your_route.passengers_transported,
-					format_money(your_route.price_economy),
-					their_route.passengers_transported,
-					format_money(their_route.price_economy)
-				]
-				competing_routes_list.add_item(text)
-
-	if not competition_found:
-		competing_routes_list.add_item("No competing routes with this airline")
-
-# Utility Functions
-
-func format_money(amount: float) -> String:
-	"""Format money with thousands separators"""
-	var abs_amount: float = abs(amount)
-	var sign: String = "-" if amount < 0 else ""
-
-	if abs_amount >= 1000000000:
-		return "%s%.2fB" % [sign, abs_amount / 1000000000.0]
-	elif abs_amount >= 1000000:
-		return "%s%.2fM" % [sign, abs_amount / 1000000.0]
-	elif abs_amount >= 1000:
-		return "%s%.2fK" % [sign, abs_amount / 1000.0]
-	else:
-		return "%s%.0f" % [sign, abs_amount]
-
-func format_number(num: int) -> String:
-	"""Format large numbers with M/K suffixes"""
-	if num >= 1000000:
-		return "%.1fM" % (num / 1000000.0)
-	elif num >= 1000:
-		return "%.1fK" % (num / 1000.0)
-	else:
-		return str(num)
-
-## Route Opportunity System
-
-func show_route_opportunities(from_airport: Airport) -> void:
-	"""Display best route opportunities from an airport (for console/debug)"""
-	if not from_airport:
-		print("No airport selected")
-		return
-
-	print("\n=== Route Opportunities from %s (%s) ===" % [from_airport.name, from_airport.iata_code])
-
-	var opportunities: Array[Dictionary] = GameData.find_route_opportunities(from_airport, 10)
-
-	if opportunities.is_empty():
-		print("No opportunities found")
-		return
-
-	for i in range(opportunities.size()):
-		var opp: Dictionary = opportunities[i]
-		var to: Airport = opp.to_airport
-
-		print("\n%d. %s → %s (%.0fkm)" % [
-			i + 1,
-			from_airport.iata_code,
-			to.iata_code,
-			opp.distance_km
-		])
-		print("   Score: %.0f/100" % opp.profitability_score)
-		print("   Demand: %s pax/week | Supply: %s | Gap: %s" % [
-			format_number(int(opp.demand)),
-			format_number(int(opp.supply)),
-			format_number(int(opp.gap))
-		])
-		print("   Competition: %d airlines | Saturation: %.0f%%" % [
-			opp.competition,
-			opp.market_saturation * 100
-		])
-
-		# Get recommended pricing
-		var pricing: Dictionary = GameData.get_recommended_pricing_for_route(from_airport, to)
-		print("   Recommended: Y:$%.0f J:$%.0f F:$%.0f" % [
-			pricing.economy,
-			pricing.business,
-			pricing.first
-		])
-
-func analyze_existing_route(route: Route) -> void:
-	"""Analyze an existing route and show performance vs market"""
-	if not route:
-		return
-
-	var analysis: Dictionary = GameData.analyze_route(route.from_airport, route.to_airport)
-
-	print("\n=== Route Analysis: %s ===" % route.get_display_name())
-	print("Distance: %.0fkm | Duration: %.1fh" % [route.distance_km, route.flight_duration_hours])
-	print("\nMarket Conditions:")
-	print("  Total Demand: %s pax/week" % format_number(int(analysis.demand)))
-	print("  Total Supply: %s seats/week" % format_number(int(analysis.supply)))
-	print("  Unmet Demand: %s pax/week" % format_number(int(analysis.gap)))
-	print("  Competition: %d airlines" % analysis.competition)
-	print("  Market Saturation: %.0f%%" % (analysis.market_saturation * 100))
-	print("  Opportunity Score: %.0f/100" % analysis.profitability_score)
-
-	print("\nYour Route:")
-	print("  Capacity: %d seats x %d freq = %d/week" % [
-		route.get_total_capacity(),
-		route.frequency,
-		route.get_total_capacity() * route.frequency
-	])
-	print("  Load Factor: %.1f%%" % (
-		(route.passengers_transported / float(route.get_total_capacity() * route.frequency) * 100) if route.get_total_capacity() > 0 else 0
-	))
-	print("  Pricing: Y:$%.0f J:$%.0f F:$%.0f" % [
-		route.price_economy,
-		route.price_business,
-		route.price_first
-	])
-	print("  Weekly Profit: $%s" % format_money(route.weekly_profit))
-
-	var recommended: Dictionary = GameData.get_recommended_pricing_for_route(route.from_airport, route.to_airport)
-	print("\nRecommended Pricing:")
-	print("  Y:$%.0f J:$%.0f F:$%.0f" % [
-		recommended.economy,
-		recommended.business,
-		recommended.first
-	])
-
-## Tutorial System Integration
-
-func continue_tutorial() -> void:
-	"""Advance to next tutorial step (call this when player clicks Continue)"""
-	if GameData.tutorial_manager:
-		GameData.tutorial_manager.complete_current_step()
-
-func skip_tutorial() -> void:
-	"""Skip the tutorial entirely"""
-	if GameData.tutorial_manager:
-		GameData.tutorial_manager.skip_tutorial()
-		print("Tutorial skipped - you can explore on your own!")
-
-func show_current_tutorial_step() -> void:
-	"""Display current tutorial step info"""
-	if not GameData.tutorial_manager or not GameData.tutorial_manager.is_active():
-		print("No active tutorial")
-		return
-
-	var step: TutorialStep = GameData.tutorial_manager.get_current_step()
-	if step:
-		print("\n" + "─".repeat(50))
-		print("📖 TUTORIAL: %s" % step.title)
-		print("─".repeat(50))
-		print(step.message)
-		print("─".repeat(50))
-
-		if step.is_action_step():
-			print("⚠ ACTION REQUIRED: %s" % step.action_hint)
-		else:
-			print("(Type 'continue_tutorial()' or press Continue to advance)")
-
-## Objective System Integration
-
-func show_objectives() -> void:
-	"""Display current objectives"""
-	if not GameData.objective_system:
-		print("Objective system not initialized")
-		return
-
-	GameData.objective_system.print_objectives_status()
-
-func check_objective_progress() -> void:
-	"""Update and display objective progress"""
-	if GameData.objective_system:
-		GameData.objective_system.check_objectives_from_game_state()
-		show_objectives()
-
-## Quick Tutorial Commands
-
-func tutorial_start() -> void:
-	"""Start the tutorial"""
-	if GameData.tutorial_manager:
-		GameData.tutorial_manager.start_tutorial()
-
-func tutorial_next() -> void:
-	"""Go to next tutorial step"""
-	continue_tutorial()
-
-func help_tutorial() -> void:
-	"""Show tutorial help"""
-	print("\n=== TUTORIAL COMMANDS ===")
-	print("tutorial_start() - Start the tutorial")
-	print("tutorial_next() or continue_tutorial() - Advance to next step")
-	print("skip_tutorial() - Skip tutorial entirely")
-	print("show_current_tutorial_step() - View current step")
-	print("")
-	print("=== OBJECTIVE COMMANDS ===")
-	print("show_objectives() - View all objectives")
-	print("check_objective_progress() - Update and view progress")
-	print("")
-	print("=== QUICK ACTIONS ===")
-	print("show_route_opportunities(airport) - Find profitable routes")
-	print("analyze_existing_route(route) - Analyze route performance")
-
-## Tutorial UI Creation
-
-func create_tutorial_overlay() -> void:
-	"""Create tutorial UI overlay programmatically"""
-	print("Creating tutorial overlay UI...")
-
-	# Create overlay layer
-	tutorial_overlay_layer = CanvasLayer.new()
-	tutorial_overlay_layer.name = "TutorialOverlay"
-	tutorial_overlay_layer.layer = 100  # Above everything
-	add_child(tutorial_overlay_layer)
-
-	# Create tutorial panel (top-left, draggable)
-	tutorial_panel = Panel.new()
-	tutorial_panel.name = "TutorialPanel"
-	tutorial_panel.custom_minimum_size = Vector2(700, 350)
-	tutorial_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	tutorial_panel.position = Vector2(20, 20)  # Top-left with small margin
-	tutorial_panel.size = Vector2(700, 350)
-
-	# Make draggable
-	var drag_offset: Vector2 = Vector2.ZERO
-	var is_dragging: bool = false
-
-	tutorial_panel.gui_input.connect(func(event: InputEvent):
-		if event is InputEventMouseButton:
-			if event.button_index == MOUSE_BUTTON_LEFT:
-				if event.pressed:
-					# Start dragging
-					is_dragging = true
-					drag_offset = event.position
-					tutorial_panel.mouse_filter = Control.MOUSE_FILTER_STOP
-				else:
-					# Stop dragging
-					is_dragging = false
-		elif event is InputEventMouseMotion and is_dragging:
-			# Update position while dragging
-			tutorial_panel.position += event.relative
-	)
-
-	# Enable mouse input
-	tutorial_panel.mouse_filter = Control.MOUSE_FILTER_PASS
-
-	tutorial_overlay_layer.add_child(tutorial_panel)
-
-	# VBox container for layout
-	var vbox = VBoxContainer.new()
-	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	vbox.offset_left = 20
-	vbox.offset_top = 20
-	vbox.offset_right = -20
-	vbox.offset_bottom = -20
-	vbox.add_theme_constant_override("separation", 10)
-	tutorial_panel.add_child(vbox)
-
-	# Progress label (Step X/Y)
-	tutorial_progress = Label.new()
-	tutorial_progress.name = "ProgressLabel"
-	tutorial_progress.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tutorial_progress.add_theme_font_size_override("font_size", 14)
-	tutorial_progress.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
-	vbox.add_child(tutorial_progress)
-
-	# Title label
-	tutorial_title = Label.new()
-	tutorial_title.name = "TitleLabel"
-	tutorial_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tutorial_title.add_theme_font_size_override("font_size", 28)
-	tutorial_title.add_theme_color_override("font_color", Color(0.2, 0.6, 1.0))
-	vbox.add_child(tutorial_title)
-
-	# Spacer
-	var spacer1 = Control.new()
-	spacer1.custom_minimum_size = Vector2(0, 15)
-	vbox.add_child(spacer1)
-
-	# Message label (RichTextLabel for formatting)
-	tutorial_message = RichTextLabel.new()
-	tutorial_message.name = "MessageLabel"
-	tutorial_message.bbcode_enabled = true
-	tutorial_message.fit_content = false
-	tutorial_message.custom_minimum_size = Vector2(0, 150)
-	tutorial_message.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	tutorial_message.add_theme_font_size_override("normal_font_size", 16)
-	vbox.add_child(tutorial_message)
-
-	# Spacer
-	var spacer2 = Control.new()
-	spacer2.custom_minimum_size = Vector2(0, 15)
-	vbox.add_child(spacer2)
-
-	# Button container
-	var button_box = HBoxContainer.new()
-	button_box.name = "ButtonContainer"
-	button_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	button_box.add_theme_constant_override("separation", 20)
-	vbox.add_child(button_box)
-
-	# Skip button (red-ish)
-	tutorial_skip_button = Button.new()
-	tutorial_skip_button.name = "SkipButton"
-	tutorial_skip_button.text = "Skip Tutorial (ESC)"
-	tutorial_skip_button.custom_minimum_size = Vector2(200, 50)
-	tutorial_skip_button.add_theme_font_size_override("font_size", 16)
-	tutorial_skip_button.add_theme_color_override("font_color", Color(1, 0.4, 0.4))
-	tutorial_skip_button.pressed.connect(_on_tutorial_skip_pressed)
-	button_box.add_child(tutorial_skip_button)
-
-	# Continue button (green-ish)
-	tutorial_continue_button = Button.new()
-	tutorial_continue_button.name = "ContinueButton"
-	tutorial_continue_button.text = "Continue (Enter)"
-	tutorial_continue_button.custom_minimum_size = Vector2(200, 50)
-	tutorial_continue_button.add_theme_font_size_override("font_size", 16)
-	tutorial_continue_button.add_theme_color_override("font_color", Color(0.4, 1, 0.4))
-	tutorial_continue_button.pressed.connect(_on_tutorial_continue_pressed)
-	button_box.add_child(tutorial_continue_button)
-
-	# Create confirmation dialog for skip
-	tutorial_skip_dialog = ConfirmationDialog.new()
-	tutorial_skip_dialog.name = "SkipConfirmDialog"
-	tutorial_skip_dialog.title = "Skip Tutorial?"
-	tutorial_skip_dialog.dialog_text = "Are you sure you want to skip the tutorial?\n\nYou'll still receive the $50M starting bonus, but you'll miss learning the game mechanics step-by-step."
-	tutorial_skip_dialog.ok_button_text = "Yes, Skip Tutorial"
-	tutorial_skip_dialog.cancel_button_text = "No, Continue Tutorial"
-	tutorial_skip_dialog.confirmed.connect(_on_tutorial_skip_confirmed)
-	tutorial_overlay_layer.add_child(tutorial_skip_dialog)
-
-	# Initially hide panel
-	tutorial_panel.visible = false
-
-	# Connect to tutorial manager
-	if GameData.tutorial_manager:
-		setup_tutorial_signals()
-		print("Tutorial overlay created and connected!")
-	else:
-		print("Warning: Tutorial manager not found yet")
-
-func setup_tutorial_signals() -> void:
-	"""Connect tutorial manager signals to UI"""
-	var tutorial_mgr = GameData.tutorial_manager
-
-	# Step started
-	tutorial_mgr.tutorial_step_started.connect(_on_tutorial_step_started_ui)
-
-	# Tutorial completed
-	tutorial_mgr.tutorial_completed.connect(_on_tutorial_completed_ui)
-
-func _on_tutorial_step_started_ui(step: TutorialStep) -> void:
-	"""Display new tutorial step in UI"""
-	if not tutorial_panel:
-		return
-
-	# Show panel
-	tutorial_panel.visible = true
-
-	# Update title
-	if tutorial_title:
-		tutorial_title.text = step.title
-
-	# Update message
-	if tutorial_message:
-		tutorial_message.text = step.message
-
-	# Update progress
-	if tutorial_progress and GameData.tutorial_manager:
-		var current_index: int = GameData.tutorial_manager.current_step_index + 1
-		var total: int = GameData.tutorial_manager.tutorial_steps.size()
-		tutorial_progress.text = "Step %d of %d" % [current_index, total]
-
-	# Handle button visibility based on step type
-	if tutorial_continue_button:
-		match step.step_type:
-			TutorialStep.StepType.WAIT_FOR_ACTION:
-				tutorial_continue_button.visible = false
-				# Update continue button text to show what action is needed
-			_:
-				tutorial_continue_button.visible = true
-
-	# Always show skip button (unless last step)
-	if tutorial_skip_button and GameData.tutorial_manager:
-		var current: int = GameData.tutorial_manager.current_step_index + 1
-		var total: int = GameData.tutorial_manager.tutorial_steps.size()
-		tutorial_skip_button.visible = current < total
-
-func _on_tutorial_completed_ui() -> void:
-	"""Tutorial finished - hide UI"""
-	if tutorial_panel:
-		tutorial_panel.visible = false
-	print("Tutorial UI: Tutorial completed!")
-
-func _on_tutorial_continue_pressed() -> void:
-	"""Continue button pressed"""
-	if GameData.tutorial_manager:
-		GameData.tutorial_manager.complete_current_step()
-
-func _on_tutorial_skip_pressed() -> void:
-	"""Skip button pressed - show confirmation"""
-	if tutorial_skip_dialog:
-		tutorial_skip_dialog.popup_centered()
-
-func _on_tutorial_skip_confirmed() -> void:
-	"""User confirmed skip"""
-	if GameData.tutorial_manager:
-		GameData.tutorial_manager.skip_tutorial()
-	if tutorial_panel:
-		tutorial_panel.visible = false
-	print("Tutorial skipped by user")
-
-func _input(event: InputEvent) -> void:
-	"""Handle keyboard shortcuts"""
-	if event is InputEventKey and event.pressed and not event.echo:
-		# Speed control shortcuts (only when not typing in input fields)
-		var focus_owner = get_viewport().gui_get_focus_owner()
-		var is_typing = focus_owner is LineEdit or focus_owner is TextEdit
-
-		if not is_typing:
-			match event.keycode:
-				KEY_SPACE:
-					# Space to toggle pause
-					if simulation_engine:
-						if simulation_engine.is_running:
-							_on_speed_button_pressed(0)  # Pause
-						else:
-							_on_speed_button_pressed(3)  # Resume at normal speed
-						get_viewport().set_input_as_handled()
-				KEY_1:
-					_on_speed_button_pressed(1)  # 1x
-					get_viewport().set_input_as_handled()
-				KEY_2:
-					_on_speed_button_pressed(2)  # 10x
-					get_viewport().set_input_as_handled()
-				KEY_3:
-					_on_speed_button_pressed(3)  # 50x
-					get_viewport().set_input_as_handled()
-				KEY_4:
-					_on_speed_button_pressed(4)  # 200x
-					get_viewport().set_input_as_handled()
-				KEY_5:
-					_on_speed_button_pressed(5)  # MAX
-					get_viewport().set_input_as_handled()
-
-		# Tutorial shortcuts
-		if GameData.tutorial_manager and GameData.tutorial_manager.is_active():
-			if tutorial_panel and tutorial_panel.visible:
-				if event.keycode == KEY_ENTER:
-					if tutorial_continue_button and tutorial_continue_button.visible:
-						_on_tutorial_continue_pressed()
-						get_viewport().set_input_as_handled()
-				elif event.keycode == KEY_ESCAPE:
-					if tutorial_skip_button and tutorial_skip_button.visible:
-						_on_tutorial_skip_pressed()
-						get_viewport().set_input_as_handled()
-
-## Route Configuration Dialog
-
-func create_route_config_dialog() -> void:
-	"""Create route configuration dialog"""
-	route_config_dialog = RouteConfigDialog.new()
-	add_child(route_config_dialog)
-	route_config_dialog.route_configured.connect(_on_route_configured)
-	print("Route configuration dialog created")
-
-func create_route_opportunity_dialog() -> void:
-	"""Create route opportunity dialog"""
-	route_opportunity_dialog = RouteOpportunityDialog.new()
-	add_child(route_opportunity_dialog)
-	route_opportunity_dialog.route_selected.connect(_on_route_opportunity_selected)
-	print("Route opportunity dialog created")
 
 func _on_route_opportunity_selected(from_airport: Airport, to_airport: Airport) -> void:
-	"""Handle route selection from opportunity dialog - open config dialog"""
+	"""Handle route selection from opportunity dialog"""
 	if route_config_dialog:
 		route_config_dialog.setup_route(from_airport, to_airport)
 		route_config_dialog.popup_centered()
-		print("Opening route configuration for selected opportunity: %s → %s" % [from_airport.iata_code, to_airport.iata_code])
 
 func _on_route_configured(config: Dictionary) -> void:
 	"""Handle route configuration from dialog"""
@@ -1640,128 +523,197 @@ func _on_route_configured(config: Dictionary) -> void:
 	var route: Route = null
 
 	if editing_route:
-		# Editing existing route
 		route = editing_route
-		print("Updating route: %s → %s" % [from.iata_code, to.iata_code])
-
-		# Update frequency and pricing
 		route.frequency = frequency
 		route.price_economy = price_economy
 		route.price_business = price_business
 		route.price_first = price_first
 
-		# If aircraft changed, reassign
 		if aircraft != route.assigned_aircraft[0]:
-			# Unassign old aircraft
 			for old_aircraft in route.assigned_aircraft:
 				old_aircraft.is_assigned = false
 			route.assigned_aircraft.clear()
-
-			# Assign new aircraft
 			aircraft.is_assigned = true
 			route.assigned_aircraft.append(aircraft)
 
-		# Update quality
 		route.service_quality = GameData.player_airline.service_quality
 		route.aircraft_condition = aircraft.condition
-
 	else:
-		# Create new route using the GameData helper
-		route = GameData.create_route_for_airline(
-			GameData.player_airline,
-			from,
-			to,
-			aircraft
-		)
-
+		route = GameData.create_route_for_airline(GameData.player_airline, from, to, aircraft)
 		if not route:
 			print("Failed to create route")
 			return
 
-		# Apply configuration
 		route.frequency = frequency
 		route.price_economy = price_economy
 		route.price_business = price_business
 		route.price_first = price_first
-
-		# Set quality from airline and aircraft
 		route.service_quality = GameData.player_airline.service_quality
 		route.aircraft_condition = aircraft.condition
 
-	# Refresh map
 	if world_map:
 		world_map.refresh_routes()
 
-	# Update UI
-	update_fleet_tab()
-	update_route_tab()
-
-	# Show success message
-	if airport_info:
-		airport_info.text = "✓ ROUTE CREATED!\n\n%s\nDistance: %.0f km (%.1f hours)\n\nAircraft: %s\nConfiguration: %s\nFrequency: %d flights/week\n\nPricing:\n  Economy: $%.0f\n  Business: $%.0f\n  First: $%.0f" % [
-			route.get_display_name(),
-			route.distance_km,
-			route.flight_duration_hours,
-			aircraft.model.get_display_name(),
-			aircraft.configuration.get_config_summary(),
-			frequency,
-			price_economy,
-			price_business,
-			price_first
-		]
-
-	print("✓ Route created: %s with %s (Freq: %d)" % [
-		route.get_display_name(),
-		aircraft.model.get_display_name(),
-		frequency
-	])
-
-## Hub Purchase Dialog
-
-func create_hub_purchase_ui() -> void:
-	"""Create hub purchase dialog and button"""
-	# Create dialog
-	hub_purchase_dialog = HubPurchaseDialog.new()
-	add_child(hub_purchase_dialog)
-	hub_purchase_dialog.hub_purchased.connect(_on_hub_purchased)
-
-	# Create button in top panel (next to other controls)
-	purchase_hub_button = Button.new()
-	purchase_hub_button.text = "Purchase Hub"
-	purchase_hub_button.custom_minimum_size = Vector2(120, 30)
-	purchase_hub_button.pressed.connect(_on_purchase_hub_button_pressed)
-
-	# Add to top panel (programmatically)
-	var top_panel = get_node_or_null("MarginContainer/VBoxContainer/TopPanel/HBoxContainer")
-	if top_panel:
-		top_panel.add_child(purchase_hub_button)
-		print("Hub purchase button added to UI")
-
-	print("Hub purchase dialog created")
-
-func _on_purchase_hub_button_pressed() -> void:
-	"""Open hub purchase dialog"""
-	if hub_purchase_dialog:
-		hub_purchase_dialog.show_dialog()
+	update_all()
 
 func _on_hub_purchased(airport: Airport) -> void:
-	"""Handle hub purchase completion"""
+	"""Handle hub purchase"""
 	print("Hub purchased at %s" % airport.iata_code)
-
-	# Refresh map to show new hub marker
 	if world_map:
 		world_map.queue_redraw()
+	update_all()
 
-	# Update top panel to show new balance
-	update_top_panel()
+func _on_week_completed(week: int) -> void:
+	"""Handle week simulation completion"""
+	update_all()
+	if world_map:
+		world_map.refresh_routes()
 
-	# Show confirmation message
-	if airport_info:
-		airport_info.text = "✓ HUB PURCHASED!\n\n%s is now your hub!\n\n%s, %s\n%s\n\nYou can now create routes originating from this airport.\n\nTotal Hubs: %d\nHubs: %s" % [
-			airport.iata_code,
-			airport.get_display_name(),
-			airport.city,
-			airport.country,
-			GameData.player_airline.get_hub_count(),
-			GameData.player_airline.get_hub_names()
-		]
+func _on_route_simulated(route: Route, passengers: int, revenue: float) -> void:
+	pass
+
+func _on_simulation_started() -> void:
+	pass
+
+func _on_simulation_paused() -> void:
+	pass
+
+func _on_speed_changed(speed_level: int, _speed_name: String) -> void:
+	pass
+
+func _on_balance_changed(new_balance: float) -> void:
+	update_all()
+
+func _on_route_added(route: Route) -> void:
+	update_all()
+
+func _on_aircraft_purchased(aircraft: AircraftInstance, airline: Airline) -> void:
+	update_all()
+
+func _on_loan_created(loan: Loan, airline: Airline) -> void:
+	update_all()
+
+# Utility Functions
+
+func format_money(amount: float) -> String:
+	var abs_amount: float = abs(amount)
+	var sign: String = "-" if amount < 0 else ""
+
+	if abs_amount >= 1000000000:
+		return "%s%.2fB" % [sign, abs_amount / 1000000000.0]
+	elif abs_amount >= 1000000:
+		return "%s%.2fM" % [sign, abs_amount / 1000000.0]
+	elif abs_amount >= 1000:
+		return "%s%.2fK" % [sign, abs_amount / 1000.0]
+	else:
+		return "%s%.0f" % [sign, abs_amount]
+
+# Tutorial System
+
+func create_tutorial_overlay() -> void:
+	"""Create tutorial UI overlay"""
+	tutorial_overlay_layer = CanvasLayer.new()
+	tutorial_overlay_layer.name = "TutorialOverlay"
+	tutorial_overlay_layer.layer = 100
+	add_child(tutorial_overlay_layer)
+
+	tutorial_panel = Panel.new()
+	tutorial_panel.name = "TutorialPanel"
+	tutorial_panel.custom_minimum_size = Vector2(600, 300)
+	tutorial_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	tutorial_panel.position = Vector2(20, 80)
+	tutorial_panel.size = Vector2(600, 300)
+	tutorial_overlay_layer.add_child(tutorial_panel)
+
+	var vbox = VBoxContainer.new()
+	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vbox.offset_left = 20
+	vbox.offset_top = 20
+	vbox.offset_right = -20
+	vbox.offset_bottom = -20
+	vbox.add_theme_constant_override("separation", 10)
+	tutorial_panel.add_child(vbox)
+
+	tutorial_progress = Label.new()
+	tutorial_progress.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tutorial_progress.add_theme_font_size_override("font_size", 12)
+	tutorial_progress.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+	vbox.add_child(tutorial_progress)
+
+	tutorial_title = Label.new()
+	tutorial_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tutorial_title.add_theme_font_size_override("font_size", 24)
+	tutorial_title.add_theme_color_override("font_color", UITheme.PRIMARY_BLUE)
+	vbox.add_child(tutorial_title)
+
+	tutorial_message = RichTextLabel.new()
+	tutorial_message.bbcode_enabled = true
+	tutorial_message.fit_content = false
+	tutorial_message.custom_minimum_size = Vector2(0, 120)
+	tutorial_message.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tutorial_message.add_theme_font_size_override("normal_font_size", 14)
+	vbox.add_child(tutorial_message)
+
+	var button_box = HBoxContainer.new()
+	button_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	button_box.add_theme_constant_override("separation", 20)
+	vbox.add_child(button_box)
+
+	tutorial_skip_button = Button.new()
+	tutorial_skip_button.text = "Skip Tutorial"
+	tutorial_skip_button.custom_minimum_size = Vector2(150, 40)
+	tutorial_skip_button.pressed.connect(_on_tutorial_skip_pressed)
+	button_box.add_child(tutorial_skip_button)
+
+	tutorial_continue_button = Button.new()
+	tutorial_continue_button.text = "Continue"
+	tutorial_continue_button.custom_minimum_size = Vector2(150, 40)
+	tutorial_continue_button.pressed.connect(_on_tutorial_continue_pressed)
+	button_box.add_child(tutorial_continue_button)
+
+	tutorial_skip_dialog = ConfirmationDialog.new()
+	tutorial_skip_dialog.title = "Skip Tutorial?"
+	tutorial_skip_dialog.dialog_text = "Are you sure you want to skip the tutorial?"
+	tutorial_skip_dialog.confirmed.connect(_on_tutorial_skip_confirmed)
+	tutorial_overlay_layer.add_child(tutorial_skip_dialog)
+
+	tutorial_panel.visible = false
+
+	if GameData.tutorial_manager:
+		GameData.tutorial_manager.tutorial_step_started.connect(_on_tutorial_step_started_ui)
+		GameData.tutorial_manager.tutorial_completed.connect(_on_tutorial_completed_ui)
+
+func _on_tutorial_step_started_ui(step: TutorialStep) -> void:
+	if not tutorial_panel:
+		return
+
+	tutorial_panel.visible = true
+	if tutorial_title:
+		tutorial_title.text = step.title
+	if tutorial_message:
+		tutorial_message.text = step.message
+	if tutorial_progress and GameData.tutorial_manager:
+		var current = GameData.tutorial_manager.current_step_index + 1
+		var total = GameData.tutorial_manager.tutorial_steps.size()
+		tutorial_progress.text = "Step %d of %d" % [current, total]
+
+	if tutorial_continue_button:
+		tutorial_continue_button.visible = step.step_type != TutorialStep.StepType.WAIT_FOR_ACTION
+
+func _on_tutorial_completed_ui() -> void:
+	if tutorial_panel:
+		tutorial_panel.visible = false
+
+func _on_tutorial_continue_pressed() -> void:
+	if GameData.tutorial_manager:
+		GameData.tutorial_manager.complete_current_step()
+
+func _on_tutorial_skip_pressed() -> void:
+	if tutorial_skip_dialog:
+		tutorial_skip_dialog.popup_centered()
+
+func _on_tutorial_skip_confirmed() -> void:
+	if GameData.tutorial_manager:
+		GameData.tutorial_manager.skip_tutorial()
+	if tutorial_panel:
+		tutorial_panel.visible = false
