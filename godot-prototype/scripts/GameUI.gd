@@ -1051,7 +1051,7 @@ func create_tutorial_overlay() -> void:
 	tutorial_skip_dialog = ConfirmationDialog.new()
 	tutorial_skip_dialog.name = "SkipConfirmDialog"
 	tutorial_skip_dialog.title = "Skip Tutorial?"
-	tutorial_skip_dialog.dialog_text = "Are you sure you want to skip the tutorial?\n\nYou will miss the $50M completion bonus and learning valuable game mechanics!"
+	tutorial_skip_dialog.dialog_text = "Are you sure you want to skip the tutorial?\n\nYou'll still receive the $50M starting bonus, but you'll miss learning the game mechanics step-by-step."
 	tutorial_skip_dialog.ok_button_text = "Yes, Skip Tutorial"
 	tutorial_skip_dialog.cancel_button_text = "No, Continue Tutorial"
 	tutorial_skip_dialog.confirmed.connect(_on_tutorial_skip_confirmed)

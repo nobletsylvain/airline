@@ -20,6 +20,7 @@ var opportunities: Array[Dictionary] = []
 var filtered_opportunities: Array[Dictionary] = []
 var selected_opportunity: Dictionary = {}
 var current_filter: String = "all"  # all, short, medium, long
+var is_filter_collapsed: bool = false  # Track filter section collapse state
 
 # Distance thresholds (based on Airline Club)
 const SHORT_HAUL_MAX: float = 2000.0
@@ -60,6 +61,21 @@ func build_ui() -> void:
 	var filter_hbox = HBoxContainer.new()
 	filter_hbox.add_theme_constant_override("separation", 10)
 	filter_panel.add_child(filter_hbox)
+
+	# Collapse button for filter section
+	var collapse_button = Button.new()
+	collapse_button.text = "▼"
+	collapse_button.custom_minimum_size = Vector2(30, 40)
+	collapse_button.tooltip_text = "Collapse/Expand Filter"
+	collapse_button.pressed.connect(func():
+		is_filter_collapsed = not is_filter_collapsed
+		distance_filter_all.visible = not is_filter_collapsed
+		distance_filter_short.visible = not is_filter_collapsed
+		distance_filter_medium.visible = not is_filter_collapsed
+		distance_filter_long.visible = not is_filter_collapsed
+		collapse_button.text = "▶" if is_filter_collapsed else "▼"
+	)
+	filter_hbox.add_child(collapse_button)
 
 	distance_filter_all = create_filter_button("All Routes", "all")
 	filter_hbox.add_child(distance_filter_all)

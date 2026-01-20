@@ -106,7 +106,7 @@ func _on_continue_pressed() -> void:
 func _on_skip_pressed() -> void:
 	"""Skip button clicked - show confirmation"""
 	if confirm_dialog:
-		confirm_dialog.dialog_text = "Are you sure you want to skip the tutorial?\n\nYou will miss the $50M completion bonus!"
+		confirm_dialog.dialog_text = "Are you sure you want to skip the tutorial?\n\nYou'll still receive the $50M starting bonus!"
 		confirm_dialog.popup_centered()
 	else:
 		# Fallback if no dialog
