@@ -1,11 +1,9 @@
 extends Control
 
-## World map visualization with airports and routes - Enhanced with zoom and better graphics
+## World map visualization with airports and routes - Using OpenStreetMap tiles
 
 @export var airport_marker_scene: PackedScene
 @export var background_color: Color = Color(0.1, 0.15, 0.2)
-@export var ocean_color: Color = Color(0.15, 0.25, 0.35)
-@export var land_color: Color = Color(0.25, 0.35, 0.3)
 
 var airport_markers: Dictionary = {}  # iata_code -> AirportMarker node
 var route_lines: Array[Line2D] = []
@@ -15,23 +13,23 @@ var hover_route: Route = null
 var selected_route: Route = null
 var preview_mouse_pos: Vector2 = Vector2.ZERO  # Track mouse for preview line
 
+# OpenStreetMap tile system
+var tile_manager: MapTileManager = null
+var osm_zoom: int = 2  # OSM zoom level (0-19, 2 = world view)
+var map_center_lat: float = 30.0  # Center latitude
+var map_center_lon: float = 0.0   # Center longitude
+
 # Plane animation system
 var plane_sprites: Array[PlaneSprite] = []
 var hover_plane: PlaneSprite = null
 var last_route_count: int = 0  # Track when routes change to respawn planes
-
-# Plane animation now syncs with simulation time
 
 # Route visualization settings
 var show_route_labels: bool = true
 var show_profitability_colors: bool = true
 var show_capacity_thickness: bool = true
 
-# Zoom and pan variables
-var zoom_level: float = 1.0
-var min_zoom: float = 0.5
-var max_zoom: float = 3.0
-var zoom_step: float = 0.2
+# Zoom and pan variables (now in pixel space)
 var pan_offset: Vector2 = Vector2.ZERO
 var is_panning: bool = false
 var last_mouse_pos: Vector2 = Vector2.ZERO
@@ -47,16 +45,34 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	clip_contents = true  # Clip content outside bounds
 
+	# Initialize tile manager
+	tile_manager = MapTileManager.new()
+	add_child(tile_manager)
+	tile_manager.tile_loaded.connect(_on_tile_loaded)
+
 	# Wait for GameData to initialize
 	if GameData.airports.is_empty():
 		await GameData.game_initialized
 
 	# Wait one frame for the control to be properly sized
 	await get_tree().process_frame
+
+	# Center map on the world
+	_center_map_on_world()
 	setup_airports()
 
 	# Enable processing for plane animations
 	set_process(true)
+
+func _center_map_on_world() -> void:
+	"""Center the map to show the whole world"""
+	# Calculate initial pan offset to center the world
+	var center_pixel = MapTileManager.lat_lon_to_pixel(map_center_lat, map_center_lon, osm_zoom)
+	pan_offset = size / 2.0 - center_pixel
+
+func _on_tile_loaded(_z: int, _x: int, _y: int, _texture: ImageTexture) -> void:
+	"""Redraw when a new tile is loaded"""
+	queue_redraw()
 
 func _gui_input(event: InputEvent) -> void:
 	# Handle zoom with mouse wheel
@@ -169,17 +185,17 @@ func update_plane_hover() -> void:
 		return
 
 	var mouse_pos: Vector2 = get_local_mouse_position()
-	var world_pos: Vector2 = screen_to_world(mouse_pos)
 
 	var closest_plane: PlaneSprite = null
-	var closest_distance: float = 15.0 / zoom_level  # Hover threshold
+	var closest_distance: float = 20.0  # Hover threshold in screen pixels
 
 	for plane in plane_sprites:
 		if not plane.is_active:
 			continue
 
-		var plane_pos: Vector2 = plane.get_current_position(size)
-		var distance: float = world_pos.distance_to(plane_pos)
+		var plane_world_pos: Vector2 = plane.get_current_position(size)
+		var plane_screen_pos: Vector2 = world_to_screen(plane_world_pos)
+		var distance: float = mouse_pos.distance_to(plane_screen_pos)
 
 		if distance < closest_distance:
 			closest_distance = distance
@@ -187,28 +203,35 @@ func update_plane_hover() -> void:
 
 	hover_plane = closest_plane
 
-func zoom_at_point(point: Vector2, delta: float) -> void:
-	"""Zoom in/out at a specific point"""
-	var old_zoom: float = zoom_level
-	zoom_level = clamp(zoom_level + delta, min_zoom, max_zoom)
+func zoom_at_point(point: Vector2, direction: float) -> void:
+	"""Zoom in/out at a specific point using OSM zoom levels"""
+	var old_zoom: int = osm_zoom
 
-	if old_zoom != zoom_level:
-		# Adjust pan to zoom toward the mouse position
-		var zoom_factor: float = zoom_level / old_zoom
-		pan_offset = point + (pan_offset - point) * zoom_factor
+	if direction > 0:
+		osm_zoom = mini(osm_zoom + 1, 6)  # Max zoom 6 for world view
+	else:
+		osm_zoom = maxi(osm_zoom - 1, 1)  # Min zoom 1
+
+	if old_zoom != osm_zoom:
+		# Get the lat/lon at the mouse position before zoom
+		var mouse_world = screen_to_world(point)
+		var lat_lon = pixel_to_lat_lon(mouse_world)
+
+		# Recalculate pixel position at new zoom
+		var new_pixel = lat_lon_to_pixel(lat_lon.x, lat_lon.y)
+
+		# Adjust pan so the point under mouse stays in place
+		pan_offset = point - new_pixel
 
 		update_airport_positions()
 		queue_redraw()
 
 func _draw() -> void:
-	# Draw background (ocean)
-	draw_rect(Rect2(Vector2.ZERO, size), ocean_color, true)
+	# Draw background (ocean color as fallback)
+	draw_rect(Rect2(Vector2.ZERO, size), background_color, true)
 
-	# Apply zoom and pan transformation
-	draw_set_transform(pan_offset, 0.0, Vector2(zoom_level, zoom_level))
-
-	# Draw continents with better Mercator projection
-	draw_world_continents()
+	# Draw map tiles
+	draw_map_tiles()
 
 	# Draw routes (player and competitors)
 	draw_all_routes()
@@ -219,105 +242,61 @@ func _draw() -> void:
 	# Draw animated planes
 	draw_all_planes()
 
-	# Reset transformation for UI elements
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-
-	# Draw plane tooltip (after reset, so it's not affected by zoom)
+	# Draw plane tooltip
 	draw_plane_tooltip()
 
-func draw_world_continents() -> void:
-	"""Draw continents using Mercator projection with better shapes"""
-	var map_size: Vector2 = size
+func draw_map_tiles() -> void:
+	"""Draw visible OpenStreetMap tiles"""
+	if not tile_manager:
+		return
 
-	# North America (approximate outline)
-	var na_points: PackedVector2Array = [
-		latlon_to_screen(70, -170, map_size),   # Alaska
-		latlon_to_screen(75, -100, map_size),   # North Canada
-		latlon_to_screen(50, -65, map_size),    # East Canada
-		latlon_to_screen(45, -70, map_size),    # Nova Scotia
-		latlon_to_screen(25, -80, map_size),    # Florida
-		latlon_to_screen(20, -90, map_size),    # Mexico Gulf
-		latlon_to_screen(15, -95, map_size),    # Central America
-		latlon_to_screen(30, -115, map_size),   # California
-		latlon_to_screen(50, -125, map_size),   # Pacific Northwest
-		latlon_to_screen(60, -140, map_size),   # Alaska South
-	]
-	draw_colored_polygon(na_points, land_color)
+	var tile_size = MapTileManager.TILE_SIZE
 
-	# South America
-	var sa_points: PackedVector2Array = [
-		latlon_to_screen(10, -75, map_size),    # Colombia
-		latlon_to_screen(-5, -80, map_size),    # Peru
-		latlon_to_screen(-35, -70, map_size),   # Chile
-		latlon_to_screen(-55, -70, map_size),   # Cape Horn
-		latlon_to_screen(-35, -55, map_size),   # Argentina East
-		latlon_to_screen(-5, -35, map_size),    # Brazil East
-		latlon_to_screen(5, -50, map_size),     # North Brazil
-	]
-	draw_colored_polygon(sa_points, land_color)
+	# Calculate visible tile range
+	var top_left = screen_to_world(Vector2.ZERO)
+	var bottom_right = screen_to_world(size)
 
-	# Europe
-	var eu_points: PackedVector2Array = [
-		latlon_to_screen(70, 25, map_size),     # Northern Norway
-		latlon_to_screen(60, 30, map_size),     # Finland
-		latlon_to_screen(55, 15, map_size),     # Denmark
-		latlon_to_screen(50, 5, map_size),      # UK/France
-		latlon_to_screen(45, -10, map_size),    # Spain
-		latlon_to_screen(36, -5, map_size),     # Gibraltar
-		latlon_to_screen(36, 15, map_size),     # Sicily
-		latlon_to_screen(42, 25, map_size),     # Greece
-		latlon_to_screen(45, 30, map_size),     # Black Sea
-		latlon_to_screen(50, 40, map_size),     # Russia West
-		latlon_to_screen(65, 40, map_size),     # Russia North
-	]
-	draw_colored_polygon(eu_points, land_color)
+	var start_tile_x = int(floor(top_left.x / tile_size))
+	var start_tile_y = int(floor(top_left.y / tile_size))
+	var end_tile_x = int(ceil(bottom_right.x / tile_size))
+	var end_tile_y = int(ceil(bottom_right.y / tile_size))
 
-	# Africa
-	var af_points: PackedVector2Array = [
-		latlon_to_screen(35, -5, map_size),     # Morocco
-		latlon_to_screen(30, 10, map_size),     # Libya
-		latlon_to_screen(32, 30, map_size),     # Egypt
-		latlon_to_screen(15, 45, map_size),     # Horn of Africa
-		latlon_to_screen(-5, 40, map_size),     # Kenya
-		latlon_to_screen(-35, 25, map_size),    # South Africa East
-		latlon_to_screen(-35, 18, map_size),    # Cape of Good Hope
-		latlon_to_screen(-15, 12, map_size),    # Angola
-		latlon_to_screen(5, 10, map_size),      # West Africa
-		latlon_to_screen(10, -15, map_size),    # Senegal
-	]
-	draw_colored_polygon(af_points, land_color)
+	# Clamp to valid tile range
+	var max_tile = int(pow(2, osm_zoom)) - 1
+	start_tile_x = clampi(start_tile_x, 0, max_tile)
+	start_tile_y = clampi(start_tile_y, 0, max_tile)
+	end_tile_x = clampi(end_tile_x, 0, max_tile)
+	end_tile_y = clampi(end_tile_y, 0, max_tile)
 
-	# Asia (Main landmass)
-	var asia_points: PackedVector2Array = [
-		latlon_to_screen(70, 60, map_size),     # Russia North
-		latlon_to_screen(75, 100, map_size),    # Siberia
-		latlon_to_screen(70, 140, map_size),    # East Siberia
-		latlon_to_screen(60, 160, map_size),    # Kamchatka
-		latlon_to_screen(45, 135, map_size),    # Manchuria
-		latlon_to_screen(35, 140, map_size),    # Japan area
-		latlon_to_screen(20, 110, map_size),    # South China
-		latlon_to_screen(1, 105, map_size),     # Malaysia
-		latlon_to_screen(10, 80, map_size),     # India South
-		latlon_to_screen(25, 70, map_size),     # India
-		latlon_to_screen(30, 50, map_size),     # Iran
-		latlon_to_screen(40, 45, map_size),     # Caucasus
-	]
-	draw_colored_polygon(asia_points, land_color)
+	# Draw tiles
+	for ty in range(start_tile_y, end_tile_y + 1):
+		for tx in range(start_tile_x, end_tile_x + 1):
+			var texture = tile_manager.get_tile(osm_zoom, tx, ty)
+			var tile_pos = Vector2(tx * tile_size, ty * tile_size)
+			var screen_pos = world_to_screen(tile_pos)
 
-	# Australia
-	var au_points: PackedVector2Array = [
-		latlon_to_screen(-10, 130, map_size),   # North
-		latlon_to_screen(-15, 145, map_size),   # Queensland
-		latlon_to_screen(-38, 148, map_size),   # Victoria
-		latlon_to_screen(-43, 145, map_size),   # Tasmania
-		latlon_to_screen(-35, 115, map_size),   # Perth
-		latlon_to_screen(-20, 115, map_size),   # West Coast
-	]
-	draw_colored_polygon(au_points, land_color)
+			if texture:
+				draw_texture(texture, screen_pos)
+			else:
+				# Draw placeholder while loading
+				var rect = Rect2(screen_pos, Vector2(tile_size, tile_size))
+				draw_rect(rect, Color(0.2, 0.3, 0.4, 1.0), true)
+				draw_rect(rect, Color(0.3, 0.4, 0.5, 1.0), false, 1.0)
 
-func latlon_to_screen(lat: float, lon: float, map_size: Vector2) -> Vector2:
-	"""Helper function to convert lat/lon to screen coordinates"""
-	return GameData.lat_lon_to_screen(lat, lon, map_size)
+# Coordinate conversion functions for OSM tile system
+
+func lat_lon_to_pixel(lat: float, lon: float) -> Vector2:
+	"""Convert lat/lon to pixel coordinates at current zoom"""
+	return MapTileManager.lat_lon_to_pixel(lat, lon, osm_zoom)
+
+func pixel_to_lat_lon(pixel: Vector2) -> Vector2:
+	"""Convert pixel coordinates to lat/lon at current zoom"""
+	return MapTileManager.pixel_to_lat_lon(pixel, osm_zoom)
+
+func lat_lon_to_screen_pos(lat: float, lon: float) -> Vector2:
+	"""Convert lat/lon to screen position"""
+	var pixel = lat_lon_to_pixel(lat, lon)
+	return world_to_screen(pixel)
 
 func draw_all_routes() -> void:
 	"""Draw routes for player and all AI competitors with different colors"""
@@ -351,11 +330,9 @@ func draw_single_route(route: Route, base_color: Color) -> void:
 	if not route.from_airport or not route.to_airport:
 		return
 
-	var from_pos: Vector2 = route.from_airport.position_2d
-	var to_pos: Vector2 = route.to_airport.position_2d
-
-	if from_pos == Vector2.ZERO or to_pos == Vector2.ZERO:
-		return
+	# Convert world positions to screen positions
+	var from_pos: Vector2 = world_to_screen(route.from_airport.position_2d)
+	var to_pos: Vector2 = world_to_screen(route.to_airport.position_2d)
 
 	# Determine line color based on profitability
 	var line_color: Color = base_color
@@ -379,9 +356,6 @@ func draw_single_route(route: Route, base_color: Color) -> void:
 		line_thickness = 1.5 + (total_capacity / 500.0)  # Scale: 1.5-6.0
 		line_thickness = clamp(line_thickness, 1.5, 6.0)
 
-	# Apply zoom adjustment
-	line_thickness = line_thickness / zoom_level
-
 	# Highlight if hovered or selected
 	if route == hover_route or route == selected_route:
 		line_thickness *= 1.5
@@ -394,7 +368,7 @@ func draw_single_route(route: Route, base_color: Color) -> void:
 	# Draw direction arrow
 	var direction: Vector2 = (to_pos - from_pos).normalized()
 	var mid_point: Vector2 = (from_pos + to_pos) / 2.0
-	var arrow_size: float = (8.0 + line_thickness * 2) / zoom_level
+	var arrow_size: float = 8.0 + line_thickness * 2
 
 	var arrow_left: Vector2 = mid_point - direction * arrow_size + direction.rotated(PI/2) * arrow_size * 0.5
 	var arrow_right: Vector2 = mid_point - direction * arrow_size - direction.rotated(PI/2) * arrow_size * 0.5
@@ -403,7 +377,7 @@ func draw_single_route(route: Route, base_color: Color) -> void:
 	draw_colored_polygon(arrow_points, line_color)
 
 	# Draw route labels if enabled and zoomed in enough
-	if show_route_labels and zoom_level > 1.0 and route.airline_id == GameData.player_airline.id:
+	if show_route_labels and osm_zoom >= 3 and route.airline_id == GameData.player_airline.id:
 		draw_route_label(route, mid_point, line_color)
 
 func draw_route_label(route: Route, position: Vector2, color: Color) -> void:
@@ -443,7 +417,7 @@ func draw_route_label(route: Route, position: Vector2, color: Color) -> void:
 		return
 
 	# Draw text background
-	var font_size: int = int(12 / zoom_level)
+	var font_size: int = 12
 	var text_size: Vector2 = Vector2(label_text.length() * font_size * 0.6, font_size + 4)
 
 	var bg_rect: Rect2 = Rect2(position - text_size / 2, text_size)
@@ -459,7 +433,28 @@ func draw_all_planes() -> void:
 	"""Draw all active plane sprites"""
 	for plane in plane_sprites:
 		if plane.is_active:
-			plane.draw_plane(self, zoom_level)
+			# Get plane position in world coordinates and convert to screen
+			var world_pos = plane.get_current_position(size)
+			var screen_pos = world_to_screen(world_pos)
+			draw_plane_at(plane, screen_pos)
+
+func draw_plane_at(plane: PlaneSprite, screen_pos: Vector2) -> void:
+	"""Draw a plane sprite at the given screen position"""
+	var angle: float = plane.get_rotation_angle()
+	var plane_size: float = 8.0
+
+	# Draw plane as a triangle pointing in flight direction
+	var plane_points: PackedVector2Array = [
+		screen_pos + Vector2(plane_size * 1.5, 0).rotated(angle),  # Nose
+		screen_pos + Vector2(-plane_size, plane_size * 0.8).rotated(angle),  # Left wing
+		screen_pos + Vector2(-plane_size, -plane_size * 0.8).rotated(angle)  # Right wing
+	]
+
+	# Draw plane body
+	draw_colored_polygon(plane_points, plane.plane_color)
+
+	# Draw outline for contrast
+	draw_polyline(plane_points + PackedVector2Array([plane_points[0]]), Color.BLACK, 1.0, true)
 
 func draw_plane_tooltip() -> void:
 	"""Draw tooltip for hovered plane"""
@@ -522,29 +517,29 @@ func draw_route_preview() -> void:
 	if hover_airport == selected_airport:
 		return
 
-	var from_pos: Vector2 = selected_airport.position_2d
-	var to_pos: Vector2 = preview_mouse_pos
+	var from_pos: Vector2 = world_to_screen(selected_airport.position_2d)
+	var to_pos: Vector2 = get_local_mouse_position()
 
 	# If hovering over another airport, snap to that airport
 	if hover_airport:
-		to_pos = hover_airport.position_2d
+		to_pos = world_to_screen(hover_airport.position_2d)
 
 	# Draw dashed preview line
 	var line_color: Color = Color(0.4, 0.8, 1.0, 0.6)  # Light blue, semi-transparent
-	var line_thickness: float = 2.5 / zoom_level
+	var line_thickness: float = 2.5
 
 	# Draw as dashed line by drawing multiple segments
 	var direction: Vector2 = to_pos - from_pos
-	var distance: float = direction.length()
+	var total_distance: float = direction.length()
 	var normalized_dir: Vector2 = direction.normalized()
 
-	var dash_length: float = 15.0 / zoom_level
-	var gap_length: float = 10.0 / zoom_level
+	var dash_length: float = 15.0
+	var gap_length: float = 10.0
 	var current_distance: float = 0.0
 
-	while current_distance < distance:
+	while current_distance < total_distance:
 		var segment_start: Vector2 = from_pos + normalized_dir * current_distance
-		var segment_end: Vector2 = from_pos + normalized_dir * min(current_distance + dash_length, distance)
+		var segment_end: Vector2 = from_pos + normalized_dir * min(current_distance + dash_length, total_distance)
 
 		draw_line(segment_start, segment_end, line_color, line_thickness)
 
@@ -556,7 +551,7 @@ func draw_route_preview() -> void:
 		var mid_point: Vector2 = (from_pos + to_pos) / 2.0
 
 		var distance_text: String = "%.0f km" % route_distance
-		var font_size: int = int(14 / zoom_level)
+		var font_size: int = 14
 		var text_size: Vector2 = Vector2(distance_text.length() * font_size * 0.6, font_size + 4)
 
 		# Draw background
@@ -568,14 +563,13 @@ func draw_route_preview() -> void:
 
 func setup_airports() -> void:
 	"""Create visual markers for all airports"""
-	var map_size: Vector2 = size
-	print("WorldMap: Setting up airports. Map size: %s" % map_size)
+	print("WorldMap: Setting up airports with OSM tiles")
 	print("WorldMap: Number of airports: %d" % GameData.airports.size())
 
 	for airport in GameData.airports:
-		# Calculate screen position
-		airport.position_2d = GameData.lat_lon_to_screen(airport.latitude, airport.longitude, map_size)
-		print("  %s: lat/lon (%.2f, %.2f) -> screen pos %s" % [airport.iata_code, airport.latitude, airport.longitude, airport.position_2d])
+		# Calculate pixel position at current zoom level
+		airport.position_2d = lat_lon_to_pixel(airport.latitude, airport.longitude)
+		print("  %s: lat/lon (%.2f, %.2f) -> pixel pos %s" % [airport.iata_code, airport.latitude, airport.longitude, airport.position_2d])
 
 		# Create marker
 		create_airport_marker(airport)
@@ -585,16 +579,20 @@ func setup_airports() -> void:
 func update_airport_positions() -> void:
 	"""Update airport marker positions based on zoom and pan"""
 	for airport in GameData.airports:
+		# Recalculate pixel position at current zoom level
+		airport.position_2d = lat_lon_to_pixel(airport.latitude, airport.longitude)
+
 		if airport.iata_code in airport_markers:
 			var marker: Control = airport_markers[airport.iata_code]
-			var transformed_pos: Vector2 = airport.position_2d * zoom_level + pan_offset
-			marker.position = transformed_pos - Vector2(12, 12)  # Center the marker
+			var screen_pos: Vector2 = world_to_screen(airport.position_2d)
+			marker.position = screen_pos - Vector2(12, 12)  # Center the marker
 
 func create_airport_marker(airport: Airport) -> void:
 	"""Create a visual marker for an airport"""
 	var marker: Control = Control.new()
 	marker.custom_minimum_size = Vector2(24, 24)
-	marker.position = airport.position_2d - Vector2(12, 12)
+	var screen_pos = world_to_screen(airport.position_2d)
+	marker.position = screen_pos - Vector2(12, 12)
 	marker.mouse_filter = Control.MOUSE_FILTER_STOP
 	marker.set_meta("airport", airport)
 
@@ -711,20 +709,17 @@ func clear_selection() -> void:
 			airport_markers[prev.iata_code].queue_redraw()
 
 func screen_to_world(screen_pos: Vector2) -> Vector2:
-	"""Convert screen coordinates to world coordinates (accounting for zoom and pan)"""
-	return (screen_pos - pan_offset) / zoom_level
+	"""Convert screen coordinates to world (pixel) coordinates"""
+	return screen_pos - pan_offset
 
 func world_to_screen(world_pos: Vector2) -> Vector2:
-	"""Convert world coordinates to screen coordinates"""
-	return world_pos * zoom_level + pan_offset
+	"""Convert world (pixel) coordinates to screen coordinates"""
+	return world_pos + pan_offset
 
-func find_route_at_position(world_pos: Vector2, threshold: float = 10.0) -> Route:
+func find_route_at_position(world_pos: Vector2, threshold: float = 15.0) -> Route:
 	"""Find route near the given world position"""
-	# Adjust threshold for zoom level
-	var adjusted_threshold: float = threshold / zoom_level
-
 	var closest_route: Route = null
-	var closest_distance: float = adjusted_threshold
+	var closest_distance: float = threshold
 
 	# Check player routes first (priority)
 	if GameData.player_airline:
