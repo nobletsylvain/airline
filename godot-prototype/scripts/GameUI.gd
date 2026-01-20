@@ -77,6 +77,7 @@ func _ready() -> void:
 		world_map.airport_clicked.connect(_on_airport_clicked)
 		world_map.airport_hovered.connect(_on_airport_hovered)
 		world_map.route_created.connect(_on_route_created)
+		world_map.route_clicked.connect(_on_route_clicked)
 
 	# Connect button signals
 	if play_button:
@@ -433,6 +434,22 @@ func _on_route_created(from_airport: Airport, to_airport: Airport) -> void:
 func _on_route_added(route: Route) -> void:
 	"""Handle new route added to airline"""
 	update_route_list()
+
+func _on_route_clicked(route: Route) -> void:
+	"""Handle route click on map - open edit dialog"""
+	if not route or not GameData.player_airline:
+		return
+
+	# Only allow editing player's routes
+	if route.airline_id != GameData.player_airline.id:
+		print("Cannot edit competitor route")
+		return
+
+	# Show route configuration dialog in edit mode
+	if route_config_dialog:
+		route_config_dialog.setup_edit_route(route)
+		route_config_dialog.popup_centered()
+		print("Opening route editor for %s → %s" % [route.from_airport.iata_code, route.to_airport.iata_code])
 
 func _on_play_button_pressed() -> void:
 	"""Toggle simulation play/pause"""
@@ -1108,32 +1125,62 @@ func _on_route_configured(config: Dictionary) -> void:
 	var price_economy: float = config.get("price_economy", 100)
 	var price_business: float = config.get("price_business", 200)
 	var price_first: float = config.get("price_first", 500)
+	var editing_route: Route = config.get("editing_route", null)
 
 	if not from or not to or not aircraft:
 		print("Error: Invalid route configuration")
 		return
 
-	# Create route using the GameData helper
-	var route: Route = GameData.create_route_for_airline(
-		GameData.player_airline,
-		from,
-		to,
-		aircraft
-	)
+	var route: Route = null
 
-	if not route:
-		print("Failed to create route")
-		return
+	if editing_route:
+		# Editing existing route
+		route = editing_route
+		print("Updating route: %s → %s" % [from.iata_code, to.iata_code])
 
-	# Apply configuration
-	route.frequency = frequency
-	route.price_economy = price_economy
-	route.price_business = price_business
-	route.price_first = price_first
+		# Update frequency and pricing
+		route.frequency = frequency
+		route.price_economy = price_economy
+		route.price_business = price_business
+		route.price_first = price_first
 
-	# Set quality from airline and aircraft
-	route.service_quality = GameData.player_airline.service_quality
-	route.aircraft_condition = aircraft.condition
+		# If aircraft changed, reassign
+		if aircraft != route.assigned_aircraft[0]:
+			# Unassign old aircraft
+			for old_aircraft in route.assigned_aircraft:
+				old_aircraft.is_assigned = false
+			route.assigned_aircraft.clear()
+
+			# Assign new aircraft
+			aircraft.is_assigned = true
+			route.assigned_aircraft.append(aircraft)
+
+		# Update quality
+		route.service_quality = GameData.player_airline.service_quality
+		route.aircraft_condition = aircraft.condition
+
+	else:
+		# Create new route using the GameData helper
+		route = GameData.create_route_for_airline(
+			GameData.player_airline,
+			from,
+			to,
+			aircraft
+		)
+
+		if not route:
+			print("Failed to create route")
+			return
+
+		# Apply configuration
+		route.frequency = frequency
+		route.price_economy = price_economy
+		route.price_business = price_business
+		route.price_first = price_first
+
+		# Set quality from airline and aircraft
+		route.service_quality = GameData.player_airline.service_quality
+		route.aircraft_condition = aircraft.condition
 
 	# Refresh map
 	if world_map:

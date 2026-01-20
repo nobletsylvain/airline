@@ -11,6 +11,14 @@ var airport_markers: Dictionary = {}  # iata_code -> AirportMarker node
 var route_lines: Array[Line2D] = []
 var selected_airport: Airport = null
 var hover_airport: Airport = null
+var hover_route: Route = null
+var selected_route: Route = null
+var preview_mouse_pos: Vector2 = Vector2.ZERO  # Track mouse for preview line
+
+# Route visualization settings
+var show_route_labels: bool = true
+var show_profitability_colors: bool = true
+var show_capacity_thickness: bool = true
 
 # Zoom and pan variables
 var zoom_level: float = 1.0
@@ -24,6 +32,8 @@ var last_mouse_pos: Vector2 = Vector2.ZERO
 signal airport_clicked(airport: Airport)
 signal airport_hovered(airport: Airport)
 signal route_created(from_airport: Airport, to_airport: Airport)
+signal route_clicked(route: Route)
+signal route_hovered(route: Route)
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(1000, 600)
@@ -55,15 +65,42 @@ func _gui_input(event: InputEvent) -> void:
 			else:
 				is_panning = false
 			accept_event()
+		# Handle left click for route selection
+		elif event.button_index == MOUSE_BUTTON_LEFT and event.pressed and not is_panning:
+			var world_pos: Vector2 = screen_to_world(event.position)
+			var clicked_route: Route = find_route_at_position(world_pos)
+			if clicked_route:
+				selected_route = clicked_route
+				route_clicked.emit(clicked_route)
+				queue_redraw()
+				accept_event()
 
-	# Handle pan dragging
-	if event is InputEventMouseMotion and is_panning:
-		var delta: Vector2 = event.position - last_mouse_pos
-		pan_offset += delta
-		last_mouse_pos = event.position
-		update_airport_positions()
-		queue_redraw()
-		accept_event()
+	# Handle mouse motion for hover and panning
+	if event is InputEventMouseMotion:
+		# Update preview mouse position
+		preview_mouse_pos = screen_to_world(event.position)
+
+		if is_panning:
+			# Pan dragging
+			var delta: Vector2 = event.position - last_mouse_pos
+			pan_offset += delta
+			last_mouse_pos = event.position
+			update_airport_positions()
+			queue_redraw()
+			accept_event()
+		else:
+			# Check for route hover
+			var world_pos: Vector2 = screen_to_world(event.position)
+			var hovered_route: Route = find_route_at_position(world_pos)
+			if hovered_route != hover_route:
+				hover_route = hovered_route
+				if hover_route:
+					route_hovered.emit(hover_route)
+				queue_redraw()
+
+			# Redraw if airport is selected (for preview line)
+			if selected_airport:
+				queue_redraw()
 
 func zoom_at_point(point: Vector2, delta: float) -> void:
 	"""Zoom in/out at a specific point"""
@@ -90,6 +127,9 @@ func _draw() -> void:
 
 	# Draw routes (player and competitors)
 	draw_all_routes()
+
+	# Draw route preview if airport is selected
+	draw_route_preview()
 
 	# Reset transformation for UI elements
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -216,7 +256,7 @@ func get_airline_color(airline: Airline) -> Color:
 	return Color.from_hsv(hue, 0.7, 0.8, 0.5)
 
 func draw_single_route(route: Route, base_color: Color) -> void:
-	"""Draw a single route line"""
+	"""Draw a single route line with enhanced visualization"""
 	if not route.from_airport or not route.to_airport:
 		return
 
@@ -226,21 +266,156 @@ func draw_single_route(route: Route, base_color: Color) -> void:
 	if from_pos == Vector2.ZERO or to_pos == Vector2.ZERO:
 		return
 
-	# Draw line
+	# Determine line color based on profitability
 	var line_color: Color = base_color
-	line_color.a = 0.6
-	draw_line(from_pos, to_pos, line_color, 2.0 / zoom_level)
+	if show_profitability_colors and route.airline_id == GameData.player_airline.id:
+		# Color code player routes by profitability
+		if route.weekly_profit > 100000:  # High profit
+			line_color = Color(0.2, 1.0, 0.3, 0.8)  # Bright green
+		elif route.weekly_profit > 0:  # Profit
+			line_color = Color(0.6, 0.9, 0.4, 0.7)  # Light green
+		elif route.weekly_profit > -50000:  # Small loss
+			line_color = Color(1.0, 0.8, 0.2, 0.7)  # Yellow
+		else:  # Big loss
+			line_color = Color(1.0, 0.3, 0.2, 0.8)  # Red
+	else:
+		line_color.a = 0.5  # AI airline routes more transparent
+
+	# Determine line thickness based on capacity or frequency
+	var line_thickness: float = 2.0
+	if show_capacity_thickness:
+		var total_capacity: int = route.get_total_capacity() * route.frequency
+		line_thickness = 1.5 + (total_capacity / 500.0)  # Scale: 1.5-6.0
+		line_thickness = clamp(line_thickness, 1.5, 6.0)
+
+	# Apply zoom adjustment
+	line_thickness = line_thickness / zoom_level
+
+	# Highlight if hovered or selected
+	if route == hover_route or route == selected_route:
+		line_thickness *= 1.5
+		line_color.a = 1.0
+		line_color = line_color.lightened(0.2)
+
+	# Draw line
+	draw_line(from_pos, to_pos, line_color, line_thickness)
 
 	# Draw direction arrow
 	var direction: Vector2 = (to_pos - from_pos).normalized()
 	var mid_point: Vector2 = (from_pos + to_pos) / 2.0
-	var arrow_size: float = 10.0 / zoom_level
+	var arrow_size: float = (8.0 + line_thickness * 2) / zoom_level
 
 	var arrow_left: Vector2 = mid_point - direction * arrow_size + direction.rotated(PI/2) * arrow_size * 0.5
 	var arrow_right: Vector2 = mid_point - direction * arrow_size - direction.rotated(PI/2) * arrow_size * 0.5
 
 	var arrow_points: PackedVector2Array = [mid_point, arrow_left, arrow_right]
 	draw_colored_polygon(arrow_points, line_color)
+
+	# Draw route labels if enabled and zoomed in enough
+	if show_route_labels and zoom_level > 1.0 and route.airline_id == GameData.player_airline.id:
+		draw_route_label(route, mid_point, line_color)
+
+func draw_route_label(route: Route, position: Vector2, color: Color) -> void:
+	"""Draw informative label on route"""
+	if not route:
+		return
+
+	# Create label text
+	var label_text: String = ""
+
+	# Show passengers transported
+	if route.passengers_transported > 0:
+		label_text = "%d pax" % route.passengers_transported
+
+	# Show profit if significant
+	if abs(route.weekly_profit) > 10000:
+		var profit_str: String = "$%.0fK" % (route.weekly_profit / 1000.0)
+		if route.weekly_profit > 0:
+			profit_str = "+" + profit_str
+		if label_text != "":
+			label_text += " | " + profit_str
+		else:
+			label_text = profit_str
+
+	# Show load factor if low or high
+	var total_cap: int = route.get_total_capacity() * route.frequency
+	if total_cap > 0:
+		var load_factor: float = (route.passengers_transported / float(total_cap)) * 100.0
+		if load_factor < 60 or load_factor > 95:
+			var lf_str: String = "%.0f%%" % load_factor
+			if label_text != "":
+				label_text += " | " + lf_str
+			else:
+				label_text = lf_str
+
+	if label_text == "":
+		return
+
+	# Draw text background
+	var font_size: int = int(12 / zoom_level)
+	var text_size: Vector2 = Vector2(label_text.length() * font_size * 0.6, font_size + 4)
+
+	var bg_rect: Rect2 = Rect2(position - text_size / 2, text_size)
+	var bg_color: Color = Color(0.0, 0.0, 0.0, 0.7)
+	draw_rect(bg_rect, bg_color, true)
+
+	# Draw text
+	var text_color: Color = color.lightened(0.3)
+	text_color.a = 1.0
+	draw_string(ThemeDB.fallback_font, position - Vector2(text_size.x / 2, -text_size.y / 4), label_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, text_color)
+
+func draw_route_preview() -> void:
+	"""Draw preview line when creating a route"""
+	if not selected_airport:
+		return
+
+	# Don't draw preview if hovering over the selected airport itself
+	if hover_airport == selected_airport:
+		return
+
+	var from_pos: Vector2 = selected_airport.position_2d
+	var to_pos: Vector2 = preview_mouse_pos
+
+	# If hovering over another airport, snap to that airport
+	if hover_airport:
+		to_pos = hover_airport.position_2d
+
+	# Draw dashed preview line
+	var line_color: Color = Color(0.4, 0.8, 1.0, 0.6)  # Light blue, semi-transparent
+	var line_thickness: float = 2.5 / zoom_level
+
+	# Draw as dashed line by drawing multiple segments
+	var direction: Vector2 = to_pos - from_pos
+	var distance: float = direction.length()
+	var normalized_dir: Vector2 = direction.normalized()
+
+	var dash_length: float = 15.0 / zoom_level
+	var gap_length: float = 10.0 / zoom_level
+	var current_distance: float = 0.0
+
+	while current_distance < distance:
+		var segment_start: Vector2 = from_pos + normalized_dir * current_distance
+		var segment_end: Vector2 = from_pos + normalized_dir * min(current_distance + dash_length, distance)
+
+		draw_line(segment_start, segment_end, line_color, line_thickness)
+
+		current_distance += dash_length + gap_length
+
+	# Draw distance label if hovering over another airport
+	if hover_airport:
+		var route_distance: float = MarketAnalysis.calculate_great_circle_distance(selected_airport, hover_airport)
+		var mid_point: Vector2 = (from_pos + to_pos) / 2.0
+
+		var distance_text: String = "%.0f km" % route_distance
+		var font_size: int = int(14 / zoom_level)
+		var text_size: Vector2 = Vector2(distance_text.length() * font_size * 0.6, font_size + 4)
+
+		# Draw background
+		var bg_rect: Rect2 = Rect2(mid_point - text_size / 2, text_size)
+		draw_rect(bg_rect, Color(0.0, 0.0, 0.0, 0.7), true)
+
+		# Draw text
+		draw_string(ThemeDB.fallback_font, mid_point - Vector2(text_size.x / 2, -text_size.y / 4), distance_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color.WHITE)
 
 func setup_airports() -> void:
 	"""Create visual markers for all airports"""
@@ -370,3 +545,66 @@ func clear_selection() -> void:
 		selected_airport = null
 		if prev.iata_code in airport_markers:
 			airport_markers[prev.iata_code].queue_redraw()
+
+func screen_to_world(screen_pos: Vector2) -> Vector2:
+	"""Convert screen coordinates to world coordinates (accounting for zoom and pan)"""
+	return (screen_pos - pan_offset) / zoom_level
+
+func world_to_screen(world_pos: Vector2) -> Vector2:
+	"""Convert world coordinates to screen coordinates"""
+	return world_pos * zoom_level + pan_offset
+
+func find_route_at_position(world_pos: Vector2, threshold: float = 10.0) -> Route:
+	"""Find route near the given world position"""
+	# Adjust threshold for zoom level
+	var adjusted_threshold: float = threshold / zoom_level
+
+	var closest_route: Route = null
+	var closest_distance: float = adjusted_threshold
+
+	# Check player routes first (priority)
+	if GameData.player_airline:
+		for route in GameData.player_airline.routes:
+			var distance: float = distance_to_route_line(world_pos, route)
+			if distance < closest_distance:
+				closest_distance = distance
+				closest_route = route
+
+	# Check AI routes if no player route found
+	if not closest_route:
+		for airline in GameData.airlines:
+			if airline == GameData.player_airline:
+				continue
+			for route in airline.routes:
+				var distance: float = distance_to_route_line(world_pos, route)
+				if distance < closest_distance:
+					closest_distance = distance
+					closest_route = route
+
+	return closest_route
+
+func distance_to_route_line(point: Vector2, route: Route) -> float:
+	"""Calculate perpendicular distance from point to route line"""
+	if not route.from_airport or not route.to_airport:
+		return INF
+
+	var from_pos: Vector2 = route.from_airport.position_2d
+	var to_pos: Vector2 = route.to_airport.position_2d
+
+	if from_pos == Vector2.ZERO or to_pos == Vector2.ZERO:
+		return INF
+
+	# Calculate distance from point to line segment
+	var line_vec: Vector2 = to_pos - from_pos
+	var point_vec: Vector2 = point - from_pos
+	var line_len: float = line_vec.length()
+
+	if line_len == 0:
+		return point_vec.length()
+
+	# Project point onto line
+	var t: float = clamp(point_vec.dot(line_vec) / (line_len * line_len), 0.0, 1.0)
+	var projection: Vector2 = from_pos + t * line_vec
+
+	# Return distance to projection
+	return point.distance_to(projection)

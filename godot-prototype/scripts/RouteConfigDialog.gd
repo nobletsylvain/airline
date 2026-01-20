@@ -33,6 +33,7 @@ var selected_aircraft: AircraftInstance = null
 var route_distance: float = 0.0
 var market_analysis: Dictionary = {}
 var available_aircraft: Array[AircraftInstance] = []
+var editing_route: Route = null  # If set, we're editing an existing route
 
 func _init() -> void:
 	title = "Configure Route"
@@ -223,6 +224,9 @@ func create_price_input_row(label_text: String, class_type: String) -> HBoxConta
 
 func setup_route(p_from: Airport, p_to: Airport) -> void:
 	"""Initialize dialog with route information"""
+	editing_route = null  # Clear edit mode
+	ok_button_text = "Create Route"
+
 	from_airport = p_from
 	to_airport = p_to
 
@@ -245,6 +249,55 @@ func setup_route(p_from: Airport, p_to: Airport) -> void:
 	update_aircraft_list()
 	update_frequency_label()
 	update_recommended_pricing()
+
+func setup_edit_route(route: Route) -> void:
+	"""Initialize dialog for editing an existing route"""
+	editing_route = route
+	ok_button_text = "Save Changes"
+
+	from_airport = route.from_airport
+	to_airport = route.to_airport
+
+	# Calculate distance
+	route_distance = MarketAnalysis.calculate_great_circle_distance(from_airport, to_airport)
+
+	# Get market analysis
+	market_analysis = GameData.analyze_route(from_airport, to_airport)
+
+	# For editing, we keep the currently assigned aircraft but also show available ones
+	available_aircraft.clear()
+	if GameData.player_airline:
+		# Add currently assigned aircraft first
+		for aircraft in route.assigned_aircraft:
+			available_aircraft.append(aircraft)
+		# Add other unassigned aircraft
+		for aircraft in GameData.player_airline.aircraft:
+			if not aircraft.is_assigned and aircraft not in available_aircraft:
+				available_aircraft.append(aircraft)
+
+	# Set the first assigned aircraft as selected (or first available)
+	if not route.assigned_aircraft.is_empty():
+		selected_aircraft = route.assigned_aircraft[0]
+	elif not available_aircraft.is_empty():
+		selected_aircraft = available_aircraft[0]
+
+	# Update UI
+	update_route_info()
+	update_market_analysis()
+	update_aircraft_list()
+
+	# Set current route values
+	if frequency_slider:
+		frequency_slider.value = route.frequency
+	if economy_price_input:
+		economy_price_input.value = route.price_economy
+	if business_price_input:
+		business_price_input.value = route.price_business
+	if first_price_input:
+		first_price_input.value = route.price_first
+
+	update_frequency_label()
+	update_aircraft_details()
 
 func update_route_info() -> void:
 	"""Update route information display"""
@@ -406,7 +459,8 @@ func _on_confirmed() -> void:
 		"frequency": int(frequency_slider.value),
 		"price_economy": economy_price_input.value,
 		"price_business": business_price_input.value,
-		"price_first": first_price_input.value
+		"price_first": first_price_input.value,
+		"editing_route": editing_route  # null if creating new, Route if editing
 	}
 
 	route_configured.emit(config)
