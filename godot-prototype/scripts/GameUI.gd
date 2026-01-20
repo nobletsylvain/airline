@@ -570,9 +570,9 @@ func _on_aircraft_model_selected(index: int) -> void:
 			aircraft_details.text = "Aircraft: %s\n\nCapacity: %d passengers\n(%d Economy / %d Business / %d First)\n\nRange: %s km\nPrice: $%s\n\nAffordable: %s" % [
 				model.get_display_name(),
 				model.get_total_capacity(),
-				model.capacity_economy,
-				model.capacity_business,
-				model.capacity_first,
+				model.default_economy,
+				model.default_business,
+				model.default_first,
 				format_number(model.range_km),
 				format_money(model.price),
 				"Yes" if GameData.player_airline.balance >= model.price else "No (Need $%s more)" % format_money(model.price - GameData.player_airline.balance)

@@ -312,10 +312,10 @@ func create_ai_route(from_airport: Airport, to_airport: Airport, aircraft: Aircr
 	# Assign aircraft
 	route.assign_aircraft(aircraft)
 
-	# Set capacity from aircraft
-	route.capacity_economy = aircraft.model.capacity_economy
-	route.capacity_business = aircraft.model.capacity_business
-	route.capacity_first = aircraft.model.capacity_first
+	# Set capacity from aircraft (using default configuration)
+	route.capacity_economy = aircraft.model.default_economy
+	route.capacity_business = aircraft.model.default_business
+	route.capacity_first = aircraft.model.default_first
 	route.frequency = 7  # Daily
 
 	# Set quality
