@@ -61,6 +61,10 @@ var tutorial_skip_dialog: ConfirmationDialog = null
 # Route configuration dialog
 var route_config_dialog: RouteConfigDialog = null
 
+# Hub purchase dialog
+var hub_purchase_dialog: HubPurchaseDialog = null
+var purchase_hub_button: Button = null
+
 func _ready() -> void:
 	print("GameUI: _ready() called")
 	print("  aircraft_list node: ", aircraft_list)
@@ -130,6 +134,9 @@ func _ready() -> void:
 
 	# Create route configuration dialog
 	create_route_config_dialog()
+
+	# Create hub purchase dialog and button
+	create_hub_purchase_ui()
 
 func update_all() -> void:
 	"""Update all UI elements"""
@@ -1242,3 +1249,53 @@ func _on_route_configured(config: Dictionary) -> void:
 		aircraft.model.get_display_name(),
 		frequency
 	])
+
+## Hub Purchase Dialog
+
+func create_hub_purchase_ui() -> void:
+	"""Create hub purchase dialog and button"""
+	# Create dialog
+	hub_purchase_dialog = HubPurchaseDialog.new()
+	add_child(hub_purchase_dialog)
+	hub_purchase_dialog.hub_purchased.connect(_on_hub_purchased)
+
+	# Create button in top panel (next to other controls)
+	purchase_hub_button = Button.new()
+	purchase_hub_button.text = "Purchase Hub"
+	purchase_hub_button.custom_minimum_size = Vector2(120, 30)
+	purchase_hub_button.pressed.connect(_on_purchase_hub_button_pressed)
+
+	# Add to top panel (programmatically)
+	var top_panel = get_node_or_null("MarginContainer/VBoxContainer/TopPanel/HBoxContainer")
+	if top_panel:
+		top_panel.add_child(purchase_hub_button)
+		print("Hub purchase button added to UI")
+
+	print("Hub purchase dialog created")
+
+func _on_purchase_hub_button_pressed() -> void:
+	"""Open hub purchase dialog"""
+	if hub_purchase_dialog:
+		hub_purchase_dialog.show_dialog()
+
+func _on_hub_purchased(airport: Airport) -> void:
+	"""Handle hub purchase completion"""
+	print("Hub purchased at %s" % airport.iata_code)
+
+	# Refresh map to show new hub marker
+	if world_map:
+		world_map.queue_redraw()
+
+	# Update top panel to show new balance
+	update_top_panel()
+
+	# Show confirmation message
+	if airport_info:
+		airport_info.text = "✓ HUB PURCHASED!\n\n%s is now your hub!\n\n%s, %s\n%s\n\nYou can now create routes originating from this airport.\n\nTotal Hubs: %d\nHubs: %s" % [
+			airport.iata_code,
+			airport.get_display_name(),
+			airport.city,
+			airport.country,
+			GameData.player_airline.get_hub_count(),
+			GameData.player_airline.get_hub_names()
+		]
