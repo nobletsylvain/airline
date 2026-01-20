@@ -48,6 +48,16 @@ var selected_route: Route = null
 var selected_aircraft_model_index: int = -1
 var selected_competitor_index: int = -1
 
+# Tutorial UI
+var tutorial_overlay_layer: CanvasLayer = null
+var tutorial_panel: Panel = null
+var tutorial_title: Label = null
+var tutorial_message: RichTextLabel = null
+var tutorial_progress: Label = null
+var tutorial_skip_button: Button = null
+var tutorial_continue_button: Button = null
+var tutorial_skip_dialog: ConfirmationDialog = null
+
 func _ready() -> void:
 	print("GameUI: _ready() called")
 	print("  aircraft_list node: ", aircraft_list)
@@ -110,6 +120,9 @@ func _ready() -> void:
 	# Initialize UI
 	update_all()
 	print("GameUI: _ready() complete!")
+
+	# Create tutorial overlay
+	create_tutorial_overlay()
 
 func update_all() -> void:
 	"""Update all UI elements"""
@@ -918,3 +931,211 @@ func help_tutorial() -> void:
 	print("=== QUICK ACTIONS ===")
 	print("show_route_opportunities(airport) - Find profitable routes")
 	print("analyze_existing_route(route) - Analyze route performance")
+
+## Tutorial UI Creation
+
+func create_tutorial_overlay() -> void:
+	"""Create tutorial UI overlay programmatically"""
+	print("Creating tutorial overlay UI...")
+
+	# Create overlay layer
+	tutorial_overlay_layer = CanvasLayer.new()
+	tutorial_overlay_layer.name = "TutorialOverlay"
+	tutorial_overlay_layer.layer = 100  # Above everything
+	add_child(tutorial_overlay_layer)
+
+	# Create tutorial panel (centered at top)
+	tutorial_panel = Panel.new()
+	tutorial_panel.name = "TutorialPanel"
+	tutorial_panel.custom_minimum_size = Vector2(700, 350)
+	tutorial_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	tutorial_panel.offset_left = -350  # Half of width
+	tutorial_panel.offset_right = 350
+	tutorial_panel.offset_top = 50
+	tutorial_panel.offset_bottom = 400
+	tutorial_overlay_layer.add_child(tutorial_panel)
+
+	# VBox container for layout
+	var vbox = VBoxContainer.new()
+	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vbox.offset_left = 20
+	vbox.offset_top = 20
+	vbox.offset_right = -20
+	vbox.offset_bottom = -20
+	vbox.add_theme_constant_override("separation", 10)
+	tutorial_panel.add_child(vbox)
+
+	# Progress label (Step X/Y)
+	tutorial_progress = Label.new()
+	tutorial_progress.name = "ProgressLabel"
+	tutorial_progress.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tutorial_progress.add_theme_font_size_override("font_size", 14)
+	tutorial_progress.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	vbox.add_child(tutorial_progress)
+
+	# Title label
+	tutorial_title = Label.new()
+	tutorial_title.name = "TitleLabel"
+	tutorial_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tutorial_title.add_theme_font_size_override("font_size", 28)
+	tutorial_title.add_theme_color_override("font_color", Color(0.2, 0.6, 1.0))
+	vbox.add_child(tutorial_title)
+
+	# Spacer
+	var spacer1 = Control.new()
+	spacer1.custom_minimum_size = Vector2(0, 15)
+	vbox.add_child(spacer1)
+
+	# Message label (RichTextLabel for formatting)
+	tutorial_message = RichTextLabel.new()
+	tutorial_message.name = "MessageLabel"
+	tutorial_message.bbcode_enabled = true
+	tutorial_message.fit_content = false
+	tutorial_message.custom_minimum_size = Vector2(0, 150)
+	tutorial_message.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tutorial_message.add_theme_font_size_override("normal_font_size", 16)
+	vbox.add_child(tutorial_message)
+
+	# Spacer
+	var spacer2 = Control.new()
+	spacer2.custom_minimum_size = Vector2(0, 15)
+	vbox.add_child(spacer2)
+
+	# Button container
+	var button_box = HBoxContainer.new()
+	button_box.name = "ButtonContainer"
+	button_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	button_box.add_theme_constant_override("separation", 20)
+	vbox.add_child(button_box)
+
+	# Skip button (red-ish)
+	tutorial_skip_button = Button.new()
+	tutorial_skip_button.name = "SkipButton"
+	tutorial_skip_button.text = "Skip Tutorial (ESC)"
+	tutorial_skip_button.custom_minimum_size = Vector2(200, 50)
+	tutorial_skip_button.add_theme_font_size_override("font_size", 16)
+	tutorial_skip_button.add_theme_color_override("font_color", Color(1, 0.4, 0.4))
+	tutorial_skip_button.pressed.connect(_on_tutorial_skip_pressed)
+	button_box.add_child(tutorial_skip_button)
+
+	# Continue button (green-ish)
+	tutorial_continue_button = Button.new()
+	tutorial_continue_button.name = "ContinueButton"
+	tutorial_continue_button.text = "Continue (Enter)"
+	tutorial_continue_button.custom_minimum_size = Vector2(200, 50)
+	tutorial_continue_button.add_theme_font_size_override("font_size", 16)
+	tutorial_continue_button.add_theme_color_override("font_color", Color(0.4, 1, 0.4))
+	tutorial_continue_button.pressed.connect(_on_tutorial_continue_pressed)
+	button_box.add_child(tutorial_continue_button)
+
+	# Create confirmation dialog for skip
+	tutorial_skip_dialog = ConfirmationDialog.new()
+	tutorial_skip_dialog.name = "SkipConfirmDialog"
+	tutorial_skip_dialog.title = "Skip Tutorial?"
+	tutorial_skip_dialog.dialog_text = "Are you sure you want to skip the tutorial?\n\nYou will miss the $50M completion bonus and learning valuable game mechanics!"
+	tutorial_skip_dialog.ok_button_text = "Yes, Skip Tutorial"
+	tutorial_skip_dialog.cancel_button_text = "No, Continue Tutorial"
+	tutorial_skip_dialog.confirmed.connect(_on_tutorial_skip_confirmed)
+	tutorial_overlay_layer.add_child(tutorial_skip_dialog)
+
+	# Initially hide panel
+	tutorial_panel.visible = false
+
+	# Connect to tutorial manager
+	if GameData.tutorial_manager:
+		setup_tutorial_signals()
+		print("Tutorial overlay created and connected!")
+	else:
+		print("Warning: Tutorial manager not found yet")
+
+func setup_tutorial_signals() -> void:
+	"""Connect tutorial manager signals to UI"""
+	var tutorial_mgr = GameData.tutorial_manager
+
+	# Step started
+	tutorial_mgr.tutorial_step_started.connect(_on_tutorial_step_started_ui)
+
+	# Tutorial completed
+	tutorial_mgr.tutorial_completed.connect(_on_tutorial_completed_ui)
+
+func _on_tutorial_step_started_ui(step: TutorialStep) -> void:
+	"""Display new tutorial step in UI"""
+	if not tutorial_panel:
+		return
+
+	# Show panel
+	tutorial_panel.visible = true
+
+	# Update title
+	if tutorial_title:
+		tutorial_title.text = step.title
+
+	# Update message
+	if tutorial_message:
+		tutorial_message.text = step.message
+
+	# Update progress
+	if tutorial_progress and GameData.tutorial_manager:
+		var current_index: int = GameData.tutorial_manager.current_step_index + 1
+		var total: int = GameData.tutorial_manager.tutorial_steps.size()
+		tutorial_progress.text = "Step %d of %d" % [current_index, total]
+
+	# Handle button visibility based on step type
+	if tutorial_continue_button:
+		match step.step_type:
+			TutorialStep.StepType.WAIT_FOR_ACTION:
+				tutorial_continue_button.visible = false
+				# Update continue button text to show what action is needed
+			_:
+				tutorial_continue_button.visible = true
+
+	# Always show skip button (unless last step)
+	if tutorial_skip_button and GameData.tutorial_manager:
+		var current: int = GameData.tutorial_manager.current_step_index + 1
+		var total: int = GameData.tutorial_manager.tutorial_steps.size()
+		tutorial_skip_button.visible = current < total
+
+func _on_tutorial_completed_ui() -> void:
+	"""Tutorial finished - hide UI"""
+	if tutorial_panel:
+		tutorial_panel.visible = false
+	print("Tutorial UI: Tutorial completed!")
+
+func _on_tutorial_continue_pressed() -> void:
+	"""Continue button pressed"""
+	if GameData.tutorial_manager:
+		GameData.tutorial_manager.complete_current_step()
+
+func _on_tutorial_skip_pressed() -> void:
+	"""Skip button pressed - show confirmation"""
+	if tutorial_skip_dialog:
+		tutorial_skip_dialog.popup_centered()
+
+func _on_tutorial_skip_confirmed() -> void:
+	"""User confirmed skip"""
+	if GameData.tutorial_manager:
+		GameData.tutorial_manager.skip_tutorial()
+	if tutorial_panel:
+		tutorial_panel.visible = false
+	print("Tutorial skipped by user")
+
+func _input(event: InputEvent) -> void:
+	"""Handle keyboard shortcuts for tutorial"""
+	if not GameData.tutorial_manager or not GameData.tutorial_manager.is_active():
+		return
+
+	if not tutorial_panel or not tutorial_panel.visible:
+		return
+
+	# Enter/Space to continue (if continue button visible)
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_ENTER or event.keycode == KEY_SPACE:
+			if tutorial_continue_button and tutorial_continue_button.visible:
+				_on_tutorial_continue_pressed()
+				get_viewport().set_input_as_handled()
+
+		# ESC to open skip confirmation
+		elif event.keycode == KEY_ESCAPE:
+			if tutorial_skip_button and tutorial_skip_button.visible:
+				_on_tutorial_skip_pressed()
+				get_viewport().set_input_as_handled()
