@@ -362,6 +362,12 @@ func create_route_for_airline(airline: Airline, from: Airport, to: Airport, airc
 	if not airline or not from or not to:
 		return null
 
+	# Validate hub connectivity (route must originate from a hub)
+	if not airline.can_create_route_from(from, to):
+		print("Cannot create route: %s is not a hub for %s" % [from.iata_code, airline.name])
+		print("Available hubs: %s" % airline.get_hub_names())
+		return null
+
 	# Create route
 	var route: Route = Route.new(from, to, airline.id)
 
@@ -398,3 +404,78 @@ func create_route_for_airline(airline: Airline, from: Airport, to: Airport, airc
 	])
 
 	return route
+
+## Hub Management
+
+func calculate_hub_cost(airport: Airport, airline: Airline) -> float:
+	"""Calculate cost to purchase hub access at an airport"""
+	# Base cost depends on airport size and demand
+	var base_cost: float = 500000.0  # $500K base
+
+	# Scale by hub tier (larger hubs are more expensive)
+	match airport.hub_tier:
+		1:  # Mega Hub
+			base_cost = 5000000.0  # $5M
+		2:  # Major Hub
+			base_cost = 2000000.0  # $2M
+		3:  # Regional Hub
+			base_cost = 1000000.0  # $1M
+		_:  # Smaller airports
+			base_cost = 500000.0   # $500K
+
+	# Scale by annual passengers (demand)
+	var demand_multiplier: float = 1.0 + (airport.annual_passengers / 50000000.0)  # +1 per 50M passengers
+	demand_multiplier = clamp(demand_multiplier, 1.0, 3.0)
+
+	# Discount for first hub (tutorial)
+	if airline.get_hub_count() == 0:
+		demand_multiplier *= 0.0  # First hub is free!
+
+	# Discount for additional hubs based on airline reputation
+	elif airline.reputation > 100:
+		demand_multiplier *= 0.8  # 20% discount for elite airlines
+
+	return base_cost * demand_multiplier
+
+func purchase_hub_for_airline(airline: Airline, airport: Airport) -> bool:
+	"""Purchase hub access at an airport for an airline"""
+	if airline.has_hub(airport):
+		print("Airline %s already has a hub at %s" % [airline.name, airport.iata_code])
+		return false
+
+	var cost: float = calculate_hub_cost(airport, airline)
+
+	# First hub is free
+	if airline.get_hub_count() == 0:
+		airline.add_hub(airport)
+		print("Hub established at %s (FREE - first hub!)" % airport.iata_code)
+		return true
+
+	# Check if airline can afford it
+	if not airline.deduct_balance(cost):
+		print("Cannot afford hub at %s (Cost: $%s, Balance: $%s)" % [
+			airport.iata_code,
+			format_money(cost),
+			format_money(airline.balance)
+		])
+		return false
+
+	# Add hub
+	airline.add_hub(airport)
+	print("Hub purchased at %s for $%s" % [airport.iata_code, format_money(cost)])
+
+	return true
+
+func get_affordable_hub_airports(airline: Airline) -> Array[Airport]:
+	"""Get list of airports where airline can afford to open a hub"""
+	var affordable: Array[Airport] = []
+
+	for airport in airports:
+		if airline.has_hub(airport):
+			continue  # Skip airports that are already hubs
+
+		var cost: float = calculate_hub_cost(airport, airline)
+		if airline.balance >= cost:
+			affordable.append(airport)
+
+	return affordable

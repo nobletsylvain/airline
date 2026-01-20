@@ -18,7 +18,7 @@ class_name Airline
 @export var accent_color: Color = Color(1.0, 0.6, 0.0)  # Default orange
 
 # Collections
-var bases: Array[Airport] = []
+var hubs: Array[Airport] = []  # Airports where airline has hub access (can originate routes)
 var routes: Array[Route] = []
 var aircraft: Array[AircraftInstance] = []
 var loans: Array[Loan] = []
@@ -36,6 +36,7 @@ signal route_added(route: Route)
 signal aircraft_purchased(aircraft: AircraftInstance)
 signal loan_taken(loan: Loan)
 signal loan_paid_off(loan: Loan)
+signal hub_added(airport: Airport)
 
 func _init(p_name: String = "", p_code: String = "", p_country: String = "") -> void:
 	name = p_name
@@ -184,3 +185,36 @@ func can_afford_loan_payment(additional_payment: float) -> bool:
 	var projected_payment: float = weekly_loan_payment + additional_payment
 	var safety_margin: float = balance * 0.1  # Keep 10% cash reserve
 	return (balance - safety_margin) >= projected_payment
+
+## Hub Management
+
+func add_hub(airport: Airport) -> void:
+	"""Add a hub airport to the airline"""
+	if not has_hub(airport):
+		hubs.append(airport)
+		hub_added.emit(airport)
+
+func has_hub(airport: Airport) -> bool:
+	"""Check if airline has a hub at given airport"""
+	return airport in hubs
+
+func get_hub_count() -> int:
+	"""Get total number of hubs"""
+	return hubs.size()
+
+func can_create_route_from(from_airport: Airport, to_airport: Airport) -> bool:
+	"""Check if a route can be created based on hub connectivity rules"""
+	# Route must originate from a hub
+	if not has_hub(from_airport):
+		return false
+	return true
+
+func get_hub_names() -> String:
+	"""Get comma-separated list of hub names"""
+	if hubs.is_empty():
+		return "None"
+
+	var names: Array[String] = []
+	for hub in hubs:
+		names.append(hub.iata_code)
+	return ", ".join(names)

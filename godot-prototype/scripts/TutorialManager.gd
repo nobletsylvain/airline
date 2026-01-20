@@ -61,221 +61,240 @@ func create_tutorial_sequence() -> void:
 	step4.highlight_message = "Your route network will appear here"
 	tutorial_steps.append(step4)
 
-	# Step 5: Introduce management tabs
+	# Step 5: Hub concept introduction
 	var step5 = TutorialStep.new(
+		"hub_intro",
+		"Choose Your Starting Hub",
+		"Airlines operate from HUBs - airports where you have operational rights. All routes must originate from one of your hubs. Your first hub is FREE! Choose wisely - major airports like LAX, LHR, or JFK offer more connections.",
+		TutorialStep.StepType.MESSAGE
+	)
+	tutorial_steps.append(step5)
+
+	# Step 6: Wait for hub selection
+	var step6 = TutorialStep.new(
+		"select_hub",
+		"Select Your Hub",
+		"Click on any airport on the map to establish your first hub. Larger airports (bigger circles) are major hubs with more passenger demand. You can purchase additional hubs later for a fee.",
+		TutorialStep.StepType.WAIT_FOR_ACTION
+	)
+	step6.required_action = "select_hub"
+	tutorial_steps.append(step6)
+
+	# Step 7: Introduce management tabs
+	var step7 = TutorialStep.new(
 		"tabs_intro",
 		"Management Tabs",
 		"Use these tabs to manage Routes, Fleet, Finances, and view Market competition. Let's explore the Fleet tab.",
 		TutorialStep.StepType.HIGHLIGHT_UI
 	)
-	step5.ui_element_path = "MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs"
-	step5.highlight_message = "All airline management happens here"
-	tutorial_steps.append(step5)
+	step7.ui_element_path = "MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs"
+	step7.highlight_message = "All airline management happens here"
+	tutorial_steps.append(step7)
 
-	# Step 6: Market analysis introduction
-	var step6 = TutorialStep.new(
+	# Step 8: Market analysis introduction
+	var step8 = TutorialStep.new(
 		"market_analysis_intro",
 		"Finding Profitable Routes",
 		"The key to success is finding routes with high demand and low competition. The game analyzes every route and shows you opportunities.",
 		TutorialStep.StepType.MESSAGE
 	)
-	tutorial_steps.append(step6)
+	tutorial_steps.append(step8)
 
-	# Step 7: Explain demand factors
-	var step7 = TutorialStep.new(
+	# Step 9: Explain demand factors
+	var step9 = TutorialStep.new(
 		"demand_factors",
 		"What Creates Demand?",
 		"Passenger demand depends on:\n• City populations (bigger = more travelers)\n• Income levels (wealthier = more flights)\n• Distance (medium routes 500-1500km are best)\n• Competition (fewer airlines = more opportunity)",
 		TutorialStep.StepType.MESSAGE
 	)
-	tutorial_steps.append(step7)
+	tutorial_steps.append(step9)
 
-	# Step 8: Aircraft purchase intro
-	var step8 = TutorialStep.new(
+	# Step 10: Aircraft purchase intro
+	var step10 = TutorialStep.new(
 		"aircraft_intro",
 		"Building Your Fleet",
 		"You need aircraft to operate routes. Each aircraft model has different capacity, range, and operating costs. Let's buy your first plane!",
 		TutorialStep.StepType.MESSAGE
 	)
-	tutorial_steps.append(step8)
+	tutorial_steps.append(step10)
 
-	# Step 9: Highlight Fleet tab
-	var step9 = TutorialStep.new(
+	# Step 11: Highlight Fleet tab
+	var step11 = TutorialStep.new(
 		"fleet_tab_highlight",
 		"Fleet Management",
 		"Open the Fleet tab to see available aircraft models. Choose wisely based on your route strategy!",
 		TutorialStep.StepType.HIGHLIGHT_UI
 	)
-	step9.ui_element_path = "MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet"
-	step9.highlight_message = "Browse and purchase aircraft here"
-	tutorial_steps.append(step9)
+	step11.ui_element_path = "MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet"
+	step11.highlight_message = "Browse and purchase aircraft here"
+	tutorial_steps.append(step11)
 
-	# Step 10: Explain aircraft configuration
-	var step10 = TutorialStep.new(
+	# Step 12: Explain aircraft configuration
+	var step12 = TutorialStep.new(
 		"aircraft_config_intro",
 		"Aircraft Configuration",
 		"Unlike real life, you can customize seat layouts!\n• All Economy = Maximum capacity, lower revenue/seat\n• Mixed Config = Balance of economy & business\n• Premium Config = Fewer seats, higher revenue/seat\n\nLong-haul routes benefit from more business/first class seats.",
 		TutorialStep.StepType.MESSAGE
 	)
-	tutorial_steps.append(step10)
+	tutorial_steps.append(step12)
 
-	# Step 11: Wait for aircraft purchase
-	var step11 = TutorialStep.new(
+	# Step 13: Wait for aircraft purchase
+	var step13 = TutorialStep.new(
 		"wait_aircraft_purchase",
 		"Purchase Your First Aircraft",
 		"Select an aircraft model and click Purchase. For your first route, we recommend a Boeing 737-800 or Airbus A320 (good range and capacity).",
 		TutorialStep.StepType.WAIT_FOR_ACTION
 	)
-	step11.required_action = "purchase_aircraft"
-	step11.action_hint = "Click an aircraft in the list, then click Purchase"
-	tutorial_steps.append(step11)
+	step13.required_action = "purchase_aircraft"
+	step13.action_hint = "Click an aircraft in the list, then click Purchase"
+	tutorial_steps.append(step13)
 
-	# Step 12: Congratulate on purchase
-	var step12 = TutorialStep.new(
+	# Step 14: Congratulate on purchase
+	var step14 = TutorialStep.new(
 		"aircraft_purchased",
 		"Aircraft Acquired!",
 		"Great! Your aircraft is now in your fleet. Next, let's create a profitable route to put it to work.",
 		TutorialStep.StepType.MESSAGE
 	)
-	tutorial_steps.append(step12)
+	tutorial_steps.append(step14)
 
-	# Step 13: Route creation intro
-	var step13 = TutorialStep.new(
+	# Step 15: Route creation intro
+	var step15 = TutorialStep.new(
 		"route_intro",
 		"Creating Routes",
 		"Routes connect two airports with scheduled flights. To succeed, you need:\n• Sufficient demand (passengers wanting to fly)\n• Low competition (few other airlines)\n• Proper pricing (not too high, not too low)\n• Aircraft with enough range",
 		TutorialStep.StepType.MESSAGE
 	)
-	tutorial_steps.append(step13)
+	tutorial_steps.append(step15)
 
-	# Step 14: Explain route opportunities
-	var step14 = TutorialStep.new(
+	# Step 16: Explain route opportunities
+	var step16 = TutorialStep.new(
 		"route_opportunities",
 		"Finding Opportunities",
 		"The console can show you the best routes! Type:\nshow_route_opportunities(airport)\n\nThis analyzes all routes from an airport and scores them 0-100 based on profitability. Look for scores above 70!",
 		TutorialStep.StepType.MESSAGE
 	)
-	tutorial_steps.append(step14)
+	tutorial_steps.append(step16)
 
-	# Step 15: Wait for route creation
-	var step15 = TutorialStep.new(
+	# Step 17: Wait for route creation
+	var step17 = TutorialStep.new(
 		"wait_route_creation",
 		"Create Your First Route",
 		"Click two airports on the map to create a route. The game will calculate distance and suggest pricing. Assign your aircraft to the route!",
 		TutorialStep.StepType.WAIT_FOR_ACTION
 	)
-	step15.required_action = "create_route"
-	step15.action_hint = "Click source airport, then destination airport"
-	tutorial_steps.append(step15)
+	step17.required_action = "create_route"
+	step17.action_hint = "Click source airport, then destination airport"
+	tutorial_steps.append(step17)
 
-	# Step 16: Route created!
-	var step16 = TutorialStep.new(
+	# Step 18: Route created!
+	var step18 = TutorialStep.new(
 		"route_created",
 		"Route Established!",
 		"Excellent! Your first route is active. Now let's see how it performs by running the simulation.",
 		TutorialStep.StepType.MESSAGE
 	)
-	tutorial_steps.append(step16)
+	tutorial_steps.append(step18)
 
-	# Step 17: Simulation intro
-	var step17 = TutorialStep.new(
+	# Step 19: Simulation intro
+	var step19 = TutorialStep.new(
 		"simulation_intro",
 		"Weekly Simulation",
 		"The game simulates one week at a time. During simulation:\n• Passengers choose airlines based on price, quality, reputation\n• You earn revenue from ticket sales\n• You pay for fuel, crew, maintenance, airport fees\n• Aircraft condition degrades slightly\n• Loans are paid automatically",
 		TutorialStep.StepType.MESSAGE
 	)
-	tutorial_steps.append(step17)
+	tutorial_steps.append(step19)
 
-	# Step 18: Highlight play button
-	var step18 = TutorialStep.new(
+	# Step 20: Highlight play button
+	var step20 = TutorialStep.new(
 		"play_button_highlight",
 		"Run Simulation",
 		"Click the Play button to start continuous simulation, or Step to advance one week at a time. Try Step first to see detailed results!",
 		TutorialStep.StepType.HIGHLIGHT_UI
 	)
-	step18.ui_element_path = "MarginContainer/VBoxContainer/TopPanel/HBoxContainer/StepButton"
-	step18.highlight_message = "Click to simulate one week"
-	tutorial_steps.append(step18)
+	step20.ui_element_path = "MarginContainer/VBoxContainer/TopPanel/HBoxContainer/StepButton"
+	step20.highlight_message = "Click to simulate one week"
+	tutorial_steps.append(step20)
 
-	# Step 19: Wait for simulation
-	var step19 = TutorialStep.new(
+	# Step 21: Wait for simulation
+	var step21 = TutorialStep.new(
 		"wait_simulation",
 		"Run Your First Week",
 		"Click the Step button to simulate one week and see your results!",
 		TutorialStep.StepType.WAIT_FOR_ACTION
 	)
-	step19.required_action = "run_simulation"
-	step19.action_hint = "Click the Step button at the top"
-	tutorial_steps.append(step19)
+	step21.required_action = "run_simulation"
+	step21.action_hint = "Click the Step button at the top"
+	tutorial_steps.append(step21)
 
-	# Step 20: Analyze results
-	var step20 = TutorialStep.new(
+	# Step 22: Analyze results
+	var step22 = TutorialStep.new(
 		"results_analysis",
 		"Understanding Results",
 		"Check the console for detailed results:\n• Passengers transported\n• Revenue earned\n• Costs incurred\n• Weekly profit\n\nLook at your route in the Routes tab to see performance metrics!",
 		TutorialStep.StepType.MESSAGE
 	)
-	tutorial_steps.append(step20)
+	tutorial_steps.append(step22)
 
-	# Step 21: Optimization intro
-	var step21 = TutorialStep.new(
+	# Step 23: Optimization intro
+	var step23 = TutorialStep.new(
 		"optimization_intro",
 		"Optimizing Performance",
 		"Now you can improve profitability:\n• Adjust pricing if load factor is too low/high\n• Increase frequency if route is consistently full\n• Add more aircraft to expand capacity\n• Monitor competition and react to market changes",
 		TutorialStep.StepType.MESSAGE
 	)
-	tutorial_steps.append(step21)
+	tutorial_steps.append(step23)
 
-	# Step 22: Competition intro
-	var step22 = TutorialStep.new(
+	# Step 24: Competition intro
+	var step24 = TutorialStep.new(
 		"competition_intro",
 		"AI Competition",
 		"You're not alone! 4 AI airlines compete with you:\n• Global Wings (Aggressive - expands fast)\n• Pacific Air (Balanced)\n• Euro Express (Conservative - builds slowly)\n• TransContinental (Balanced)\n\nThey'll create routes, buy aircraft, and compete for passengers!",
 		TutorialStep.StepType.MESSAGE
 	)
-	tutorial_steps.append(step22)
+	tutorial_steps.append(step24)
 
-	# Step 23: Check Market tab
-	var step23 = TutorialStep.new(
+	# Step 25: Check Market tab
+	var step25 = TutorialStep.new(
 		"market_tab_intro",
 		"Market Intelligence",
 		"Use the Market tab to spy on competitors:\n• See their fleet sizes\n• Check their routes\n• Compare your performance\n• Find underserved markets",
 		TutorialStep.StepType.HIGHLIGHT_UI
 	)
-	step23.ui_element_path = "MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market"
-	step23.highlight_message = "Monitor your competition here"
-	tutorial_steps.append(step23)
+	step25.ui_element_path = "MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Market"
+	step25.highlight_message = "Monitor your competition here"
+	tutorial_steps.append(step25)
 
-	# Step 24: Finances tab
-	var step24 = TutorialStep.new(
+	# Step 26: Finances tab
+	var step26 = TutorialStep.new(
 		"finances_intro",
 		"Managing Finances",
 		"The Finances tab shows:\n• Weekly revenue and expenses\n• Active loans and payments\n• Credit limit based on your performance\n\nYou can take loans to expand faster, but be careful - interest adds up!",
 		TutorialStep.StepType.HIGHLIGHT_UI
 	)
-	step24.ui_element_path = "MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances"
-	step24.highlight_message = "Track money and take loans here"
-	tutorial_steps.append(step24)
+	step26.ui_element_path = "MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances"
+	step26.highlight_message = "Track money and take loans here"
+	tutorial_steps.append(step26)
 
-	# Step 25: Growth strategies
-	var step25 = TutorialStep.new(
+	# Step 27: Growth strategies
+	var step27 = TutorialStep.new(
 		"growth_strategies",
 		"Strategies for Success",
 		"Budget Airline: All-economy configs, low prices, high frequency\nPremium Carrier: Business-heavy configs, long-haul, high prices\nMarket Gap: Find routes with high opportunity scores (70+)\nCompetitive: Undercut rival pricing to steal market share\n\nChoose your strategy and build your empire!",
 		TutorialStep.StepType.MESSAGE
 	)
-	tutorial_steps.append(step25)
+	tutorial_steps.append(step27)
 
-	# Step 26: Tutorial complete + reward!
-	var step26 = TutorialStep.new(
+	# Step 28: Tutorial complete + reward!
+	var step28 = TutorialStep.new(
 		"tutorial_complete",
 		"Tutorial Complete!",
 		"Congratulations! You've learned the essentials of airline management. Here's a bonus to help you grow: +$50M!",
 		TutorialStep.StepType.REWARD
 	)
-	step26.reward_money = 50000000.0
-	step26.reward_message = "Bonus: $50M added to your balance!"
-	tutorial_steps.append(step26)
+	step28.reward_money = 50000000.0
+	step28.reward_message = "Bonus: $50M added to your balance!"
+	tutorial_steps.append(step28)
 
 	print("Tutorial created: %d steps" % tutorial_steps.size())
 

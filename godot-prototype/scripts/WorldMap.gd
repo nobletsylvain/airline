@@ -480,6 +480,21 @@ func _draw_airport_marker(marker: Control, airport: Airport) -> void:
 		color = Color.YELLOW
 		radius = 6.5
 
+	# Check if this is a player hub
+	var is_player_hub: bool = false
+	if GameData.player_airline:
+		is_player_hub = GameData.player_airline.has_hub(airport)
+
+	# Draw player hub indicator (double ring)
+	if is_player_hub:
+		# Outer ring (airline primary color)
+		var hub_ring_outer: float = radius + 4.5
+		var hub_ring_inner: float = radius + 2.5
+		marker.draw_arc(center, hub_ring_outer, 0, TAU, 32, GameData.player_airline.primary_color, 2.0, true)
+
+		# Inner ring (white)
+		marker.draw_arc(center, hub_ring_inner, 0, TAU, 32, Color.WHITE, 1.5, true)
+
 	# Highlight if selected or hovered
 	if airport == selected_airport:
 		marker.draw_circle(center, radius + 3, Color.WHITE)

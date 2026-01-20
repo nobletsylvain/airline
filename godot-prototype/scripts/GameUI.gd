@@ -391,6 +391,28 @@ func update_market_stats() -> void:
 
 func _on_airport_clicked(airport: Airport) -> void:
 	"""Handle airport click"""
+	# Check if tutorial is waiting for hub selection
+	if GameData.tutorial_manager and GameData.tutorial_manager.is_tutorial_active:
+		var current_step = GameData.tutorial_manager.tutorial_steps[GameData.tutorial_manager.current_step_index]
+		if current_step.required_action == "select_hub":
+			# Establish this airport as the player's first hub
+			GameData.purchase_hub_for_airline(GameData.player_airline, airport)
+			if airport_info:
+				airport_info.text = "✓ HUB ESTABLISHED!\n\n%s is now your operational hub!\n\n%s, %s\n%s\n%dM passengers/year\n\nAll routes must originate from your hubs. You can purchase additional hubs later." % [
+					airport.iata_code,
+					airport.get_display_name(),
+					airport.city,
+					airport.country,
+					airport.annual_passengers
+				]
+			# Notify tutorial
+			GameData.tutorial_manager.on_action_performed("select_hub")
+			# Refresh map to show hub
+			if world_map:
+				world_map.queue_redraw()
+			return
+
+	# Normal airport click info
 	if airport_info:
 		airport_info.text = "%s\n%s, %s (%s)\n%s | %dM pax/year\n%d runways | %d slots/week\nGDP per capita: $%s" % [
 			airport.get_display_name(),
@@ -411,6 +433,17 @@ func _on_airport_hovered(airport: Airport) -> void:
 func _on_route_created(from_airport: Airport, to_airport: Airport) -> void:
 	"""Handle route creation request - show configuration dialog"""
 	if not GameData.player_airline:
+		return
+
+	# Check if route originates from a hub
+	if not GameData.player_airline.can_create_route_from(from_airport, to_airport):
+		if airport_info:
+			airport_info.text = "CANNOT CREATE ROUTE!\n\n%s is not one of your hubs.\n\nRoutes must originate from your hub airports.\n\nYour hubs: %s\n\nTo open a hub at %s, purchase hub access from the Market tab." % [
+				from_airport.iata_code,
+				GameData.player_airline.get_hub_names(),
+				from_airport.iata_code
+			]
+		print("Cannot create route: %s is not a hub" % from_airport.iata_code)
 		return
 
 	# Check if there are any available aircraft
