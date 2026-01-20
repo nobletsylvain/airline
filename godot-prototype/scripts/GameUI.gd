@@ -82,7 +82,14 @@ func setup_dashboard() -> void:
 	# Connect tab change signal
 	dashboard_ui.tab_changed.connect(_on_tab_changed)
 
-	# Get main content area
+	# Connect bottom bar button signals
+	dashboard_ui.purchase_hub_pressed.connect(_on_purchase_hub_button_pressed)
+	dashboard_ui.buy_aircraft_pressed.connect(_on_buy_aircraft_button_pressed)
+	dashboard_ui.create_route_pressed.connect(_on_create_route_button_pressed)
+
+	# Get main content area - wait a frame for deferred layout creation
+	await get_tree().process_frame
+
 	var main_content = dashboard_ui.get_main_content()
 	if not main_content:
 		push_error("DashboardUI main content not found!")
@@ -562,6 +569,34 @@ func _on_hub_purchased(airport: Airport) -> void:
 	if world_map:
 		world_map.queue_redraw()
 	update_all()
+
+func _on_purchase_hub_button_pressed() -> void:
+	"""Handle Purchase Hub button press from bottom bar"""
+	print("Purchase Hub button pressed")
+	if hub_purchase_dialog:
+		hub_purchase_dialog.popup_centered()
+
+func _on_buy_aircraft_button_pressed() -> void:
+	"""Handle Buy Aircraft button press from bottom bar"""
+	print("Buy Aircraft button pressed")
+	# Switch to market tab and show aircraft purchase options
+	if dashboard_ui:
+		dashboard_ui.update_active_tab("market")
+	# TODO: Show aircraft purchase dialog when implemented
+
+func _on_create_route_button_pressed() -> void:
+	"""Handle Create Route button press from bottom bar"""
+	print("Create Route button pressed")
+	# Check if player has a hub to create routes from
+	if not GameData.player_airline or GameData.player_airline.hub_airports.is_empty():
+		print("Cannot create route: No hub airports")
+		# Could show a message to the user here
+		return
+
+	# Show route opportunity dialog for the first hub
+	var first_hub = GameData.player_airline.hub_airports[0]
+	if route_opportunity_dialog:
+		route_opportunity_dialog.show_for_hub(first_hub)
 
 func _on_week_completed(week: int) -> void:
 	"""Handle week simulation completion"""
