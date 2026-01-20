@@ -45,7 +45,7 @@ const YX_ORDER_PROVIDERS = [TileProvider.ESRI_NATGEO]
 const TILE_SIZE = 256  # Standard tile size in pixels
 
 # Current provider
-var current_provider: TileProvider = TileProvider.ESRI_NATGEO
+var current_provider: TileProvider = TileProvider.CARTO_VOYAGER
 
 # Cache for loaded tiles: key = "provider_z_x_y", value = ImageTexture
 var tile_cache: Dictionary = {}
