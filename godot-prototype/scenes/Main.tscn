@@ -58,30 +58,44 @@ vertical_alignment = 1
 
 [node name="PlayButton" type="Button" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
 layout_mode = 2
-text = "Play"
+toggle_mode = true
+text = "||"
+tooltip_text = "Pause"
 
-[node name="SlowerButton" type="Button" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
+[node name="Speed1xButton" type="Button" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
 layout_mode = 2
-custom_minimum_size = Vector2(30, 0)
-text = "<<"
-tooltip_text = "Slower"
+toggle_mode = true
+text = "1x"
+tooltip_text = "Real-Time (1 week = 2.8 hours)"
 
-[node name="SpeedLabel" type="Label" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
+[node name="Speed10xButton" type="Button" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
 layout_mode = 2
-custom_minimum_size = Vector2(80, 0)
-text = "Normal"
-horizontal_alignment = 1
-vertical_alignment = 1
+toggle_mode = true
+text = "10x"
+tooltip_text = "Slow (1 week = 28 minutes)"
 
-[node name="FasterButton" type="Button" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
+[node name="Speed50xButton" type="Button" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
 layout_mode = 2
-custom_minimum_size = Vector2(30, 0)
-text = ">>"
-tooltip_text = "Faster"
+toggle_mode = true
+button_pressed = true
+text = "50x"
+tooltip_text = "Normal (1 week = 5.6 minutes)"
+
+[node name="Speed200xButton" type="Button" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
+layout_mode = 2
+toggle_mode = true
+text = "200x"
+tooltip_text = "Fast (1 week = 84 seconds)"
+
+[node name="SpeedMaxButton" type="Button" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
+layout_mode = 2
+toggle_mode = true
+text = "MAX"
+tooltip_text = "Very Fast (1 week = 17 seconds)"
 
 [node name="StepButton" type="Button" parent="MarginContainer/VBoxContainer/TopPanel/HBoxContainer"]
 layout_mode = 2
-text = "Step Week"
+text = "+1 Week"
 
 [node name="MainArea" type="HSplitContainer" parent="MarginContainer/VBoxContainer"]
 layout_mode = 2

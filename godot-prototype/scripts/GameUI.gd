@@ -8,11 +8,15 @@ extends Control
 @onready var info_label: Label = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/InfoLabel
 @onready var week_label: Label = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/WeekLabel
 @onready var balance_label: Label = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/BalanceLabel
-@onready var play_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/PlayButton
-@onready var slower_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/SlowerButton
-@onready var speed_label: Label = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/SpeedLabel
-@onready var faster_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/FasterButton
+# Speed control buttons
+@onready var pause_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/PlayButton
+@onready var speed_1x_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/Speed1xButton
+@onready var speed_10x_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/Speed10xButton
+@onready var speed_50x_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/Speed50xButton
+@onready var speed_200x_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/Speed200xButton
+@onready var speed_max_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/SpeedMaxButton
 @onready var step_button: Button = $MarginContainer/VBoxContainer/TopPanel/HBoxContainer/StepButton
+var speed_buttons: Array[Button] = []
 
 # Map (Always Visible)
 @onready var world_map: Control = $MarginContainer/VBoxContainer/MainArea/WorldMap
@@ -93,13 +97,20 @@ func _ready() -> void:
 		world_map.route_created.connect(_on_route_created)
 		world_map.route_clicked.connect(_on_route_clicked)
 
-	# Connect button signals
-	if play_button:
-		play_button.pressed.connect(_on_play_button_pressed)
-	if slower_button:
-		slower_button.pressed.connect(_on_slower_button_pressed)
-	if faster_button:
-		faster_button.pressed.connect(_on_faster_button_pressed)
+	# Connect speed control buttons
+	speed_buttons = [pause_button, speed_1x_button, speed_10x_button, speed_50x_button, speed_200x_button, speed_max_button]
+	if pause_button:
+		pause_button.pressed.connect(_on_speed_button_pressed.bind(0))  # PAUSED
+	if speed_1x_button:
+		speed_1x_button.pressed.connect(_on_speed_button_pressed.bind(1))  # REAL_TIME
+	if speed_10x_button:
+		speed_10x_button.pressed.connect(_on_speed_button_pressed.bind(2))  # SLOW
+	if speed_50x_button:
+		speed_50x_button.pressed.connect(_on_speed_button_pressed.bind(3))  # NORMAL
+	if speed_200x_button:
+		speed_200x_button.pressed.connect(_on_speed_button_pressed.bind(4))  # FAST
+	if speed_max_button:
+		speed_max_button.pressed.connect(_on_speed_button_pressed.bind(5))  # VERY_FAST
 	if step_button:
 		step_button.pressed.connect(_on_step_button_pressed)
 	if purchase_button:
@@ -514,39 +525,36 @@ func _on_route_clicked(route: Route) -> void:
 		route_config_dialog.popup_centered()
 		print("Opening route editor for %s → %s" % [route.from_airport.iata_code, route.to_airport.iata_code])
 
-func _on_play_button_pressed() -> void:
-	"""Toggle simulation play/pause"""
-	if simulation_engine.is_running:
-		simulation_engine.pause_simulation()
-	else:
-		simulation_engine.start_simulation()
+func _on_speed_button_pressed(speed_level: int) -> void:
+	"""Handle speed button click - set speed and update button states"""
+	if simulation_engine:
+		simulation_engine.set_speed(speed_level)
+		# Start simulation if not running (unless paused)
+		if speed_level > 0 and not simulation_engine.is_running:
+			simulation_engine.start_simulation()
+		elif speed_level == 0:
+			simulation_engine.pause_simulation()
+	_update_speed_button_states(speed_level)
+
+func _update_speed_button_states(active_level: int) -> void:
+	"""Update toggle states of speed buttons"""
+	for i in range(speed_buttons.size()):
+		if speed_buttons[i]:
+			speed_buttons[i].button_pressed = (i == active_level)
 
 func _on_step_button_pressed() -> void:
 	"""Run a single week simulation"""
 	simulation_engine.run_single_week()
 
 func _on_simulation_started() -> void:
-	if play_button:
-		play_button.text = "Pause"
+	pass  # No longer need to update play button text
 
 func _on_simulation_paused() -> void:
-	if play_button:
-		play_button.text = "Play"
+	_update_speed_button_states(0)  # Highlight pause button
 
-func _on_slower_button_pressed() -> void:
-	"""Decrease simulation speed"""
-	if simulation_engine:
-		simulation_engine.decrease_speed()
-
-func _on_faster_button_pressed() -> void:
-	"""Increase simulation speed"""
-	if simulation_engine:
-		simulation_engine.increase_speed()
-
-func _on_speed_changed(_speed_level: int, speed_name: String) -> void:
-	"""Update speed label when speed changes"""
-	if speed_label:
-		speed_label.text = speed_name
+func _on_speed_changed(speed_level: int, _speed_name: String) -> void:
+	"""Update button states when speed changes"""
+	_update_speed_button_states(speed_level)
 
 func _on_week_completed(week: int) -> void:
 	"""Handle week simulation completion"""
