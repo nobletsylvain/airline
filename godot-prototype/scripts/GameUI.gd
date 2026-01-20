@@ -74,6 +74,9 @@ func _ready() -> void:
 
 	# Connect simulation signals
 	if simulation_engine:
+		# Store reference in GameData for plane animations
+		GameData.simulation_engine = simulation_engine
+
 		simulation_engine.week_completed.connect(_on_week_completed)
 		simulation_engine.route_simulated.connect(_on_route_simulated)
 		simulation_engine.simulation_started.connect(_on_simulation_started)

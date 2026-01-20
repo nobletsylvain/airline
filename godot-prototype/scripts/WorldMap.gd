@@ -15,6 +15,11 @@ var hover_route: Route = null
 var selected_route: Route = null
 var preview_mouse_pos: Vector2 = Vector2.ZERO  # Track mouse for preview line
 
+# Plane animation system
+var plane_sprites: Array[PlaneSprite] = []
+var hover_plane: PlaneSprite = null
+var last_route_count: int = 0  # Track when routes change to respawn planes
+
 # Route visualization settings
 var show_route_labels: bool = true
 var show_profitability_colors: bool = true
@@ -47,6 +52,9 @@ func _ready() -> void:
 	# Wait one frame for the control to be properly sized
 	await get_tree().process_frame
 	setup_airports()
+
+	# Enable processing for plane animations
+	set_process(true)
 
 func _gui_input(event: InputEvent) -> void:
 	# Handle zoom with mouse wheel
@@ -102,6 +110,82 @@ func _gui_input(event: InputEvent) -> void:
 			if selected_airport:
 				queue_redraw()
 
+func _process(delta: float) -> void:
+	"""Update plane positions each frame"""
+	# Check if routes have changed (need to respawn planes)
+	var current_route_count: int = get_total_route_count()
+	if current_route_count != last_route_count:
+		spawn_planes()
+		last_route_count = current_route_count
+
+	# Calculate current hour within the week
+	var current_week_hour: float = get_current_week_hour()
+
+	# Update all plane positions
+	for plane in plane_sprites:
+		plane.update_position(current_week_hour)
+
+	# Check for plane hover
+	update_plane_hover()
+
+	# Redraw to show updated plane positions
+	queue_redraw()
+
+func get_total_route_count() -> int:
+	"""Count total routes across all airlines"""
+	var count: int = 0
+	for airline in GameData.airlines:
+		count += airline.routes.size()
+	return count
+
+func get_current_week_hour() -> float:
+	"""Calculate current hour within the week (0-168)"""
+	if not GameData.simulation_engine:
+		return 0.0
+
+	var progress_through_week: float = GameData.simulation_engine.time_accumulator / GameData.simulation_engine.week_duration
+	return progress_through_week * 168.0  # 168 hours in a week
+
+func spawn_planes() -> void:
+	"""Create plane sprites for all active routes"""
+	# Clear existing planes
+	plane_sprites.clear()
+
+	# Spawn planes for all airlines
+	for airline in GameData.airlines:
+		for route in airline.routes:
+			# Create one plane per flight frequency
+			for i in range(route.frequency):
+				var plane: PlaneSprite = PlaneSprite.new(route, airline, i)
+				plane_sprites.append(plane)
+
+	print("Spawned %d plane sprites" % plane_sprites.size())
+
+func update_plane_hover() -> void:
+	"""Check if mouse is hovering over any plane"""
+	if is_panning:
+		hover_plane = null
+		return
+
+	var mouse_pos: Vector2 = get_local_mouse_position()
+	var world_pos: Vector2 = screen_to_world(mouse_pos)
+
+	var closest_plane: PlaneSprite = null
+	var closest_distance: float = 15.0 / zoom_level  # Hover threshold
+
+	for plane in plane_sprites:
+		if not plane.is_active:
+			continue
+
+		var plane_pos: Vector2 = plane.get_current_position(size)
+		var distance: float = world_pos.distance_to(plane_pos)
+
+		if distance < closest_distance:
+			closest_distance = distance
+			closest_plane = plane
+
+	hover_plane = closest_plane
+
 func zoom_at_point(point: Vector2, delta: float) -> void:
 	"""Zoom in/out at a specific point"""
 	var old_zoom: float = zoom_level
@@ -131,8 +215,14 @@ func _draw() -> void:
 	# Draw route preview if airport is selected
 	draw_route_preview()
 
+	# Draw animated planes
+	draw_all_planes()
+
 	# Reset transformation for UI elements
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+	# Draw plane tooltip (after reset, so it's not affected by zoom)
+	draw_plane_tooltip()
 
 func draw_world_continents() -> void:
 	"""Draw continents using Mercator projection with better shapes"""
@@ -363,6 +453,64 @@ func draw_route_label(route: Route, position: Vector2, color: Color) -> void:
 	var text_color: Color = color.lightened(0.3)
 	text_color.a = 1.0
 	draw_string(ThemeDB.fallback_font, position - Vector2(text_size.x / 2, -text_size.y / 4), label_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, text_color)
+
+func draw_all_planes() -> void:
+	"""Draw all active plane sprites"""
+	for plane in plane_sprites:
+		if plane.is_active:
+			plane.draw_plane(self, zoom_level)
+
+func draw_plane_tooltip() -> void:
+	"""Draw tooltip for hovered plane"""
+	if not hover_plane or not hover_plane.is_active:
+		return
+
+	# Get screen position of plane (with zoom and pan applied)
+	var plane_world_pos: Vector2 = hover_plane.get_current_position(size)
+	var plane_screen_pos: Vector2 = world_to_screen(plane_world_pos)
+
+	# Get tooltip text
+	var tooltip_text: String = hover_plane.get_tooltip_text()
+	if tooltip_text == "":
+		return
+
+	# Calculate tooltip size
+	var font_size: int = 12
+	var lines: PackedStringArray = tooltip_text.split("\n")
+	var max_width: float = 0.0
+	for line in lines:
+		var line_width: float = line.length() * font_size * 0.6
+		max_width = max(max_width, line_width)
+
+	var tooltip_size: Vector2 = Vector2(max_width + 16, lines.size() * (font_size + 4) + 12)
+
+	# Position tooltip above and to the right of plane
+	var tooltip_pos: Vector2 = plane_screen_pos + Vector2(15, -tooltip_size.y - 10)
+
+	# Keep tooltip on screen
+	if tooltip_pos.x + tooltip_size.x > size.x:
+		tooltip_pos.x = plane_screen_pos.x - tooltip_size.x - 15
+	if tooltip_pos.y < 0:
+		tooltip_pos.y = plane_screen_pos.y + 20
+
+	# Draw background
+	var bg_rect: Rect2 = Rect2(tooltip_pos, tooltip_size)
+	draw_rect(bg_rect, Color(0.0, 0.0, 0.0, 0.85), true)
+	draw_rect(bg_rect, Color(1.0, 1.0, 1.0, 0.3), false, 1.0)
+
+	# Draw text lines
+	var y_offset: float = 8.0
+	for line in lines:
+		draw_string(
+			ThemeDB.fallback_font,
+			tooltip_pos + Vector2(8, y_offset + font_size),
+			line,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			font_size,
+			Color.WHITE
+		)
+		y_offset += font_size + 4
 
 func draw_route_preview() -> void:
 	"""Draw preview line when creating a route"""

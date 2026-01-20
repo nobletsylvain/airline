@@ -19,6 +19,7 @@ var ai_controllers: Array[AIController] = []
 # Tutorial & Progression
 var tutorial_manager: TutorialManager = null
 var objective_system: ObjectiveSystem = null
+var simulation_engine: Node = null  # Reference to SimulationEngine for plane animations
 var is_first_time_player: bool = true
 
 # Signals
