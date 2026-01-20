@@ -91,24 +91,21 @@ func build_ui() -> void:
 	cost_label.text = "Select an airport"
 	cost_panel.add_child(cost_label)
 
-func create_section_panel(title: String) -> PanelContainer:
-	"""Create a styled panel with title for a section"""
-	var panel = PanelContainer.new()
-
-	var panel_vbox = VBoxContainer.new()
-	panel_vbox.add_theme_constant_override("separation", 8)
-	panel.add_child(panel_vbox)
+func create_section_panel(title: String) -> VBoxContainer:
+	"""Create a styled section with title"""
+	var section_vbox = VBoxContainer.new()
+	section_vbox.add_theme_constant_override("separation", 8)
 
 	var title_label = Label.new()
 	title_label.text = title
 	title_label.add_theme_font_size_override("font_size", 16)
-	title_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
-	panel_vbox.add_child(title_label)
+	title_label.add_theme_color_override("font_color", Color(0.8, 0.8, 1.0))
+	section_vbox.add_child(title_label)
 
 	var separator = HSeparator.new()
-	panel_vbox.add_child(separator)
+	section_vbox.add_child(separator)
 
-	return panel
+	return section_vbox
 
 func show_dialog() -> void:
 	"""Show the dialog and populate with current data"""
