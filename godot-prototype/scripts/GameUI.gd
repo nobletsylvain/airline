@@ -29,6 +29,9 @@ var speed_buttons: Array[Button] = []
 
 # Routes Tab
 @onready var route_list: ItemList = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Routes/VBoxContainer/RouteList
+var route_cards_container: VBoxContainer = null
+var route_cards: Array[RouteCard] = []
+var selected_route_card: RouteCard = null
 
 # Fleet Tab
 @onready var fleet_list: ItemList = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer/FleetList
@@ -36,6 +39,9 @@ var speed_buttons: Array[Button] = []
 @onready var aircraft_list: ItemList = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer/AircraftList
 @onready var aircraft_details: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer/AircraftDetailsPanel/VBoxContainer/AircraftDetails
 @onready var purchase_button: Button = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Fleet/VBoxContainer/AircraftDetailsPanel/VBoxContainer/PurchaseButton
+var fleet_cards_container: VBoxContainer = null
+var fleet_cards: Array[FleetCard] = []
+var selected_fleet_card: FleetCard = null
 
 # Financials Tab
 @onready var weekly_stats_label: Label = $MarginContainer/VBoxContainer/MainArea/RightPanels/ManagementTabs/Finances/VBoxContainer/WeeklyStatsPanel/WeeklyStats
@@ -172,6 +178,12 @@ func _ready() -> void:
 	# Create grade badge in top bar
 	create_grade_badge()
 
+	# Create route cards container (replace ItemList)
+	create_route_cards_container()
+
+	# Create fleet cards container (replace ItemList)
+	create_fleet_cards_container()
+
 func create_grade_badge() -> void:
 	"""Create colored grade badge in top panel"""
 	var top_panel = get_node_or_null("MarginContainer/VBoxContainer/TopPanel/HBoxContainer")
@@ -198,6 +210,68 @@ func create_grade_badge() -> void:
 	top_panel.move_child(grade_badge, 1)
 
 	print("Grade badge created in top panel")
+
+func create_route_cards_container() -> void:
+	"""Create a VBoxContainer to hold RouteCards instead of ItemList"""
+	if not route_list:
+		return
+
+	# Get the parent of the ItemList
+	var parent = route_list.get_parent()
+	if not parent:
+		return
+
+	# Hide the old ItemList
+	route_list.visible = false
+
+	# Create new scroll container and cards container
+	var scroll = ScrollContainer.new()
+	scroll.name = "RouteCardsScroll"
+	scroll.custom_minimum_size = Vector2(0, 300)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	parent.add_child(scroll)
+
+	route_cards_container = VBoxContainer.new()
+	route_cards_container.name = "RouteCardsContainer"
+	route_cards_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	route_cards_container.add_theme_constant_override("separation", UITheme.CARD_MARGIN)
+	scroll.add_child(route_cards_container)
+
+	print("Route cards container created")
+
+func create_fleet_cards_container() -> void:
+	"""Create a VBoxContainer to hold FleetCards instead of ItemList"""
+	if not fleet_list:
+		return
+
+	# Get the parent of the ItemList
+	var parent = fleet_list.get_parent()
+	if not parent:
+		return
+
+	# Hide the old ItemList
+	fleet_list.visible = false
+
+	# Create new scroll container and cards container
+	var scroll = ScrollContainer.new()
+	scroll.name = "FleetCardsScroll"
+	scroll.custom_minimum_size = Vector2(0, 180)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+
+	# Insert after the hidden fleet_list
+	var list_index = fleet_list.get_index()
+	parent.add_child(scroll)
+	parent.move_child(scroll, list_index + 1)
+
+	fleet_cards_container = VBoxContainer.new()
+	fleet_cards_container.name = "FleetCardsContainer"
+	fleet_cards_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fleet_cards_container.add_theme_constant_override("separation", 6)
+	scroll.add_child(fleet_cards_container)
+
+	print("Fleet cards container created")
 
 func update_all() -> void:
 	"""Update all UI elements"""
@@ -256,8 +330,17 @@ func update_route_tab() -> void:
 	update_route_list()
 
 func update_route_list() -> void:
-	"""Update the route list display"""
-	if not route_list or not GameData.player_airline:
+	"""Update the route list display with RouteCards"""
+	if not GameData.player_airline:
+		return
+
+	# Use new card system if container exists
+	if route_cards_container:
+		_update_route_cards()
+		return
+
+	# Fallback to old ItemList for compatibility
+	if not route_list:
 		return
 
 	route_list.clear()
@@ -271,7 +354,6 @@ func update_route_list() -> void:
 		if not route.assigned_aircraft.is_empty():
 			aircraft_info = " ✈ %s" % route.assigned_aircraft[0].model.model_name
 
-		# Profit indicator
 		var profit_indicator: String
 		if route.weekly_profit > 0:
 			profit_indicator = "▲ +$%s" % format_money(route.weekly_profit)
@@ -280,29 +362,82 @@ func update_route_list() -> void:
 		else:
 			profit_indicator = "─ $0"
 
-		# Load factor indicator
 		var load_factor: float = 0.0
 		if route.get_total_capacity() > 0 and route.frequency > 0:
 			load_factor = (route.passengers_transported / float(route.get_total_capacity() * route.frequency)) * 100
 
-		var load_indicator = ""
-		if load_factor >= 85:
-			load_indicator = "●"  # Full
-		elif load_factor >= 70:
-			load_indicator = "◐"  # Good
-		elif load_factor >= 50:
-			load_indicator = "◔"  # Moderate
-		else:
-			load_indicator = "○"  # Poor
-
-		var route_text: String = "%s%s\n%s %.0f%% | %s" % [
+		var route_text: String = "%s%s | %.0f%% | %s" % [
 			route.get_display_name(),
 			aircraft_info,
-			load_indicator,
 			load_factor,
 			profit_indicator
 		]
 		route_list.add_item(route_text)
+
+func _update_route_cards() -> void:
+	"""Update route cards display"""
+	# Clear existing cards
+	for card in route_cards:
+		card.queue_free()
+	route_cards.clear()
+	selected_route_card = null
+
+	if GameData.player_airline.routes.is_empty():
+		# Show empty state
+		var empty_label = Label.new()
+		empty_label.text = "No routes created\n\nClick on your hub airport, then\nclick a destination to create a route."
+		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+		empty_label.add_theme_font_size_override("font_size", UITheme.FONT_SIZE_BODY)
+		route_cards_container.add_child(empty_label)
+		return
+
+	# Create a card for each route
+	for route in GameData.player_airline.routes:
+		var card = RouteCard.new()
+		route_cards_container.add_child(card)
+		card.set_route(route)
+		card.route_selected.connect(_on_route_card_selected)
+		card.route_edit_requested.connect(_on_route_card_edit_requested)
+		route_cards.append(card)
+
+func _on_route_card_selected(route: Route) -> void:
+	"""Handle route card selection"""
+	# Deselect previous card
+	if selected_route_card:
+		selected_route_card.set_selected(false)
+
+	# Find and select the new card
+	for card in route_cards:
+		if card.route == route:
+			card.set_selected(true)
+			selected_route_card = card
+			break
+
+	selected_route = route
+
+	# Update info panel
+	if airport_info:
+		airport_info.text = "Route: %s\nDistance: %.0f km\nFrequency: %d/week\nPassengers: %d\nRevenue: $%s\nProfit: $%s" % [
+			selected_route.get_display_name(),
+			selected_route.distance_km,
+			selected_route.frequency,
+			selected_route.passengers_transported,
+			format_money(selected_route.revenue_generated),
+			format_money(selected_route.weekly_profit)
+		]
+
+	# Highlight on map
+	if world_map:
+		world_map.selected_route = route
+		world_map.queue_redraw()
+
+func _on_route_card_edit_requested(route: Route) -> void:
+	"""Handle route card double-click to edit"""
+	if route_config_dialog:
+		route_config_dialog.setup_edit_route(route)
+		route_config_dialog.popup_centered()
+		print("Opening route editor for %s" % route.get_display_name())
 
 func update_fleet_tab() -> void:
 	"""Update Fleet tab"""
@@ -336,8 +471,17 @@ func populate_aircraft_list() -> void:
 		print("  Added: ", text)
 
 func update_fleet_list() -> void:
-	"""Update the fleet list display"""
-	if not fleet_list or not GameData.player_airline:
+	"""Update the fleet list display with FleetCards"""
+	if not GameData.player_airline:
+		return
+
+	# Use new card system if container exists
+	if fleet_cards_container:
+		_update_fleet_cards()
+		return
+
+	# Fallback to old ItemList
+	if not fleet_list:
 		return
 
 	fleet_list.clear()
@@ -348,17 +492,15 @@ func update_fleet_list() -> void:
 
 	for aircraft in GameData.player_airline.aircraft:
 		var status_icon: String = "✈" if aircraft.is_assigned else "○"
-
-		# Condition indicator
 		var condition_icon: String
 		if aircraft.condition >= 80:
-			condition_icon = "●"  # Good
+			condition_icon = "●"
 		elif aircraft.condition >= 50:
-			condition_icon = "◐"  # Warning
+			condition_icon = "◐"
 		else:
-			condition_icon = "○"  # Poor
+			condition_icon = "○"
 
-		var text: String = "%s %s [#%d]\n   %s | %s %.0f%%" % [
+		var text: String = "%s %s [#%d] | %s | %s %.0f%%" % [
 			status_icon,
 			aircraft.model.get_display_name(),
 			aircraft.id,
@@ -367,6 +509,76 @@ func update_fleet_list() -> void:
 			aircraft.condition
 		]
 		fleet_list.add_item(text)
+
+func _update_fleet_cards() -> void:
+	"""Update fleet cards display"""
+	# Clear existing cards
+	for card in fleet_cards:
+		card.queue_free()
+	fleet_cards.clear()
+	selected_fleet_card = null
+
+	if GameData.player_airline.aircraft.is_empty():
+		# Show empty state
+		var empty_label = Label.new()
+		empty_label.text = "No aircraft owned\n\nPurchase aircraft from the\nmarket below to start operations."
+		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+		empty_label.add_theme_font_size_override("font_size", UITheme.FONT_SIZE_BODY)
+		fleet_cards_container.add_child(empty_label)
+		return
+
+	# Create a card for each aircraft
+	for aircraft in GameData.player_airline.aircraft:
+		var card = FleetCard.new()
+		fleet_cards_container.add_child(card)
+		card.set_aircraft(aircraft)
+		card.aircraft_selected.connect(_on_fleet_card_selected)
+		card.aircraft_assign_requested.connect(_on_fleet_card_assign_requested)
+		fleet_cards.append(card)
+
+func _on_fleet_card_selected(aircraft: AircraftInstance) -> void:
+	"""Handle fleet card selection"""
+	# Deselect previous card
+	if selected_fleet_card:
+		selected_fleet_card.set_selected(false)
+
+	# Find and select the new card
+	for card in fleet_cards:
+		if card.aircraft == aircraft:
+			card.set_selected(true)
+			selected_fleet_card = card
+			break
+
+	# Update info panel
+	if airport_info:
+		var status = "Assigned" if aircraft.is_assigned else "Available"
+		var route_info = ""
+		if aircraft.is_assigned:
+			# Find the route this aircraft is assigned to
+			for route in GameData.player_airline.routes:
+				if aircraft in route.assigned_aircraft:
+					route_info = "\nAssigned to: %s" % route.get_display_name()
+					break
+
+		airport_info.text = "Aircraft #%d\n%s\n\nStatus: %s%s\nCondition: %.1f%%\n\nCapacity: %d pax\nRange: %d km" % [
+			aircraft.id,
+			aircraft.model.get_display_name(),
+			status,
+			route_info,
+			aircraft.condition,
+			aircraft.configuration.economy + aircraft.configuration.business + aircraft.configuration.first_class,
+			aircraft.model.range_km
+		]
+
+func _on_fleet_card_assign_requested(aircraft: AircraftInstance) -> void:
+	"""Handle fleet card double-click to assign"""
+	if aircraft.is_assigned:
+		print("Aircraft #%d is already assigned" % aircraft.id)
+		return
+
+	# Could open a route selection dialog here
+	print("Assignment requested for aircraft #%d - select a route to assign" % aircraft.id)
 
 func update_fleet_stats() -> void:
 	"""Update fleet statistics panel"""
