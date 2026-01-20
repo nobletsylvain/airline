@@ -61,6 +61,9 @@ var tutorial_skip_dialog: ConfirmationDialog = null
 # Route configuration dialog
 var route_config_dialog: RouteConfigDialog = null
 
+# Route opportunity dialog (for planning from hubs)
+var route_opportunity_dialog: RouteOpportunityDialog = null
+
 # Hub purchase dialog
 var hub_purchase_dialog: HubPurchaseDialog = null
 var purchase_hub_button: Button = null
@@ -134,6 +137,9 @@ func _ready() -> void:
 
 	# Create route configuration dialog
 	create_route_config_dialog()
+
+	# Create route opportunity dialog
+	create_route_opportunity_dialog()
 
 	# Create hub purchase dialog and button
 	create_hub_purchase_ui()
@@ -418,6 +424,12 @@ func _on_airport_clicked(airport: Airport) -> void:
 			if world_map:
 				world_map.queue_redraw()
 			return
+
+	# Check if clicking on a player hub - show route planning dialog
+	if GameData.player_airline and GameData.player_airline.has_hub(airport):
+		if route_opportunity_dialog:
+			route_opportunity_dialog.show_for_hub(airport)
+		return
 
 	# Normal airport click info
 	if airport_info:
@@ -1155,6 +1167,20 @@ func create_route_config_dialog() -> void:
 	add_child(route_config_dialog)
 	route_config_dialog.route_configured.connect(_on_route_configured)
 	print("Route configuration dialog created")
+
+func create_route_opportunity_dialog() -> void:
+	"""Create route opportunity dialog"""
+	route_opportunity_dialog = RouteOpportunityDialog.new()
+	add_child(route_opportunity_dialog)
+	route_opportunity_dialog.route_selected.connect(_on_route_opportunity_selected)
+	print("Route opportunity dialog created")
+
+func _on_route_opportunity_selected(from_airport: Airport, to_airport: Airport) -> void:
+	"""Handle route selection from opportunity dialog - open config dialog"""
+	if route_config_dialog:
+		route_config_dialog.setup_route(from_airport, to_airport)
+		route_config_dialog.popup_centered()
+		print("Opening route configuration for selected opportunity: %s → %s" % [from_airport.iata_code, to_airport.iata_code])
 
 func _on_route_configured(config: Dictionary) -> void:
 	"""Handle route configuration from dialog"""
