@@ -455,14 +455,14 @@ func purchase_hub_for_airline(airline: Airline, airport: Airport) -> bool:
 	if not airline.deduct_balance(cost):
 		print("Cannot afford hub at %s (Cost: $%s, Balance: $%s)" % [
 			airport.iata_code,
-			format_money(cost),
-			format_money(airline.balance)
+			GameData.format_money(cost),
+			GameData.format_money(airline.balance)
 		])
 		return false
 
 	# Add hub
 	airline.add_hub(airport)
-	print("Hub purchased at %s for $%s" % [airport.iata_code, format_money(cost)])
+	print("Hub purchased at %s for $%s" % [airport.iata_code, GameData.format_money(cost)])
 
 	return true
 
@@ -479,3 +479,29 @@ func get_affordable_hub_airports(airline: Airline) -> Array[Airport]:
 			affordable.append(airport)
 
 	return affordable
+
+## Utility Functions
+
+static func format_money(amount: float) -> String:
+	"""Format money with thousands separators"""
+	var s: String = str(int(amount))
+	var result: String = ""
+	var count: int = 0
+
+	for i in range(s.length() - 1, -1, -1):
+		result = s[i] + result
+		count += 1
+		if count % 3 == 0 and i > 0:
+			result = "," + result
+
+	return result
+
+static func format_number(num: float) -> String:
+	"""Format large numbers with K/M suffixes"""
+	if num >= 1000000:
+		return "%.1fM" % (num / 1000000.0)
+	elif num >= 1000:
+		return "%.1fK" % (num / 1000.0)
+	else:
+		return str(int(num))
+
