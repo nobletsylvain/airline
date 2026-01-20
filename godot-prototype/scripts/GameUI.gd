@@ -58,6 +58,9 @@ var tutorial_skip_button: Button = null
 var tutorial_continue_button: Button = null
 var tutorial_skip_dialog: ConfirmationDialog = null
 
+# Route configuration dialog
+var route_config_dialog: RouteConfigDialog = null
+
 func _ready() -> void:
 	print("GameUI: _ready() called")
 	print("  aircraft_list node: ", aircraft_list)
@@ -123,6 +126,9 @@ func _ready() -> void:
 
 	# Create tutorial overlay
 	create_tutorial_overlay()
+
+	# Create route configuration dialog
+	create_route_config_dialog()
 
 func update_all() -> void:
 	"""Update all UI elements"""
@@ -402,7 +408,7 @@ func _on_airport_hovered(airport: Airport) -> void:
 	pass
 
 func _on_route_created(from_airport: Airport, to_airport: Airport) -> void:
-	"""Handle route creation request"""
+	"""Handle route creation request - show configuration dialog"""
 	if not GameData.player_airline:
 		return
 
@@ -414,71 +420,15 @@ func _on_route_created(from_airport: Airport, to_airport: Airport) -> void:
 
 	if available_aircraft.is_empty():
 		if airport_info:
-			airport_info.text = "CANNOT CREATE ROUTE!\n\nNo available aircraft in your fleet.\n\nYou need to:\n1. Purchase an aircraft\n2. Assign it to this route"
+			airport_info.text = "CANNOT CREATE ROUTE!\n\nNo available aircraft in your fleet.\n\nYou need to:\n1. Purchase an aircraft first\n2. Then create your route"
 		print("Cannot create route: No available aircraft")
 		return
 
-	# Create new route
-	var route: Route = Route.new(from_airport, to_airport, GameData.player_airline.id)
-
-	# Check if route is within aircraft range
-	var suitable_aircraft: AircraftInstance = null
-	for aircraft in available_aircraft:
-		if aircraft.model.can_fly_distance(route.distance_km):
-			suitable_aircraft = aircraft
-			break
-
-	if not suitable_aircraft:
-		if airport_info:
-			airport_info.text = "CANNOT CREATE ROUTE!\n\nRoute: %s\nDistance: %.0f km\n\nNone of your available aircraft can fly this distance.\n\nLongest range available: %.0f km" % [
-				route.get_display_name(),
-				route.distance_km,
-				available_aircraft[0].model.range_km
-			]
-		print("Cannot create route: Distance exceeds aircraft range")
-		return
-
-	# Assign the first suitable aircraft
-	route.assign_aircraft(suitable_aircraft)
-
-	# Set capacity from aircraft model
-	route.capacity_economy = suitable_aircraft.model.capacity_economy
-	route.capacity_business = suitable_aircraft.model.capacity_business
-	route.capacity_first = suitable_aircraft.model.capacity_first
-	route.frequency = 7  # Daily
-
-	# Set quality from airline and aircraft
-	route.service_quality = GameData.player_airline.service_quality
-	route.aircraft_condition = suitable_aircraft.condition
-
-	# Set default pricing
-	route.price_economy = route.calculate_base_price(route.distance_km, "economy")
-	route.price_business = route.calculate_base_price(route.distance_km, "business")
-	route.price_first = route.calculate_base_price(route.distance_km, "first")
-
-	# Add to airline
-	GameData.player_airline.add_route(route)
-
-	# Refresh map
-	if world_map:
-		world_map.refresh_routes()
-
-	# Update UI
-	update_fleet_tab()
-	update_route_tab()
-
-	# Show success message
-	if airport_info:
-		airport_info.text = "ROUTE CREATED!\n\n%s\nDistance: %.0f km\nAircraft: %s (ID:%d)\nCapacity: %d passengers\nPrice: $%.0f (Economy)" % [
-			route.get_display_name(),
-			route.distance_km,
-			suitable_aircraft.model.get_display_name(),
-			suitable_aircraft.id,
-			route.get_total_capacity(),
-			route.price_economy
-		]
-
-	print("Created route: %s (%.0f km) with aircraft ID:%d" % [route.get_display_name(), route.distance_km, suitable_aircraft.id])
+	# Show route configuration dialog
+	if route_config_dialog:
+		route_config_dialog.setup_route(from_airport, to_airport)
+		route_config_dialog.popup_centered()
+		print("Opening route configuration dialog for %s → %s" % [from_airport.iata_code, to_airport.iata_code])
 
 func _on_route_added(route: Route) -> void:
 	"""Handle new route added to airline"""
@@ -1139,3 +1089,76 @@ func _input(event: InputEvent) -> void:
 			if tutorial_skip_button and tutorial_skip_button.visible:
 				_on_tutorial_skip_pressed()
 				get_viewport().set_input_as_handled()
+
+## Route Configuration Dialog
+
+func create_route_config_dialog() -> void:
+	"""Create route configuration dialog"""
+	route_config_dialog = RouteConfigDialog.new()
+	add_child(route_config_dialog)
+	route_config_dialog.route_configured.connect(_on_route_configured)
+	print("Route configuration dialog created")
+
+func _on_route_configured(config: Dictionary) -> void:
+	"""Handle route configuration from dialog"""
+	var from: Airport = config.get("from_airport")
+	var to: Airport = config.get("to_airport")
+	var aircraft: AircraftInstance = config.get("aircraft")
+	var frequency: int = config.get("frequency", 7)
+	var price_economy: float = config.get("price_economy", 100)
+	var price_business: float = config.get("price_business", 200)
+	var price_first: float = config.get("price_first", 500)
+
+	if not from or not to or not aircraft:
+		print("Error: Invalid route configuration")
+		return
+
+	# Create route using the GameData helper
+	var route: Route = GameData.create_route_for_airline(
+		GameData.player_airline,
+		from,
+		to,
+		aircraft
+	)
+
+	if not route:
+		print("Failed to create route")
+		return
+
+	# Apply configuration
+	route.frequency = frequency
+	route.price_economy = price_economy
+	route.price_business = price_business
+	route.price_first = price_first
+
+	# Set quality from airline and aircraft
+	route.service_quality = GameData.player_airline.service_quality
+	route.aircraft_condition = aircraft.condition
+
+	# Refresh map
+	if world_map:
+		world_map.refresh_routes()
+
+	# Update UI
+	update_fleet_tab()
+	update_route_tab()
+
+	# Show success message
+	if airport_info:
+		airport_info.text = "✓ ROUTE CREATED!\n\n%s\nDistance: %.0f km (%.1f hours)\n\nAircraft: %s\nConfiguration: %s\nFrequency: %d flights/week\n\nPricing:\n  Economy: $%.0f\n  Business: $%.0f\n  First: $%.0f" % [
+			route.get_display_name(),
+			route.distance_km,
+			route.flight_duration_hours,
+			aircraft.model.get_display_name(),
+			aircraft.configuration.get_config_summary(),
+			frequency,
+			price_economy,
+			price_business,
+			price_first
+		]
+
+	print("✓ Route created: %s with %s (Freq: %d)" % [
+		route.get_display_name(),
+		aircraft.model.get_display_name(),
+		frequency
+	])
