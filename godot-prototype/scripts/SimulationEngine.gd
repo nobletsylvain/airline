@@ -200,8 +200,11 @@ func calculate_class_distribution(route: Route, airline: Airline) -> Dictionary:
 		first_ratio += rep_bonus * 0.5
 		economy_ratio -= rep_bonus * 1.5
 
-	# Adjust for airport income levels
-	var avg_income: float = (route.from_airport.income_level + route.to_airport.income_level) / 2.0
+	# Adjust for airport income levels (using GDP per capita)
+	# Normalize GDP to 0-100 scale (gdp_per_capita / 1000)
+	var from_income: float = route.from_airport.gdp_per_capita / 1000.0
+	var to_income: float = route.to_airport.gdp_per_capita / 1000.0
+	var avg_income: float = (from_income + to_income) / 2.0
 	if avg_income > 70:
 		# High income cities = more premium travel
 		var income_bonus: float = (avg_income - 70) / 100.0

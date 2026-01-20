@@ -57,9 +57,17 @@ func build_ui() -> void:
 	margin.add_theme_constant_override("margin_bottom", 20)
 	add_child(margin)
 
+	# Add ScrollContainer to make entire dialog scrollable
+	var scroll = ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(860, 660)
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_child(scroll)
+
 	var vbox = VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 15)
-	margin.add_child(vbox)
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(vbox)
 
 	# === Header Section ===
 	var header_label = Label.new()

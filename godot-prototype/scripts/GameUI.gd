@@ -963,15 +963,37 @@ func create_tutorial_overlay() -> void:
 	tutorial_overlay_layer.layer = 100  # Above everything
 	add_child(tutorial_overlay_layer)
 
-	# Create tutorial panel (centered at top)
+	# Create tutorial panel (top-left, draggable)
 	tutorial_panel = Panel.new()
 	tutorial_panel.name = "TutorialPanel"
 	tutorial_panel.custom_minimum_size = Vector2(700, 350)
-	tutorial_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	tutorial_panel.offset_left = -350  # Half of width
-	tutorial_panel.offset_right = 350
-	tutorial_panel.offset_top = 50
-	tutorial_panel.offset_bottom = 400
+	tutorial_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	tutorial_panel.position = Vector2(20, 20)  # Top-left with small margin
+	tutorial_panel.size = Vector2(700, 350)
+
+	# Make draggable
+	var drag_offset: Vector2 = Vector2.ZERO
+	var is_dragging: bool = false
+
+	tutorial_panel.gui_input.connect(func(event: InputEvent):
+		if event is InputEventMouseButton:
+			if event.button_index == MOUSE_BUTTON_LEFT:
+				if event.pressed:
+					# Start dragging
+					is_dragging = true
+					drag_offset = event.position
+					tutorial_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+				else:
+					# Stop dragging
+					is_dragging = false
+		elif event is InputEventMouseMotion and is_dragging:
+			# Update position while dragging
+			tutorial_panel.position += event.relative
+	)
+
+	# Enable mouse input
+	tutorial_panel.mouse_filter = Control.MOUSE_FILTER_PASS
+
 	tutorial_overlay_layer.add_child(tutorial_panel)
 
 	# VBox container for layout
