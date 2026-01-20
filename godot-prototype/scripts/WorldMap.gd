@@ -1,9 +1,11 @@
 extends Control
 
-## World map visualization with airports and routes - Using OpenStreetMap tiles
+## World map visualization with airports and routes - Using static map with Equirectangular projection
 
 @export var airport_marker_scene: PackedScene
-@export var background_color: Color = Color(0.1, 0.15, 0.2)
+@export var background_color: Color = Color(0.05, 0.1, 0.2)  # Deep ocean blue
+@export var land_color: Color = Color(0.2, 0.35, 0.2)  # Land green
+@export var map_texture_path: String = ""  # Optional external map image
 
 var airport_markers: Dictionary = {}  # iata_code -> AirportMarker node
 var route_lines: Array[Line2D] = []
@@ -13,11 +15,12 @@ var hover_route: Route = null
 var selected_route: Route = null
 var preview_mouse_pos: Vector2 = Vector2.ZERO  # Track mouse for preview line
 
-# OpenStreetMap tile system
-var tile_manager: MapTileManager = null
-var osm_zoom: int = 2  # OSM zoom level (0-19, 2 = world view)
-var map_center_lat: float = 30.0  # Center latitude
-var map_center_lon: float = 0.0   # Center longitude
+# Static map system (Equirectangular projection)
+var map_texture: ImageTexture = null
+var map_image_size: Vector2 = Vector2(2048, 1024)  # Base map size
+var zoom_level: float = 1.0  # Zoom multiplier
+var min_zoom: float = 0.5
+var max_zoom: float = 4.0
 
 # Plane animation system
 var plane_sprites: Array[PlaneSprite] = []
@@ -29,10 +32,14 @@ var show_route_labels: bool = true
 var show_profitability_colors: bool = true
 var show_capacity_thickness: bool = true
 
-# Zoom and pan variables (now in pixel space)
+# Zoom and pan variables
 var pan_offset: Vector2 = Vector2.ZERO
 var is_panning: bool = false
 var last_mouse_pos: Vector2 = Vector2.ZERO
+
+# Continent data for procedural map (simplified polygons)
+# Each continent is an array of [lat, lon] points
+var continent_data: Array = []
 
 signal airport_clicked(airport: Airport)
 signal airport_hovered(airport: Airport)
@@ -45,10 +52,15 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	clip_contents = true  # Clip content outside bounds
 
-	# Initialize tile manager
-	tile_manager = MapTileManager.new()
-	add_child(tile_manager)
-	tile_manager.tile_loaded.connect(_on_tile_loaded)
+	# Initialize continent data for procedural rendering
+	_init_continent_data()
+
+	# Try to load external map texture if specified
+	if map_texture_path != "":
+		var img = Image.load_from_file(map_texture_path)
+		if img:
+			map_texture = ImageTexture.create_from_image(img)
+			map_image_size = Vector2(img.get_width(), img.get_height())
 
 	# Wait for GameData to initialize
 	if GameData.airports.is_empty():
@@ -66,13 +78,55 @@ func _ready() -> void:
 
 func _center_map_on_world() -> void:
 	"""Center the map to show the whole world"""
-	# Calculate initial pan offset to center the world
-	var center_pixel = MapTileManager.lat_lon_to_pixel(map_center_lat, map_center_lon, osm_zoom)
-	pan_offset = size / 2.0 - center_pixel
+	# Center the map image in the viewport
+	var scaled_size = map_image_size * zoom_level
+	pan_offset = (size - scaled_size) / 2.0
 
-func _on_tile_loaded(_z: int, _x: int, _y: int, _texture: ImageTexture) -> void:
-	"""Redraw when a new tile is loaded"""
-	queue_redraw()
+func _init_continent_data() -> void:
+	"""Initialize simplified continent polygon data"""
+	# North America (simplified)
+	continent_data.append([
+		[70, -170], [70, -140], [70, -100], [60, -95], [50, -90], [45, -75],
+		[40, -70], [30, -80], [25, -80], [20, -90], [15, -90], [10, -85],
+		[10, -80], [15, -75], [20, -65], [25, -80], [30, -85], [35, -120],
+		[40, -125], [50, -130], [60, -140], [65, -170]
+	])
+
+	# South America (simplified)
+	continent_data.append([
+		[10, -80], [10, -60], [0, -50], [-5, -35], [-10, -35], [-20, -40],
+		[-30, -50], [-40, -65], [-55, -70], [-55, -75], [-45, -75], [-40, -70],
+		[-30, -70], [-20, -70], [-10, -80], [0, -80], [5, -80]
+	])
+
+	# Europe (simplified)
+	continent_data.append([
+		[70, -10], [70, 30], [65, 30], [60, 30], [55, 20], [50, 5],
+		[45, -10], [40, -10], [35, -5], [35, 5], [40, 10], [45, 15],
+		[50, 20], [55, 25], [60, 30], [65, 25], [70, 20]
+	])
+
+	# Africa (simplified)
+	continent_data.append([
+		[35, -10], [35, 35], [30, 35], [20, 40], [10, 50], [0, 45],
+		[-10, 40], [-20, 35], [-30, 30], [-35, 20], [-35, 15], [-25, 15],
+		[-15, 10], [-5, 5], [5, -5], [15, -15], [25, -15], [35, -10]
+	])
+
+	# Asia (simplified)
+	continent_data.append([
+		[70, 30], [70, 180], [65, 180], [60, 170], [55, 165], [50, 155],
+		[45, 145], [40, 140], [35, 135], [30, 120], [20, 110], [10, 105],
+		[0, 100], [5, 95], [10, 80], [20, 70], [25, 65], [30, 50],
+		[35, 35], [40, 30], [50, 40], [55, 55], [60, 60], [65, 70], [70, 80]
+	])
+
+	# Australia (simplified)
+	continent_data.append([
+		[-10, 115], [-10, 145], [-15, 145], [-20, 150], [-30, 155],
+		[-38, 148], [-40, 145], [-35, 135], [-30, 130], [-25, 115],
+		[-20, 115], [-15, 120], [-10, 130]
+	])
 
 func _gui_input(event: InputEvent) -> void:
 	# Handle zoom with mouse wheel
@@ -204,34 +258,38 @@ func update_plane_hover() -> void:
 	hover_plane = closest_plane
 
 func zoom_at_point(point: Vector2, direction: float) -> void:
-	"""Zoom in/out at a specific point using OSM zoom levels"""
-	var old_zoom: int = osm_zoom
+	"""Zoom in/out at a specific point"""
+	var old_zoom: float = zoom_level
+	var zoom_factor: float = 1.2  # Zoom step
 
 	if direction > 0:
-		osm_zoom = mini(osm_zoom + 1, 6)  # Max zoom 6 for world view
+		zoom_level = min(zoom_level * zoom_factor, max_zoom)
 	else:
-		osm_zoom = maxi(osm_zoom - 1, 1)  # Min zoom 1
+		zoom_level = max(zoom_level / zoom_factor, min_zoom)
 
-	if old_zoom != osm_zoom:
-		# Get the lat/lon at the mouse position before zoom
+	if old_zoom != zoom_level:
+		# Get the world position at the mouse position before zoom
 		var mouse_world = screen_to_world(point)
-		var lat_lon = pixel_to_lat_lon(mouse_world)
 
-		# Recalculate pixel position at new zoom
-		var new_pixel = lat_lon_to_pixel(lat_lon.x, lat_lon.y)
+		# Calculate scale ratio
+		var scale_ratio = zoom_level / old_zoom
 
 		# Adjust pan so the point under mouse stays in place
-		pan_offset = point - new_pixel
+		var new_world = mouse_world * scale_ratio
+		pan_offset = point - new_world
 
 		update_airport_positions()
 		queue_redraw()
 
 func _draw() -> void:
-	# Draw background (ocean color as fallback)
+	# Draw background (ocean color)
 	draw_rect(Rect2(Vector2.ZERO, size), background_color, true)
 
-	# Draw map tiles
-	draw_map_tiles()
+	# Draw map (texture or procedural)
+	if map_texture:
+		draw_map_texture()
+	else:
+		draw_procedural_map()
 
 	# Draw routes (player and competitors)
 	draw_all_routes()
@@ -245,53 +303,77 @@ func _draw() -> void:
 	# Draw plane tooltip
 	draw_plane_tooltip()
 
-func draw_map_tiles() -> void:
-	"""Draw visible OpenStreetMap tiles"""
-	if not tile_manager:
+func draw_map_texture() -> void:
+	"""Draw the static map texture"""
+	if not map_texture:
 		return
 
-	var tile_size = MapTileManager.TILE_SIZE
+	var scaled_size = map_image_size * zoom_level
+	var dest_rect = Rect2(pan_offset, scaled_size)
+	var src_rect = Rect2(Vector2.ZERO, map_image_size)
 
-	# Calculate visible tile range
-	var top_left = screen_to_world(Vector2.ZERO)
-	var bottom_right = screen_to_world(size)
+	draw_texture_rect(map_texture, dest_rect, false)
 
-	var start_tile_x = int(floor(top_left.x / tile_size))
-	var start_tile_y = int(floor(top_left.y / tile_size))
-	var end_tile_x = int(ceil(bottom_right.x / tile_size))
-	var end_tile_y = int(ceil(bottom_right.y / tile_size))
+func draw_procedural_map() -> void:
+	"""Draw a simple procedural world map with continents"""
+	# Draw ocean grid lines for reference
+	draw_grid_lines()
 
-	# Clamp to valid tile range
-	var max_tile = int(pow(2, osm_zoom)) - 1
-	start_tile_x = clampi(start_tile_x, 0, max_tile)
-	start_tile_y = clampi(start_tile_y, 0, max_tile)
-	end_tile_x = clampi(end_tile_x, 0, max_tile)
-	end_tile_y = clampi(end_tile_y, 0, max_tile)
+	# Draw continents
+	for continent in continent_data:
+		draw_continent(continent)
 
-	# Draw tiles
-	for ty in range(start_tile_y, end_tile_y + 1):
-		for tx in range(start_tile_x, end_tile_x + 1):
-			var texture = tile_manager.get_tile(osm_zoom, tx, ty)
-			var tile_pos = Vector2(tx * tile_size, ty * tile_size)
-			var screen_pos = world_to_screen(tile_pos)
+func draw_grid_lines() -> void:
+	"""Draw latitude/longitude grid lines"""
+	var grid_color = Color(0.15, 0.25, 0.35, 0.5)
 
-			if texture:
-				draw_texture(texture, screen_pos)
-			else:
-				# Draw placeholder while loading
-				var rect = Rect2(screen_pos, Vector2(tile_size, tile_size))
-				draw_rect(rect, Color(0.2, 0.3, 0.4, 1.0), true)
-				draw_rect(rect, Color(0.3, 0.4, 0.5, 1.0), false, 1.0)
+	# Draw latitude lines every 30 degrees
+	for lat in range(-60, 91, 30):
+		var start = lat_lon_to_screen_pos(lat, -180)
+		var end = lat_lon_to_screen_pos(lat, 180)
+		draw_line(start, end, grid_color, 1.0)
 
-# Coordinate conversion functions for OSM tile system
+	# Draw longitude lines every 30 degrees
+	for lon in range(-180, 181, 30):
+		var start = lat_lon_to_screen_pos(90, lon)
+		var end = lat_lon_to_screen_pos(-90, lon)
+		draw_line(start, end, grid_color, 1.0)
+
+func draw_continent(points: Array) -> void:
+	"""Draw a continent polygon from lat/lon points"""
+	if points.size() < 3:
+		return
+
+	var screen_points: PackedVector2Array = []
+	for point in points:
+		var lat = point[0]
+		var lon = point[1]
+		screen_points.append(lat_lon_to_screen_pos(lat, lon))
+
+	# Draw filled polygon
+	draw_colored_polygon(screen_points, land_color)
+
+	# Draw outline
+	var outline_color = land_color.darkened(0.2)
+	screen_points.append(screen_points[0])  # Close the polygon
+	draw_polyline(screen_points, outline_color, 1.5, true)
+
+# Coordinate conversion functions for Equirectangular projection
 
 func lat_lon_to_pixel(lat: float, lon: float) -> Vector2:
-	"""Convert lat/lon to pixel coordinates at current zoom"""
-	return MapTileManager.lat_lon_to_pixel(lat, lon, osm_zoom)
+	"""Convert lat/lon to world pixel coordinates using Equirectangular projection"""
+	# Equirectangular projection: simple linear mapping
+	# x = (lon + 180) / 360 * width * zoom
+	# y = (90 - lat) / 180 * height * zoom
+	var x = (lon + 180.0) / 360.0 * map_image_size.x * zoom_level
+	var y = (90.0 - lat) / 180.0 * map_image_size.y * zoom_level
+	return Vector2(x, y)
 
 func pixel_to_lat_lon(pixel: Vector2) -> Vector2:
-	"""Convert pixel coordinates to lat/lon at current zoom"""
-	return MapTileManager.pixel_to_lat_lon(pixel, osm_zoom)
+	"""Convert world pixel coordinates to lat/lon"""
+	var lon = (pixel.x / (map_image_size.x * zoom_level)) * 360.0 - 180.0
+	var lat = 90.0 - (pixel.y / (map_image_size.y * zoom_level)) * 180.0
+	return Vector2(lat, lon)
 
 func lat_lon_to_screen_pos(lat: float, lon: float) -> Vector2:
 	"""Convert lat/lon to screen position"""
@@ -377,7 +459,7 @@ func draw_single_route(route: Route, base_color: Color) -> void:
 	draw_colored_polygon(arrow_points, line_color)
 
 	# Draw route labels if enabled and zoomed in enough
-	if show_route_labels and osm_zoom >= 3 and route.airline_id == GameData.player_airline.id:
+	if show_route_labels and zoom_level >= 1.5 and route.airline_id == GameData.player_airline.id:
 		draw_route_label(route, mid_point, line_color)
 
 func draw_route_label(route: Route, position: Vector2, color: Color) -> void:
@@ -563,7 +645,7 @@ func draw_route_preview() -> void:
 
 func setup_airports() -> void:
 	"""Create visual markers for all airports"""
-	print("WorldMap: Setting up airports with OSM tiles")
+	print("WorldMap: Setting up airports with static map")
 	print("WorldMap: Number of airports: %d" % GameData.airports.size())
 
 	for airport in GameData.airports:
