@@ -284,16 +284,16 @@ func update_destination_list() -> void:
 		# Icon based on aircraft availability
 		var icon: String = "✓" if can_fly else "✗"
 
-		# Color code by profitability score
-		var score_color: String = "#66FF66" if score >= 70 else ("#FFAA00" if score >= 50 else "#FF6666")
+		# Score indicator (stars/symbols instead of colors since ItemList doesn't support BBCode)
+		var score_indicator: String = "★★★" if score >= 70 else ("★★" if score >= 50 else "★")
 
-		# Build display text
-		var text: String = "%s %s - %s | Score: [color=%s]%.0f[/color]\n" % [
+		# Build display text (ItemList doesn't support BBCode, keep it simple)
+		var text: String = "%s %s - %s | Score: %.0f %s\n" % [
 			icon,
 			airport.iata_code,
 			airport.city,
-			score_color,
-			score
+			score,
+			score_indicator
 		]
 		text += "    %.0f km (%s) | Demand: %.0f/wk | Competition: %d" % [
 			distance,
