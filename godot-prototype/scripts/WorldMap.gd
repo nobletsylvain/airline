@@ -78,10 +78,10 @@ func _gui_input(event: InputEvent) -> void:
 	# Handle zoom with mouse wheel
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
-			zoom_at_point(event.position, zoom_step)
+			zoom_at_point(event.position, 1.0)  # Zoom in
 			accept_event()
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
-			zoom_at_point(event.position, -zoom_step)
+			zoom_at_point(event.position, -1.0)  # Zoom out
 			accept_event()
 		# Handle panning with right mouse button
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
