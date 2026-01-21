@@ -485,11 +485,14 @@ func draw_single_route(route: Route, base_color: Color) -> void:
 	draw_colored_polygon(arrow_points, line_color)
 
 	# Draw route labels if enabled and zoomed in enough
+	# Offset label perpendicular to route to avoid overlapping with planes
 	if show_route_labels and osm_zoom >= 4 and route.airline_id == GameData.player_airline.id:
-		draw_route_label(route, mid_point, line_color)
+		var perpendicular: Vector2 = direction.rotated(PI / 2).normalized()
+		var label_offset: Vector2 = perpendicular * 25  # Offset 25 pixels perpendicular to route
+		draw_route_label(route, mid_point + label_offset, line_color)
 
 func draw_route_label(route: Route, position: Vector2, color: Color) -> void:
-	"""Draw informative label on route"""
+	"""Draw informative label on route (offset from route line to avoid planes)"""
 	if not route:
 		return
 
