@@ -30,6 +30,7 @@ var zoom_sensitivity: float = 0.08  # How much each scroll changes zoom_scale
 var plane_sprites: Array[PlaneSprite] = []
 var hover_plane: PlaneSprite = null
 var last_route_count: int = 0  # Track when routes change to respawn planes
+var plane_texture: Texture2D = null  # Loaded airplane icon
 
 # Route visualization settings
 var show_route_labels: bool = true
@@ -56,6 +57,9 @@ func _ready() -> void:
 	tile_manager = MapTileManager.new()
 	add_child(tile_manager)
 	tile_manager.tile_loaded.connect(_on_tile_loaded)
+
+	# Load plane texture
+	plane_texture = load("res://assets/icons/airplane.png")
 
 	# Wait for GameData to initialize
 	if GameData.airports.is_empty():
@@ -543,53 +547,28 @@ func draw_all_planes() -> void:
 			draw_plane_at(plane, screen_pos)
 
 func draw_plane_at(plane: PlaneSprite, screen_pos: Vector2) -> void:
-	"""Draw a plane sprite as outline-only icon style"""
+	"""Draw a plane sprite using texture"""
+	if not plane_texture:
+		return
+
 	var angle: float = plane.get_rotation_angle()
-	var s: float = 12.0  # Base plane size
 	var pos: Vector2 = screen_pos
-	var line_color: Color = plane.plane_color
-	var line_width: float = 3.0
 
-	# Draw outline-only plane icon matching reference
-	# Fuselage - vertical body with rounded nose (drawn as thick line)
-	var nose_top = pos + Vector2(s * 1.5, 0).rotated(angle)
-	var body_top = pos + Vector2(s * 0.6, 0).rotated(angle)
-	var body_bottom = pos + Vector2(-s * 1.2, 0).rotated(angle)
+	# Scale the texture (original is 16x16, scale up for visibility)
+	var icon_size: float = 32.0
+	var tex_size: Vector2 = Vector2(icon_size, icon_size)
 
-	# Draw fuselage as thick line
-	draw_line(nose_top, body_bottom, line_color, line_width)
+	# Create transform for rotation around center
+	# The texture points up by default, so we need to rotate it to point right (0 angle) first
+	# then add the flight angle
+	var rotation_offset: float = -PI / 2  # Rotate from "up" to "right" orientation
+	var total_rotation: float = angle + rotation_offset
 
-	# Left wing - swept back
-	var wing_root_l = pos + Vector2(s * 0.0, s * 0.0).rotated(angle)
-	var wing_tip_l = pos + Vector2(-s * 0.5, s * 1.4).rotated(angle)
-	var wing_back_l = pos + Vector2(-s * 1.0, s * 1.4).rotated(angle)
-
-	# Draw left wing as connected lines
-	draw_line(wing_root_l, wing_tip_l, line_color, line_width)
-	draw_line(wing_tip_l, wing_back_l, line_color, line_width)
-
-	# Right wing - swept back (mirror)
-	var wing_tip_r = pos + Vector2(-s * 0.5, -s * 1.4).rotated(angle)
-	var wing_back_r = pos + Vector2(-s * 1.0, -s * 1.4).rotated(angle)
-
-	# Draw right wing
-	draw_line(wing_root_l, wing_tip_r, line_color, line_width)
-	draw_line(wing_tip_r, wing_back_r, line_color, line_width)
-
-	# Left tail stabilizer
-	var tail_root_l = pos + Vector2(-s * 1.0, 0).rotated(angle)
-	var tail_tip_l = pos + Vector2(-s * 1.2, s * 0.7).rotated(angle)
-	var tail_back_l = pos + Vector2(-s * 1.5, s * 0.7).rotated(angle)
-
-	draw_line(tail_root_l, tail_tip_l, line_color, line_width)
-	draw_line(tail_tip_l, tail_back_l, line_color, line_width)
-
-	# Right tail stabilizer (mirror)
-	var tail_tip_r = pos + Vector2(-s * 1.2, -s * 0.7).rotated(angle)
-	var tail_back_r = pos + Vector2(-s * 1.5, -s * 0.7).rotated(angle)
-
-	draw_line(tail_root_l, tail_tip_r, line_color, line_width)
-	draw_line(tail_tip_r, tail_back_r, line_color, line_width)
+	# Draw with rotation using draw_set_transform
+	var center_offset: Vector2 = tex_size / 2
+	draw_set_transform(pos, total_rotation, Vector2.ONE)
+	draw_texture_rect(plane_texture, Rect2(-center_offset, tex_size), false, plane.plane_color)
+	draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)  # Reset transform
 
 func draw_plane_tooltip() -> void:
 	"""Draw tooltip for hovered plane"""
