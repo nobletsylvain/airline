@@ -526,4 +526,3 @@ static func format_number(num: float) -> String:
 		return "%.1fK" % (num / 1000.0)
 	else:
 		return str(int(num))
-
