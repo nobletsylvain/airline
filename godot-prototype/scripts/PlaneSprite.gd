@@ -2,11 +2,13 @@ extends Node2D
 class_name PlaneSprite
 
 ## Represents an animated plane flying along a route in real-time
+## Supports bidirectional flight (outbound and return)
 
 var route: Route
 var flight_number: int = 0  # Which flight in the frequency (0-6 for 7x weekly)
 var progress: float = 0.0  # 0.0 = departure, 1.0 = arrival
 var is_active: bool = true
+var is_return_leg: bool = false  # True when flying back (to -> from)
 var airline: Airline
 
 # Visual properties
@@ -14,9 +16,12 @@ var plane_color: Color = Color.WHITE
 var plane_size: float = 8.0
 
 # Flight timing
-var departure_time: float = 0.0  # Hours into the week (0-168)
-var arrival_time: float = 0.0
-var flight_duration: float = 0.0  # Hours
+var outbound_departure: float = 0.0  # Hours into the week (0-168)
+var outbound_arrival: float = 0.0
+var return_departure: float = 0.0  # Return leg departs after turnaround
+var return_arrival: float = 0.0
+var flight_duration: float = 0.0  # Hours (one way)
+var turnaround_time: float = 1.0  # Hours on ground before return flight
 
 signal plane_clicked(plane: PlaneSprite)
 
@@ -34,8 +39,12 @@ func _init(p_route: Route, p_airline: Airline, p_flight_number: int) -> void:
 		# Calculate departure time based on frequency
 		# Spread flights evenly throughout the week (168 hours)
 		var hours_between_flights: float = 168.0 / max(route.frequency, 1)
-		departure_time = flight_number * hours_between_flights
-		arrival_time = departure_time + flight_duration
+		outbound_departure = flight_number * hours_between_flights
+		outbound_arrival = outbound_departure + flight_duration
+
+		# Return flight timing (after turnaround)
+		return_departure = outbound_arrival + turnaround_time
+		return_arrival = return_departure + flight_duration
 
 func update_position(current_week_hour: float) -> void:
 	"""Update plane position based on current time in the week"""
@@ -43,37 +52,70 @@ func update_position(current_week_hour: float) -> void:
 		is_active = false
 		return
 
-	# Check if flight is active
-	if current_week_hour >= departure_time and current_week_hour <= arrival_time:
-		# Flight in progress
-		var elapsed: float = current_week_hour - departure_time
+	# Handle week wraparound for flights that span week boundaries
+	var check_hour = current_week_hour
+
+	# Check if outbound flight is active
+	if check_hour >= outbound_departure and check_hour <= outbound_arrival:
+		var elapsed: float = check_hour - outbound_departure
 		progress = clamp(elapsed / flight_duration, 0.0, 1.0)
+		is_return_leg = false
+		is_active = true
+	# Check if return flight is active
+	elif check_hour >= return_departure and check_hour <= return_arrival:
+		var elapsed: float = check_hour - return_departure
+		progress = clamp(elapsed / flight_duration, 0.0, 1.0)
+		is_return_leg = true
+		is_active = true
+	# Handle wraparound: return flight might extend into next week
+	elif return_arrival > 168.0 and check_hour <= (return_arrival - 168.0):
+		var elapsed: float = check_hour + 168.0 - return_departure
+		progress = clamp(elapsed / flight_duration, 0.0, 1.0)
+		is_return_leg = true
 		is_active = true
 	else:
-		# Flight not active at this time
 		is_active = false
 		progress = 0.0
 
 func get_current_position(map_size: Vector2) -> Vector2:
-	"""Calculate current screen position based on progress along great circle"""
+	"""Calculate current screen position based on progress along route"""
 	if not route or not route.from_airport or not route.to_airport:
 		return Vector2.ZERO
 
-	# Get start and end positions
-	var from_pos: Vector2 = route.from_airport.position_2d
-	var to_pos: Vector2 = route.to_airport.position_2d
+	# Get start and end positions based on direction
+	var start_pos: Vector2
+	var end_pos: Vector2
 
-	# Linear interpolation for now (could enhance with great circle interpolation)
-	return from_pos.lerp(to_pos, progress)
+	if is_return_leg:
+		# Return flight: to -> from
+		start_pos = route.to_airport.position_2d
+		end_pos = route.from_airport.position_2d
+	else:
+		# Outbound flight: from -> to
+		start_pos = route.from_airport.position_2d
+		end_pos = route.to_airport.position_2d
+
+	# Linear interpolation
+	return start_pos.lerp(end_pos, progress)
 
 func get_rotation_angle() -> float:
 	"""Calculate rotation angle based on flight direction"""
 	if not route or not route.from_airport or not route.to_airport:
 		return 0.0
 
-	var from_pos: Vector2 = route.from_airport.position_2d
-	var to_pos: Vector2 = route.to_airport.position_2d
-	var direction: Vector2 = (to_pos - from_pos).normalized()
+	var start_pos: Vector2
+	var end_pos: Vector2
+
+	if is_return_leg:
+		# Return flight: to -> from
+		start_pos = route.to_airport.position_2d
+		end_pos = route.from_airport.position_2d
+	else:
+		# Outbound flight: from -> to
+		start_pos = route.from_airport.position_2d
+		end_pos = route.to_airport.position_2d
+
+	var direction: Vector2 = (end_pos - start_pos).normalized()
 
 	# Return angle in radians (0 = pointing right)
 	return direction.angle()
@@ -86,7 +128,14 @@ func get_tooltip_text() -> String:
 	var from_code: String = route.from_airport.iata_code if route.from_airport else "???"
 	var to_code: String = route.to_airport.iata_code if route.to_airport else "???"
 
+	# Swap codes if return leg
+	var origin: String = from_code if not is_return_leg else to_code
+	var dest: String = to_code if not is_return_leg else from_code
+
 	var flight_id: String = "%s%d" % [airline.airline_code, route.id * 10 + flight_number]
+	if is_return_leg:
+		flight_id += "R"  # Mark return flights
+
 	var progress_pct: int = int(progress * 100)
 
 	var remaining_hours: float = flight_duration * (1.0 - progress)
@@ -94,8 +143,8 @@ func get_tooltip_text() -> String:
 
 	return "%s: %s → %s\nProgress: %d%%\nETA: %s" % [
 		flight_id,
-		from_code,
-		to_code,
+		origin,
+		dest,
 		progress_pct,
 		eta_text
 	]
@@ -110,17 +159,55 @@ func draw_plane(canvas: Control, zoom_level: float) -> void:
 	var angle: float = get_rotation_angle()
 
 	# Adjust size for zoom
-	var adjusted_size: float = plane_size / zoom_level
+	var s: float = plane_size / zoom_level
 
-	# Draw plane as a triangle pointing in flight direction
-	var plane_points: PackedVector2Array = [
-		pos + Vector2(adjusted_size * 1.5, 0).rotated(angle),  # Nose
-		pos + Vector2(-adjusted_size, adjusted_size * 0.8).rotated(angle),  # Left wing
-		pos + Vector2(-adjusted_size, -adjusted_size * 0.8).rotated(angle)  # Right wing
+	# Draw airplane icon - a recognizable plane silhouette
+	# All points relative to center, then rotated by flight angle
+
+	# Fuselage (elongated body)
+	var fuselage: PackedVector2Array = [
+		pos + Vector2(s * 2.0, 0).rotated(angle),      # Nose
+		pos + Vector2(s * 1.2, s * 0.3).rotated(angle),
+		pos + Vector2(-s * 1.5, s * 0.25).rotated(angle),
+		pos + Vector2(-s * 2.0, 0).rotated(angle),     # Tail
+		pos + Vector2(-s * 1.5, -s * 0.25).rotated(angle),
+		pos + Vector2(s * 1.2, -s * 0.3).rotated(angle),
 	]
 
-	# Draw plane body
-	canvas.draw_colored_polygon(plane_points, plane_color)
+	# Main wings (swept back)
+	var wings: PackedVector2Array = [
+		pos + Vector2(s * 0.3, 0).rotated(angle),       # Wing root front
+		pos + Vector2(-s * 0.5, s * 1.8).rotated(angle),  # Left wing tip
+		pos + Vector2(-s * 0.9, s * 1.6).rotated(angle),
+		pos + Vector2(-s * 0.5, 0).rotated(angle),      # Wing root back
+		pos + Vector2(-s * 0.9, -s * 1.6).rotated(angle),
+		pos + Vector2(-s * 0.5, -s * 1.8).rotated(angle), # Right wing tip
+	]
 
-	# Draw outline for contrast
-	canvas.draw_polyline(plane_points + PackedVector2Array([plane_points[0]]), Color.BLACK, 1.0 / zoom_level, true)
+	# Tail fin (vertical stabilizer)
+	var tail: PackedVector2Array = [
+		pos + Vector2(-s * 1.3, 0).rotated(angle),
+		pos + Vector2(-s * 2.0, s * 0.8).rotated(angle),
+		pos + Vector2(-s * 2.0, -s * 0.8).rotated(angle),
+	]
+
+	# Horizontal stabilizers (small rear wings)
+	var h_stab: PackedVector2Array = [
+		pos + Vector2(-s * 1.5, 0).rotated(angle),
+		pos + Vector2(-s * 2.0, s * 0.6).rotated(angle),
+		pos + Vector2(-s * 2.0, -s * 0.6).rotated(angle),
+	]
+
+	# Draw shadow/outline first for contrast
+	var outline_color: Color = Color(0, 0, 0, 0.5)
+	var outline_width: float = 1.5 / zoom_level
+
+	# Draw all parts with slight outline
+	canvas.draw_colored_polygon(wings, plane_color)
+	canvas.draw_colored_polygon(h_stab, plane_color)
+	canvas.draw_colored_polygon(tail, plane_color.darkened(0.2))
+	canvas.draw_colored_polygon(fuselage, plane_color)
+
+	# Draw outlines for better visibility
+	canvas.draw_polyline(fuselage + PackedVector2Array([fuselage[0]]), outline_color, outline_width, true)
+	canvas.draw_polyline(wings + PackedVector2Array([wings[0]]), outline_color, outline_width, true)
