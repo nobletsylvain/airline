@@ -12,7 +12,7 @@ signal create_route_pressed()
 
 # Layout constants
 const SIDEBAR_WIDTH = 256
-const HEADER_HEIGHT = 100  # Increased for TimeSpeedPanel
+const HEADER_HEIGHT = 130  # Increased for TimeSpeedPanel
 const BOTTOM_HEIGHT = 56
 
 # Current active tab
@@ -86,8 +86,8 @@ func create_header() -> void:
 	header_margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	header_margin.add_theme_constant_override("margin_left", 24)
 	header_margin.add_theme_constant_override("margin_right", 24)
-	header_margin.add_theme_constant_override("margin_top", 8)
-	header_margin.add_theme_constant_override("margin_bottom", 8)
+	header_margin.add_theme_constant_override("margin_top", 12)
+	header_margin.add_theme_constant_override("margin_bottom", 12)
 	header.add_child(header_margin)
 
 	var header_hbox = HBoxContainer.new()
