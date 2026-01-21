@@ -12,7 +12,7 @@ signal create_route_pressed()
 
 # Layout constants
 const SIDEBAR_WIDTH = 256
-const HEADER_HEIGHT = 130  # Increased for TimeSpeedPanel
+const HEADER_HEIGHT = 64
 const BOTTOM_HEIGHT = 56
 
 # Current active tab
@@ -65,6 +65,7 @@ func create_layout() -> void:
 	create_sidebar()
 	create_main_content()
 	create_bottom_bar()
+	create_floating_time_panel()  # Add last so it's on top
 
 func create_header() -> void:
 	"""Create the top header bar - full width at top"""
@@ -86,8 +87,8 @@ func create_header() -> void:
 	header_margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	header_margin.add_theme_constant_override("margin_left", 24)
 	header_margin.add_theme_constant_override("margin_right", 24)
-	header_margin.add_theme_constant_override("margin_top", 12)
-	header_margin.add_theme_constant_override("margin_bottom", 12)
+	header_margin.add_theme_constant_override("margin_top", 8)
+	header_margin.add_theme_constant_override("margin_bottom", 8)
 	header.add_child(header_margin)
 
 	var header_hbox = HBoxContainer.new()
@@ -98,20 +99,6 @@ func create_header() -> void:
 
 	# Left: KPI stats
 	create_header_stats(header_hbox)
-
-	# Spacer
-	var spacer = Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header_hbox.add_child(spacer)
-
-	# Center/Right: TimeSpeedPanel (replaces old speed controls and date/time)
-	time_speed_panel = TimeSpeedPanel.new()
-	time_speed_panel.name = "TimeSpeedPanel"
-	header_hbox.add_child(time_speed_panel)
-
-	# Connect TimeSpeedPanel to simulation engine if available
-	if simulation_engine:
-		time_speed_panel.set_simulation_engine(simulation_engine)
 
 func create_header_stats(parent: HBoxContainer) -> void:
 	"""Create KPI stats in header"""
@@ -465,6 +452,29 @@ func create_bottom_bar() -> void:
 				btn.pressed.connect(func(): create_route_pressed.emit())
 
 		bottom_hbox.add_child(btn)
+
+func create_floating_time_panel() -> void:
+	"""Create the floating TimeSpeedPanel that overlays the map"""
+	time_speed_panel = TimeSpeedPanel.new()
+	time_speed_panel.name = "TimeSpeedPanel"
+	add_child(time_speed_panel)
+
+	# Position at top-center of the main content area, floating above the map
+	# Use anchors to center horizontally in the content area
+	time_speed_panel.anchor_left = 0.5
+	time_speed_panel.anchor_top = 0
+	time_speed_panel.anchor_right = 0.5
+	time_speed_panel.anchor_bottom = 0
+
+	# Offset to position correctly (centered, below header with some margin)
+	time_speed_panel.offset_left = -250 + (SIDEBAR_WIDTH / 2)  # Half panel width, adjusted for sidebar
+	time_speed_panel.offset_right = 250 + (SIDEBAR_WIDTH / 2)
+	time_speed_panel.offset_top = HEADER_HEIGHT + 16  # Below header with margin
+	time_speed_panel.offset_bottom = HEADER_HEIGHT + 120  # Panel height
+
+	# Connect to simulation engine if available
+	if simulation_engine:
+		time_speed_panel.set_simulation_engine(simulation_engine)
 
 func update_active_tab(tab_id: String) -> void:
 	"""Update visual state of nav buttons"""
