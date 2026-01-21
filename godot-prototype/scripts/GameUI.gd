@@ -588,13 +588,13 @@ func _on_create_route_button_pressed() -> void:
 	"""Handle Create Route button press from bottom bar"""
 	print("Create Route button pressed")
 	# Check if player has a hub to create routes from
-	if not GameData.player_airline or GameData.player_airline.hub_airports.is_empty():
+	if not GameData.player_airline or GameData.player_airline.hubs.is_empty():
 		print("Cannot create route: No hub airports")
 		# Could show a message to the user here
 		return
 
 	# Show route opportunity dialog for the first hub
-	var first_hub = GameData.player_airline.hub_airports[0]
+	var first_hub = GameData.player_airline.hubs[0]
 	if route_opportunity_dialog:
 		route_opportunity_dialog.show_for_hub(first_hub)
 
