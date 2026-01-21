@@ -150,7 +150,7 @@ func get_tooltip_text() -> String:
 	]
 
 func draw_plane(canvas: Control, zoom_level: float) -> void:
-	"""Draw the plane sprite matching the simple icon style"""
+	"""Draw the plane sprite as outline-only icon style"""
 	if not is_active:
 		return
 
@@ -159,59 +159,46 @@ func draw_plane(canvas: Control, zoom_level: float) -> void:
 	var angle: float = get_rotation_angle()
 
 	# Adjust size for zoom
-	var s: float = plane_size / zoom_level
-	var outline_color: Color = Color(0.1, 0.1, 0.1, 0.9)
-	var outline_width: float = 2.0 / zoom_level
+	var s: float = (plane_size * 1.5) / zoom_level
+	var line_color: Color = plane_color
+	var line_width: float = 3.0 / zoom_level
 
-	# Simple plane icon style - fuselage with pointed nose
-	var fuselage: PackedVector2Array = [
-		pos + Vector2(s * 1.8, 0).rotated(angle),       # Nose tip
-		pos + Vector2(s * 1.0, s * 0.35).rotated(angle),
-		pos + Vector2(-s * 1.2, s * 0.35).rotated(angle),
-		pos + Vector2(-s * 1.2, -s * 0.35).rotated(angle),
-		pos + Vector2(s * 1.0, -s * 0.35).rotated(angle),
-	]
+	# Draw outline-only plane icon matching reference
+	# Fuselage - vertical body (drawn as thick line)
+	var nose_top = pos + Vector2(s * 1.5, 0).rotated(angle)
+	var body_bottom = pos + Vector2(-s * 1.2, 0).rotated(angle)
 
-	# Main wings - simple swept back style matching icon
-	var left_wing: PackedVector2Array = [
-		pos + Vector2(s * 0.2, s * 0.35).rotated(angle),
-		pos + Vector2(-s * 0.6, s * 1.6).rotated(angle),
-		pos + Vector2(-s * 0.9, s * 1.6).rotated(angle),
-		pos + Vector2(-s * 0.3, s * 0.35).rotated(angle),
-	]
+	# Draw fuselage as thick line
+	canvas.draw_line(nose_top, body_bottom, line_color, line_width)
 
-	var right_wing: PackedVector2Array = [
-		pos + Vector2(s * 0.2, -s * 0.35).rotated(angle),
-		pos + Vector2(-s * 0.6, -s * 1.6).rotated(angle),
-		pos + Vector2(-s * 0.9, -s * 1.6).rotated(angle),
-		pos + Vector2(-s * 0.3, -s * 0.35).rotated(angle),
-	]
+	# Left wing - swept back
+	var wing_root_l = pos + Vector2(s * 0.0, s * 0.0).rotated(angle)
+	var wing_tip_l = pos + Vector2(-s * 0.5, s * 1.4).rotated(angle)
+	var wing_back_l = pos + Vector2(-s * 1.0, s * 1.4).rotated(angle)
 
-	# Tail horizontal stabilizer
-	var left_tail: PackedVector2Array = [
-		pos + Vector2(-s * 1.0, s * 0.35).rotated(angle),
-		pos + Vector2(-s * 1.3, s * 0.8).rotated(angle),
-		pos + Vector2(-s * 1.5, s * 0.8).rotated(angle),
-		pos + Vector2(-s * 1.2, s * 0.35).rotated(angle),
-	]
+	# Draw left wing as connected lines
+	canvas.draw_line(wing_root_l, wing_tip_l, line_color, line_width)
+	canvas.draw_line(wing_tip_l, wing_back_l, line_color, line_width)
 
-	var right_tail: PackedVector2Array = [
-		pos + Vector2(-s * 1.0, -s * 0.35).rotated(angle),
-		pos + Vector2(-s * 1.3, -s * 0.8).rotated(angle),
-		pos + Vector2(-s * 1.5, -s * 0.8).rotated(angle),
-		pos + Vector2(-s * 1.2, -s * 0.35).rotated(angle),
-	]
+	# Right wing - swept back (mirror)
+	var wing_tip_r = pos + Vector2(-s * 0.5, -s * 1.4).rotated(angle)
+	var wing_back_r = pos + Vector2(-s * 1.0, -s * 1.4).rotated(angle)
 
-	# Draw filled shapes
-	canvas.draw_colored_polygon(fuselage, plane_color)
-	canvas.draw_colored_polygon(left_wing, plane_color)
-	canvas.draw_colored_polygon(right_wing, plane_color)
-	canvas.draw_colored_polygon(left_tail, plane_color)
-	canvas.draw_colored_polygon(right_tail, plane_color)
+	# Draw right wing
+	canvas.draw_line(wing_root_l, wing_tip_r, line_color, line_width)
+	canvas.draw_line(wing_tip_r, wing_back_r, line_color, line_width)
 
-	# Draw outlines for icon style
-	canvas.draw_polyline(fuselage + PackedVector2Array([fuselage[0]]), outline_color, outline_width, true)
-	canvas.draw_polyline(left_wing + PackedVector2Array([left_wing[0]]), outline_color, outline_width, true)
-	canvas.draw_polyline(right_wing + PackedVector2Array([right_wing[0]]), outline_color, outline_width, true)
-	canvas.draw_polyline(left_tail + PackedVector2Array([left_tail[0]]), outline_color, outline_width, true)
-	canvas.draw_polyline(right_tail + PackedVector2Array([right_tail[0]]), outline_color, outline_width, true)
+	# Left tail stabilizer
+	var tail_root_l = pos + Vector2(-s * 1.0, 0).rotated(angle)
+	var tail_tip_l = pos + Vector2(-s * 1.2, s * 0.7).rotated(angle)
+	var tail_back_l = pos + Vector2(-s * 1.5, s * 0.7).rotated(angle)
+
+	canvas.draw_line(tail_root_l, tail_tip_l, line_color, line_width)
+	canvas.draw_line(tail_tip_l, tail_back_l, line_color, line_width)
+
+	# Right tail stabilizer (mirror)
+	var tail_tip_r = pos + Vector2(-s * 1.2, -s * 0.7).rotated(angle)
+	var tail_back_r = pos + Vector2(-s * 1.5, -s * 0.7).rotated(angle)
+
+	canvas.draw_line(tail_root_l, tail_tip_r, line_color, line_width)
+	canvas.draw_line(tail_tip_r, tail_back_r, line_color, line_width)
