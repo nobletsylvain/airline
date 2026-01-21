@@ -601,18 +601,19 @@ func update_stats() -> void:
 	if date_label:
 		date_label.text = "Week %d" % GameData.current_week
 
-	# Year label
-	var year_label = header.get_node_or_null("MarginContainer/HBoxContainer/HBoxContainer/VBoxContainer/YearLabel")
-	if year_label:
-		var year = 1 + (GameData.current_week / 52)
-		year_label.text = "Year %d" % year
+	# Year label - check header exists first
+	if header:
+		var year_label = header.get_node_or_null("MarginContainer/HBoxContainer/HBoxContainer/VBoxContainer/YearLabel")
+		if year_label:
+			var year = 1 + (GameData.current_week / 52)
+			year_label.text = "Year %d" % year
 
 	# Grade badge - find it properly
 	_update_grade_badge()
 
 func _update_grade_badge() -> void:
 	"""Update the grade badge display"""
-	if not GameData.player_airline:
+	if not GameData.player_airline or not header:
 		return
 
 	# Find grade badge in header hierarchy
