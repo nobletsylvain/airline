@@ -912,18 +912,19 @@ func create_floating_panel() -> void:
 	title_label.add_theme_color_override("font_color", UITheme.TEXT_ACCENT)
 	vbox.add_child(title_label)
 
-	# Info label (multi-line)
+	# Info label (multi-line) - use light text for dark panel
 	var info_label = Label.new()
 	info_label.name = "InfoLabel"
 	info_label.add_theme_font_size_override("font_size", UITheme.FONT_SIZE_BODY)
-	info_label.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+	info_label.add_theme_color_override("font_color", UITheme.TEXT_LIGHT)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	vbox.add_child(info_label)
 
-	# Stats label (for colored stats)
+	# Stats label (for colored stats) - use light text for dark panel
 	var stats_label = Label.new()
 	stats_label.name = "StatsLabel"
 	stats_label.add_theme_font_size_override("font_size", UITheme.FONT_SIZE_BODY)
+	stats_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
 	vbox.add_child(stats_label)
 
 	# Button container
@@ -932,29 +933,39 @@ func create_floating_panel() -> void:
 	button_box.add_theme_constant_override("separation", 8)
 	vbox.add_child(button_box)
 
-	# Action button 1
+	# Action button 1 - styled for dark panel
 	var action1_btn = Button.new()
 	action1_btn.name = "Action1Button"
 	action1_btn.custom_minimum_size = Vector2(100, 32)
 	action1_btn.add_theme_font_size_override("font_size", UITheme.FONT_SIZE_SMALL)
+	action1_btn.add_theme_color_override("font_color", UITheme.TEXT_WHITE)
+	action1_btn.add_theme_color_override("font_hover_color", UITheme.TEXT_WHITE)
+	var btn1_style = UITheme.create_primary_button_style()
+	action1_btn.add_theme_stylebox_override("normal", btn1_style)
 	action1_btn.pressed.connect(_on_floating_panel_action1)
 	button_box.add_child(action1_btn)
 
-	# Action button 2
+	# Action button 2 - styled for dark panel
 	var action2_btn = Button.new()
 	action2_btn.name = "Action2Button"
 	action2_btn.custom_minimum_size = Vector2(100, 32)
 	action2_btn.add_theme_font_size_override("font_size", UITheme.FONT_SIZE_SMALL)
+	action2_btn.add_theme_color_override("font_color", UITheme.TEXT_WHITE)
+	action2_btn.add_theme_color_override("font_hover_color", UITheme.TEXT_WHITE)
+	var btn2_style = UITheme.create_secondary_button_style()
+	action2_btn.add_theme_stylebox_override("normal", btn2_style)
 	action2_btn.pressed.connect(_on_floating_panel_action2)
 	button_box.add_child(action2_btn)
 
-	# Close button (small X)
+	# Close button (small X) - light color for dark panel
 	var close_btn = Button.new()
 	close_btn.name = "CloseButton"
 	close_btn.text = "✕"
 	close_btn.flat = true
 	close_btn.custom_minimum_size = Vector2(24, 24)
 	close_btn.add_theme_font_size_override("font_size", 14)
+	close_btn.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+	close_btn.add_theme_color_override("font_hover_color", UITheme.TEXT_WHITE)
 	close_btn.pressed.connect(hide_floating_panel)
 
 	# Position close button at top-right
@@ -1000,13 +1011,13 @@ func show_floating_panel_for_airport(airport: Airport, screen_pos: Vector2) -> v
 		airport.runway_count
 	]
 
-	# Set stats with formatting
+	# Set stats with formatting - use light text for dark panel
 	var pax_millions = airport.annual_passengers
 	stats_label.text = "Traffic: %dM pax/year\nGDP: $%s per capita" % [
 		pax_millions,
 		UITheme.format_number(airport.gdp_per_capita)
 	]
-	stats_label.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	stats_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
 
 	# Configure buttons
 	if is_player_hub:
