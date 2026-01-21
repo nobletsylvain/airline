@@ -173,11 +173,11 @@ func populate_aircraft_list() -> void:
 		var can_afford = GameData.player_airline.balance >= model.price
 		var icon = "+" if can_afford else "-"
 
-		var text = "%s %s | %d seats | %,d km range | $%s" % [
+		var text = "%s %s | %d seats | %s km range | $%s" % [
 			icon,
 			model.get_display_name(),
 			model.max_total_seats,
-			model.range_km,
+			format_number_with_commas(model.range_km),
 			format_money(model.price)
 		]
 
@@ -208,7 +208,7 @@ func update_aircraft_details() -> void:
 	text += "[i]%s[/i]\n\n" % selected_model.manufacturer
 
 	text += "[u]Performance[/u]\n"
-	text += "  Range: [b]%,d km[/b]\n" % selected_model.range_km
+	text += "  Range: [b]%s km[/b]\n" % format_number_with_commas(selected_model.range_km)
 	text += "  Cruise Speed: [b]%d km/h[/b]\n" % selected_model.speed_kmh
 	text += "  Fuel Burn: [b]%.1f gal/hour[/b]\n\n" % selected_model.fuel_burn
 
@@ -270,7 +270,11 @@ func _on_confirmed() -> void:
 
 func format_money(amount: float) -> String:
 	"""Format money with thousands separators"""
-	var s: String = str(int(amount))
+	return format_number_with_commas(int(amount))
+
+func format_number_with_commas(num: int) -> String:
+	"""Format number with thousands separators"""
+	var s: String = str(num)
 	var result: String = ""
 	var count: int = 0
 
