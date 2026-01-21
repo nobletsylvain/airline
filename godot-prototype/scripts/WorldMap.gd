@@ -473,16 +473,9 @@ func draw_single_route(route: Route, base_color: Color) -> void:
 	# Draw line
 	draw_line(from_pos, to_pos, line_color, line_thickness)
 
-	# Draw direction arrow
+	# Calculate midpoint and direction for labels
 	var direction: Vector2 = (to_pos - from_pos).normalized()
 	var mid_point: Vector2 = (from_pos + to_pos) / 2.0
-	var arrow_size: float = 8.0 + line_thickness * 2
-
-	var arrow_left: Vector2 = mid_point - direction * arrow_size + direction.rotated(PI/2) * arrow_size * 0.5
-	var arrow_right: Vector2 = mid_point - direction * arrow_size - direction.rotated(PI/2) * arrow_size * 0.5
-
-	var arrow_points: PackedVector2Array = [mid_point, arrow_left, arrow_right]
-	draw_colored_polygon(arrow_points, line_color)
 
 	# Draw route labels if enabled and zoomed in enough
 	# Offset label perpendicular to route to avoid overlapping with planes
