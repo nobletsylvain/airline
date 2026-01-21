@@ -17,6 +17,7 @@ var market_panel: Control = null
 var route_config_dialog: RouteConfigDialog = null
 var route_opportunity_dialog: RouteOpportunityDialog = null
 var hub_purchase_dialog: HubPurchaseDialog = null
+var aircraft_purchase_dialog: AircraftPurchaseDialog = null
 
 # Tutorial system
 var tutorial_overlay_layer: CanvasLayer = null
@@ -301,6 +302,11 @@ func create_dialogs() -> void:
 	add_child(hub_purchase_dialog)
 	hub_purchase_dialog.hub_purchased.connect(_on_hub_purchased)
 
+	# Aircraft purchase dialog
+	aircraft_purchase_dialog = AircraftPurchaseDialog.new()
+	add_child(aircraft_purchase_dialog)
+	aircraft_purchase_dialog.aircraft_purchased.connect(_on_aircraft_dialog_purchased)
+
 	print("Dialogs created")
 
 func connect_signals() -> void:
@@ -579,10 +585,13 @@ func _on_purchase_hub_button_pressed() -> void:
 func _on_buy_aircraft_button_pressed() -> void:
 	"""Handle Buy Aircraft button press from bottom bar"""
 	print("Buy Aircraft button pressed")
-	# Switch to market tab and show aircraft purchase options
-	if dashboard_ui:
-		dashboard_ui.update_active_tab("market")
-	# TODO: Show aircraft purchase dialog when implemented
+	if aircraft_purchase_dialog:
+		aircraft_purchase_dialog.show_dialog()
+
+func _on_aircraft_dialog_purchased(aircraft: AircraftInstance) -> void:
+	"""Handle aircraft purchased from dialog"""
+	print("Aircraft purchased from dialog: %s" % aircraft.model.get_display_name())
+	update_all()
 
 func _on_create_route_button_pressed() -> void:
 	"""Handle Create Route button press from bottom bar"""
