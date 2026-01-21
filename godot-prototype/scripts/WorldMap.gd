@@ -543,62 +543,67 @@ func draw_all_planes() -> void:
 			draw_plane_at(plane, screen_pos)
 
 func draw_plane_at(plane: PlaneSprite, screen_pos: Vector2) -> void:
-	"""Draw a plane sprite at the given screen position"""
+	"""Draw a plane sprite matching the simple icon style"""
 	var angle: float = plane.get_rotation_angle()
-	var s: float = 8.0  # Base plane size
+	var s: float = 10.0  # Base plane size
 	var pos: Vector2 = screen_pos
 	var plane_color: Color = plane.plane_color
+	var outline_color: Color = Color(0.1, 0.1, 0.1, 0.9)
+	var outline_width: float = 2.0
 
-	# Draw airplane icon - a recognizable plane silhouette
-	# All points relative to center, then rotated by flight angle
-
-	# Fuselage (elongated body)
+	# Simple plane icon style - fuselage with rounded nose
+	# Fuselage body (elongated rectangle with pointed nose)
 	var fuselage: PackedVector2Array = [
-		pos + Vector2(s * 2.0, 0).rotated(angle),      # Nose
-		pos + Vector2(s * 1.2, s * 0.3).rotated(angle),
-		pos + Vector2(-s * 1.5, s * 0.25).rotated(angle),
-		pos + Vector2(-s * 2.0, 0).rotated(angle),     # Tail
-		pos + Vector2(-s * 1.5, -s * 0.25).rotated(angle),
-		pos + Vector2(s * 1.2, -s * 0.3).rotated(angle),
+		pos + Vector2(s * 1.8, 0).rotated(angle),       # Nose tip
+		pos + Vector2(s * 1.0, s * 0.35).rotated(angle),
+		pos + Vector2(-s * 1.2, s * 0.35).rotated(angle),
+		pos + Vector2(-s * 1.2, -s * 0.35).rotated(angle),
+		pos + Vector2(s * 1.0, -s * 0.35).rotated(angle),
 	]
 
-	# Main wings (swept back)
-	var wings: PackedVector2Array = [
-		pos + Vector2(s * 0.3, 0).rotated(angle),       # Wing root front
-		pos + Vector2(-s * 0.5, s * 1.8).rotated(angle),  # Left wing tip
-		pos + Vector2(-s * 0.9, s * 1.6).rotated(angle),
-		pos + Vector2(-s * 0.5, 0).rotated(angle),      # Wing root back
+	# Main wings - simple swept back style matching icon
+	var left_wing: PackedVector2Array = [
+		pos + Vector2(s * 0.2, s * 0.35).rotated(angle),   # Wing root front
+		pos + Vector2(-s * 0.6, s * 1.6).rotated(angle),   # Wing tip front
+		pos + Vector2(-s * 0.9, s * 1.6).rotated(angle),   # Wing tip back
+		pos + Vector2(-s * 0.3, s * 0.35).rotated(angle),  # Wing root back
+	]
+
+	var right_wing: PackedVector2Array = [
+		pos + Vector2(s * 0.2, -s * 0.35).rotated(angle),
+		pos + Vector2(-s * 0.6, -s * 1.6).rotated(angle),
 		pos + Vector2(-s * 0.9, -s * 1.6).rotated(angle),
-		pos + Vector2(-s * 0.5, -s * 1.8).rotated(angle), # Right wing tip
+		pos + Vector2(-s * 0.3, -s * 0.35).rotated(angle),
 	]
 
-	# Tail fin (vertical stabilizer) - draw as darker accent
-	var tail: PackedVector2Array = [
-		pos + Vector2(-s * 1.3, 0).rotated(angle),
-		pos + Vector2(-s * 2.0, s * 0.8).rotated(angle),
-		pos + Vector2(-s * 2.0, -s * 0.8).rotated(angle),
+	# Tail horizontal stabilizer
+	var left_tail: PackedVector2Array = [
+		pos + Vector2(-s * 1.0, s * 0.35).rotated(angle),
+		pos + Vector2(-s * 1.3, s * 0.8).rotated(angle),
+		pos + Vector2(-s * 1.5, s * 0.8).rotated(angle),
+		pos + Vector2(-s * 1.2, s * 0.35).rotated(angle),
 	]
 
-	# Horizontal stabilizers (small rear wings)
-	var h_stab: PackedVector2Array = [
-		pos + Vector2(-s * 1.5, 0).rotated(angle),
-		pos + Vector2(-s * 2.0, s * 0.6).rotated(angle),
-		pos + Vector2(-s * 2.0, -s * 0.6).rotated(angle),
+	var right_tail: PackedVector2Array = [
+		pos + Vector2(-s * 1.0, -s * 0.35).rotated(angle),
+		pos + Vector2(-s * 1.3, -s * 0.8).rotated(angle),
+		pos + Vector2(-s * 1.5, -s * 0.8).rotated(angle),
+		pos + Vector2(-s * 1.2, -s * 0.35).rotated(angle),
 	]
 
-	# Draw outline for contrast
-	var outline_color: Color = Color(0, 0, 0, 0.6)
-	var outline_width: float = 1.5
-
-	# Draw all parts
-	draw_colored_polygon(wings, plane_color)
-	draw_colored_polygon(h_stab, plane_color)
-	draw_colored_polygon(tail, plane_color.darkened(0.2))
+	# Draw filled shapes
 	draw_colored_polygon(fuselage, plane_color)
+	draw_colored_polygon(left_wing, plane_color)
+	draw_colored_polygon(right_wing, plane_color)
+	draw_colored_polygon(left_tail, plane_color)
+	draw_colored_polygon(right_tail, plane_color)
 
-	# Draw outlines for better visibility
+	# Draw outlines for icon style
 	draw_polyline(fuselage + PackedVector2Array([fuselage[0]]), outline_color, outline_width, true)
-	draw_polyline(wings + PackedVector2Array([wings[0]]), outline_color, outline_width, true)
+	draw_polyline(left_wing + PackedVector2Array([left_wing[0]]), outline_color, outline_width, true)
+	draw_polyline(right_wing + PackedVector2Array([right_wing[0]]), outline_color, outline_width, true)
+	draw_polyline(left_tail + PackedVector2Array([left_tail[0]]), outline_color, outline_width, true)
+	draw_polyline(right_tail + PackedVector2Array([right_tail[0]]), outline_color, outline_width, true)
 
 func draw_plane_tooltip() -> void:
 	"""Draw tooltip for hovered plane"""
