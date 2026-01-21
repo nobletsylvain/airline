@@ -459,16 +459,15 @@ func create_floating_time_panel() -> void:
 	time_speed_panel.name = "TimeSpeedPanel"
 	add_child(time_speed_panel)
 
-	# Position at top-center of the main content area, floating above the map
-	# Use anchors to center horizontally in the content area
-	time_speed_panel.anchor_left = 0.5
+	# Position at top-right corner of the main content area, floating above the map
+	time_speed_panel.anchor_left = 1
 	time_speed_panel.anchor_top = 0
-	time_speed_panel.anchor_right = 0.5
+	time_speed_panel.anchor_right = 1
 	time_speed_panel.anchor_bottom = 0
 
-	# Offset to position correctly (centered, below header with some margin)
-	time_speed_panel.offset_left = -250 + (SIDEBAR_WIDTH / 2)  # Half panel width, adjusted for sidebar
-	time_speed_panel.offset_right = 250 + (SIDEBAR_WIDTH / 2)
+	# Offset to position at top-right with margin
+	time_speed_panel.offset_left = -520  # Panel width + margin from right edge
+	time_speed_panel.offset_right = -16  # Right margin
 	time_speed_panel.offset_top = HEADER_HEIGHT + 16  # Below header with margin
 	time_speed_panel.offset_bottom = HEADER_HEIGHT + 120  # Panel height
 
