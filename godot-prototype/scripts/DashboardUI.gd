@@ -454,26 +454,41 @@ func create_bottom_bar() -> void:
 		bottom_hbox.add_child(btn)
 
 func create_floating_time_panel() -> void:
-	"""Create the floating TimeSpeedPanel that overlays the map"""
+	"""Create the floating TimeSpeedPanel that overlays the map - draggable"""
 	time_speed_panel = TimeSpeedPanel.new()
 	time_speed_panel.name = "TimeSpeedPanel"
 	add_child(time_speed_panel)
 
-	# Position at top-right corner of the main content area, floating above the map
-	time_speed_panel.anchor_left = 1
+	# Use absolute positioning for draggable panel (no anchors)
+	time_speed_panel.anchor_left = 0
 	time_speed_panel.anchor_top = 0
-	time_speed_panel.anchor_right = 1
+	time_speed_panel.anchor_right = 0
 	time_speed_panel.anchor_bottom = 0
 
-	# Offset to position at top-right with margin
-	time_speed_panel.offset_left = -520  # Panel width + margin from right edge
-	time_speed_panel.offset_right = -16  # Right margin
-	time_speed_panel.offset_top = HEADER_HEIGHT + 16  # Below header with margin
-	time_speed_panel.offset_bottom = HEADER_HEIGHT + 120  # Panel height
+	# Position will be set in _position_time_panel after layout is ready
+	call_deferred("_position_time_panel")
 
 	# Connect to simulation engine if available
 	if simulation_engine:
 		time_speed_panel.set_simulation_engine(simulation_engine)
+
+func _position_time_panel() -> void:
+	"""Position the time panel at top-right after layout is ready"""
+	if not time_speed_panel:
+		return
+
+	# Get viewport size to calculate position
+	var viewport_size = get_viewport_rect().size
+
+	# Position at top-right corner with margin
+	var panel_width = 500  # Approximate panel width
+	var margin_right = 16
+	var margin_top = HEADER_HEIGHT + 16
+
+	time_speed_panel.position = Vector2(
+		viewport_size.x - panel_width - margin_right,
+		margin_top
+	)
 
 func update_active_tab(tab_id: String) -> void:
 	"""Update visual state of nav buttons"""

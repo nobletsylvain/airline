@@ -21,6 +21,10 @@ var max_speed_btn: Button
 var current_speed: int = 0  # 0 = paused, 1-5 = speed levels
 var is_playing: bool = false
 
+# Drag state
+var is_dragging: bool = false
+var drag_offset: Vector2 = Vector2.ZERO
+
 # Simulation engine reference
 var simulation_engine: Node = null
 
@@ -31,6 +35,8 @@ const SPEED_LEVELS = [1, 2, 3, 4, 5]  # Maps to simulation engine speeds
 func _ready() -> void:
 	build_ui()
 	update_time_display()
+	# Enable mouse cursor change on hover to indicate draggable
+	mouse_default_cursor_shape = Control.CURSOR_MOVE
 
 func build_ui() -> void:
 	"""Build the time/speed panel UI"""
@@ -408,6 +414,31 @@ func set_simulation_engine(engine: Node) -> void:
 			)
 		if simulation_engine.has_signal("week_completed"):
 			simulation_engine.week_completed.connect(func(_week): update_time_display())
+
+func _gui_input(event: InputEvent) -> void:
+	"""Handle mouse input for dragging"""
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				# Start dragging
+				is_dragging = true
+				drag_offset = event.position
+			else:
+				# Stop dragging
+				is_dragging = false
+	elif event is InputEventMouseMotion and is_dragging:
+		# Update position while dragging
+		var new_position = global_position + event.position - drag_offset
+
+		# Get viewport bounds to keep panel on screen
+		var viewport_size = get_viewport_rect().size
+		var panel_size = size
+
+		# Clamp position to keep panel within viewport
+		new_position.x = clamp(new_position.x, 0, viewport_size.x - panel_size.x)
+		new_position.y = clamp(new_position.y, 0, viewport_size.y - panel_size.y)
+
+		global_position = new_position
 
 func _input(event: InputEvent) -> void:
 	"""Handle keyboard shortcuts"""
