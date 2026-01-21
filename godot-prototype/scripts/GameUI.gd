@@ -76,8 +76,8 @@ func setup_dashboard() -> void:
 		push_error("DashboardUI not found!")
 		return
 
-	# Connect dashboard to simulation engine
-	dashboard_ui.simulation_engine = simulation_engine
+	# Connect dashboard to simulation engine (also sets TimeSpeedPanel engine)
+	dashboard_ui.set_simulation_engine(simulation_engine)
 
 	# Connect tab change signal
 	dashboard_ui.tab_changed.connect(_on_tab_changed)

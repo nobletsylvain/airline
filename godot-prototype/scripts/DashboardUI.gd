@@ -12,7 +12,7 @@ signal create_route_pressed()
 
 # Layout constants
 const SIDEBAR_WIDTH = 256
-const HEADER_HEIGHT = 64
+const HEADER_HEIGHT = 100  # Increased for TimeSpeedPanel
 const BOTTOM_HEIGHT = 56
 
 # Current active tab
@@ -31,6 +31,7 @@ var money_label: Label
 var reputation_label: Label
 var date_label: Label
 var speed_container: HBoxContainer
+var time_speed_panel: TimeSpeedPanel
 
 # Sidebar navigation buttons
 var nav_buttons: Dictionary = {}
@@ -65,12 +66,6 @@ func create_layout() -> void:
 	create_main_content()
 	create_bottom_bar()
 
-	# Initial state - select first speed button
-	if speed_container and speed_container.get_child_count() > 0:
-		var first_btn = speed_container.get_child(0) as Button
-		if first_btn:
-			first_btn.button_pressed = true
-
 func create_header() -> void:
 	"""Create the top header bar - full width at top"""
 	header = PanelContainer.new()
@@ -98,6 +93,7 @@ func create_header() -> void:
 	var header_hbox = HBoxContainer.new()
 	header_hbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	header_hbox.add_theme_constant_override("separation", 24)
+	header_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	header_margin.add_child(header_hbox)
 
 	# Left: KPI stats
@@ -108,16 +104,14 @@ func create_header() -> void:
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header_hbox.add_child(spacer)
 
-	# Center: Speed controls
-	create_speed_controls(header_hbox)
+	# Center/Right: TimeSpeedPanel (replaces old speed controls and date/time)
+	time_speed_panel = TimeSpeedPanel.new()
+	time_speed_panel.name = "TimeSpeedPanel"
+	header_hbox.add_child(time_speed_panel)
 
-	# Spacer
-	var spacer2 = Control.new()
-	spacer2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header_hbox.add_child(spacer2)
-
-	# Right: Date/Time
-	create_header_right(header_hbox)
+	# Connect TimeSpeedPanel to simulation engine if available
+	if simulation_engine:
+		time_speed_panel.set_simulation_engine(simulation_engine)
 
 func create_header_stats(parent: HBoxContainer) -> void:
 	"""Create KPI stats in header"""
@@ -178,80 +172,6 @@ func create_grade_badge() -> PanelContainer:
 
 	return panel
 
-func create_speed_controls(parent: HBoxContainer) -> void:
-	"""Create simulation speed controls"""
-	speed_container = HBoxContainer.new()
-	speed_container.add_theme_constant_override("separation", 4)
-	parent.add_child(speed_container)
-
-	var speeds = [
-		{"text": "⏸", "tooltip": "Pause (Space)", "level": 0},
-		{"text": "1x", "tooltip": "Real-Time [1]", "level": 1},
-		{"text": "10x", "tooltip": "Slow [2]", "level": 2},
-		{"text": "50x", "tooltip": "Normal [3]", "level": 3},
-		{"text": "200x", "tooltip": "Fast [4]", "level": 4},
-		{"text": "MAX", "tooltip": "Max Speed [5]", "level": 5},
-	]
-
-	for speed in speeds:
-		var btn = Button.new()
-		btn.text = speed.text
-		btn.tooltip_text = speed.tooltip
-		btn.custom_minimum_size = Vector2(44, 32)
-		btn.add_theme_font_size_override("font_size", 12)
-		btn.add_theme_color_override("font_color", UITheme.get_text_primary())
-		btn.add_theme_color_override("font_hover_color", UITheme.get_text_primary())
-		btn.toggle_mode = true
-
-		# Use theme-aware button styles
-		btn.add_theme_stylebox_override("normal", UITheme.create_button_style())
-		btn.add_theme_stylebox_override("hover", UITheme.create_button_hover_style())
-
-		var btn_pressed = StyleBoxFlat.new()
-		btn_pressed.bg_color = UITheme.PRIMARY_BLUE
-		btn_pressed.set_corner_radius_all(6)
-		btn_pressed.set_content_margin_all(6)
-		btn.add_theme_stylebox_override("pressed", btn_pressed)
-		btn.add_theme_color_override("font_pressed_color", UITheme.TEXT_WHITE)
-
-		btn.pressed.connect(_on_speed_button_pressed.bind(speed.level))
-		speed_container.add_child(btn)
-
-func create_header_right(parent: HBoxContainer) -> void:
-	"""Create right side of header (date, notifications)"""
-	var right_container = HBoxContainer.new()
-	right_container.add_theme_constant_override("separation", 16)
-	parent.add_child(right_container)
-
-	# Date/Time
-	var date_container = VBoxContainer.new()
-	date_container.add_theme_constant_override("separation", 0)
-	right_container.add_child(date_container)
-
-	date_label = Label.new()
-	date_label.text = "Week 1"
-	date_label.add_theme_font_size_override("font_size", 14)
-	date_label.add_theme_color_override("font_color", UITheme.get_text_primary())
-	date_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	date_container.add_child(date_label)
-
-	var year_label = Label.new()
-	year_label.name = "YearLabel"
-	year_label.text = "Year 1"
-	year_label.add_theme_font_size_override("font_size", 11)
-	year_label.add_theme_color_override("font_color", UITheme.get_text_muted())
-	year_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	date_container.add_child(year_label)
-
-	# Notifications bell
-	var notif_btn = Button.new()
-	notif_btn.text = "🔔"
-	notif_btn.custom_minimum_size = Vector2(36, 36)
-	notif_btn.add_theme_font_size_override("font_size", 16)
-	var notif_style = StyleBoxFlat.new()
-	notif_style.bg_color = Color(0, 0, 0, 0)
-	notif_btn.add_theme_stylebox_override("normal", notif_style)
-	right_container.add_child(notif_btn)
 
 func create_sidebar() -> void:
 	"""Create the dark sidebar with navigation - left side"""
@@ -585,20 +505,15 @@ func _on_nav_button_pressed(tab_id: String) -> void:
 	update_active_tab(tab_id)
 
 func _on_speed_button_pressed(speed_level: int) -> void:
-	"""Handle speed button press"""
-	# Update button states
-	for i in range(speed_container.get_child_count()):
-		var btn = speed_container.get_child(i) as Button
-		if btn:
-			btn.button_pressed = (i == speed_level)
+	"""Handle speed button press - delegates to TimeSpeedPanel"""
+	if time_speed_panel:
+		time_speed_panel._set_speed_level(speed_level - 1)  # TimeSpeedPanel uses 0-4 indices
 
-	# Notify simulation engine if available
-	if simulation_engine:
-		simulation_engine.set_speed(speed_level)
-		if speed_level > 0 and not simulation_engine.is_running:
-			simulation_engine.start_simulation()
-		elif speed_level == 0:
-			simulation_engine.pause_simulation()
+func set_simulation_engine(engine: Node) -> void:
+	"""Set the simulation engine reference"""
+	simulation_engine = engine
+	if time_speed_panel:
+		time_speed_panel.set_simulation_engine(engine)
 
 func update_stats() -> void:
 	"""Update header stats from GameData"""
@@ -619,16 +534,9 @@ func update_stats() -> void:
 	if reputation_label:
 		reputation_label.text = "%.1f" % GameData.player_airline.reputation
 
-	# Date
-	if date_label:
-		date_label.text = "Week %d" % GameData.current_week
-
-	# Year label - check header exists first
-	if header:
-		var year_label = header.get_node_or_null("MarginContainer/HBoxContainer/HBoxContainer/VBoxContainer/YearLabel")
-		if year_label:
-			var year = 1 + (GameData.current_week / 52)
-			year_label.text = "Year %d" % year
+	# Update TimeSpeedPanel date display
+	if time_speed_panel:
+		time_speed_panel.update_time_display()
 
 	# Grade badge - find it properly
 	_update_grade_badge()
@@ -670,35 +578,13 @@ func get_main_content() -> Control:
 	return main_content
 
 func _input(event: InputEvent) -> void:
-	"""Handle keyboard shortcuts"""
+	"""Handle keyboard shortcuts - speed controls are handled by TimeSpeedPanel"""
 	if event is InputEventKey and event.pressed and not event.echo:
 		var focus_owner = get_viewport().gui_get_focus_owner()
 		var is_typing = focus_owner is LineEdit or focus_owner is TextEdit
 
 		if not is_typing:
 			match event.keycode:
-				KEY_SPACE:
-					if simulation_engine:
-						if simulation_engine.is_running:
-							_on_speed_button_pressed(0)
-						else:
-							_on_speed_button_pressed(3)
-						get_viewport().set_input_as_handled()
-				KEY_1:
-					_on_speed_button_pressed(1)
-					get_viewport().set_input_as_handled()
-				KEY_2:
-					_on_speed_button_pressed(2)
-					get_viewport().set_input_as_handled()
-				KEY_3:
-					_on_speed_button_pressed(3)
-					get_viewport().set_input_as_handled()
-				KEY_4:
-					_on_speed_button_pressed(4)
-					get_viewport().set_input_as_handled()
-				KEY_5:
-					_on_speed_button_pressed(5)
-					get_viewport().set_input_as_handled()
 				KEY_T:
 					# T key toggles theme
 					_on_theme_toggle_pressed()
@@ -727,23 +613,10 @@ func _on_theme_changed() -> void:
 		bottom_bar.add_theme_stylebox_override("panel", UITheme.create_bottom_bar_style())
 
 	# Update header text colors
-	if money_label:
-		# Keep profit/loss colors, they're universal
-		pass
 	if reputation_label:
 		reputation_label.add_theme_color_override("font_color", UITheme.get_text_primary())
-	if date_label:
-		date_label.add_theme_color_override("font_color", UITheme.get_text_primary())
 
-	# Update speed buttons
-	if speed_container:
-		for i in range(speed_container.get_child_count()):
-			var btn = speed_container.get_child(i) as Button
-			if btn and not btn.button_pressed:
-				btn.add_theme_color_override("font_color", UITheme.get_text_primary())
-				btn.add_theme_color_override("font_hover_color", UITheme.get_text_primary())
-				btn.add_theme_stylebox_override("normal", UITheme.create_button_style())
-				btn.add_theme_stylebox_override("hover", UITheme.create_button_hover_style())
+	# TimeSpeedPanel handles its own theming
 
 	# Update bottom bar buttons
 	if bottom_bar:
