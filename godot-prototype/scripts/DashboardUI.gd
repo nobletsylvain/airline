@@ -23,6 +23,8 @@ var sidebar: PanelContainer
 var header: PanelContainer
 var main_content: Control
 var bottom_bar: PanelContainer
+var content_bg: ColorRect
+var main_bg: ColorRect
 
 # Header elements
 var money_label: Label
@@ -38,17 +40,24 @@ var simulation_engine: Node = null
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# Register for theme changes
+	UITheme.register_theme_callback(_on_theme_changed)
 	# Use call_deferred to ensure proper sizing
 	call_deferred("create_layout")
+
+func _exit_tree() -> void:
+	# Unregister theme callback when removed from tree
+	UITheme.unregister_theme_callback(_on_theme_changed)
 
 func create_layout() -> void:
 	"""Create the main dashboard layout using anchor-based positioning"""
 
 	# Main background
-	var bg = ColorRect.new()
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.color = UITheme.BG_MAIN
-	add_child(bg)
+	main_bg = ColorRect.new()
+	main_bg.name = "MainBackground"
+	main_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	main_bg.color = UITheme.get_bg_main()
+	add_child(main_bg)
 
 	# Create components in order (z-order)
 	create_header()
@@ -75,13 +84,8 @@ func create_header() -> void:
 	header.anchor_bottom = 0
 	header.offset_bottom = HEADER_HEIGHT
 
-	var header_style = StyleBoxFlat.new()
-	header_style.bg_color = UITheme.PANEL_BG_COLOR
-	header_style.border_color = UITheme.PANEL_BORDER_COLOR
-	header_style.border_width_bottom = 1
-	header_style.shadow_color = Color(0, 0, 0, 0.08)
-	header_style.shadow_size = 4
-	header.add_theme_stylebox_override("panel", header_style)
+	# Use theme-aware header style
+	header.add_theme_stylebox_override("panel", UITheme.create_header_style())
 
 	var header_margin = MarginContainer.new()
 	header_margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -146,7 +150,7 @@ func create_stat_pill(icon: String, value: String, color: Color) -> HBoxContaine
 	value_label.name = "Value"
 	value_label.text = value
 	value_label.add_theme_font_size_override("font_size", 16)
-	value_label.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+	value_label.add_theme_color_override("font_color", UITheme.get_text_primary())
 	container.add_child(value_label)
 
 	return container
@@ -195,21 +199,13 @@ func create_speed_controls(parent: HBoxContainer) -> void:
 		btn.tooltip_text = speed.tooltip
 		btn.custom_minimum_size = Vector2(44, 32)
 		btn.add_theme_font_size_override("font_size", 12)
-		btn.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
-		btn.add_theme_color_override("font_hover_color", UITheme.TEXT_PRIMARY)
+		btn.add_theme_color_override("font_color", UITheme.get_text_primary())
+		btn.add_theme_color_override("font_hover_color", UITheme.get_text_primary())
 		btn.toggle_mode = true
 
-		var btn_style = StyleBoxFlat.new()
-		btn_style.bg_color = Color(0.94, 0.94, 0.96)
-		btn_style.set_corner_radius_all(6)
-		btn_style.set_content_margin_all(6)
-		btn.add_theme_stylebox_override("normal", btn_style)
-
-		var btn_hover = StyleBoxFlat.new()
-		btn_hover.bg_color = Color(0.88, 0.88, 0.92)
-		btn_hover.set_corner_radius_all(6)
-		btn_hover.set_content_margin_all(6)
-		btn.add_theme_stylebox_override("hover", btn_hover)
+		# Use theme-aware button styles
+		btn.add_theme_stylebox_override("normal", UITheme.create_button_style())
+		btn.add_theme_stylebox_override("hover", UITheme.create_button_hover_style())
 
 		var btn_pressed = StyleBoxFlat.new()
 		btn_pressed.bg_color = UITheme.PRIMARY_BLUE
@@ -235,7 +231,7 @@ func create_header_right(parent: HBoxContainer) -> void:
 	date_label = Label.new()
 	date_label.text = "Week 1"
 	date_label.add_theme_font_size_override("font_size", 14)
-	date_label.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+	date_label.add_theme_color_override("font_color", UITheme.get_text_primary())
 	date_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	date_container.add_child(date_label)
 
@@ -243,7 +239,7 @@ func create_header_right(parent: HBoxContainer) -> void:
 	year_label.name = "YearLabel"
 	year_label.text = "Year 1"
 	year_label.add_theme_font_size_override("font_size", 11)
-	year_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+	year_label.add_theme_color_override("font_color", UITheme.get_text_muted())
 	year_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	date_container.add_child(year_label)
 
@@ -399,7 +395,7 @@ func create_nav_button(id: String, label: String, icon: String) -> Button:
 	return btn
 
 func create_sidebar_bottom(parent: VBoxContainer) -> void:
-	"""Create sidebar bottom section"""
+	"""Create sidebar bottom section with theme toggle and settings"""
 	var bottom_panel = PanelContainer.new()
 	var bottom_style = StyleBoxFlat.new()
 	bottom_style.bg_color = Color(0, 0, 0, 0)
@@ -409,12 +405,43 @@ func create_sidebar_bottom(parent: VBoxContainer) -> void:
 	bottom_panel.add_theme_stylebox_override("panel", bottom_style)
 	parent.add_child(bottom_panel)
 
+	var bottom_vbox = VBoxContainer.new()
+	bottom_vbox.add_theme_constant_override("separation", 4)
+	bottom_panel.add_child(bottom_vbox)
+
+	# Theme toggle button
+	var theme_btn = Button.new()
+	theme_btn.name = "ThemeToggleButton"
+	theme_btn.text = "  %s  Light Mode" % UITheme.ICON_SUN if not UITheme.is_dark_mode() else "  %s  Dark Mode" % UITheme.ICON_MOON
+	theme_btn.custom_minimum_size = Vector2(0, 44)
+	theme_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	theme_btn.add_theme_font_size_override("font_size", 13)
+	theme_btn.add_theme_color_override("font_color", UITheme.SIDEBAR_TEXT)
+	theme_btn.add_theme_color_override("font_hover_color", UITheme.TEXT_WHITE)
+
+	var theme_btn_style = StyleBoxFlat.new()
+	theme_btn_style.bg_color = Color(0, 0, 0, 0)
+	theme_btn_style.set_corner_radius_all(10)
+	theme_btn_style.set_content_margin_all(10)
+	theme_btn.add_theme_stylebox_override("normal", theme_btn_style)
+
+	var theme_hover_style = StyleBoxFlat.new()
+	theme_hover_style.bg_color = UITheme.SIDEBAR_HOVER
+	theme_hover_style.set_corner_radius_all(10)
+	theme_hover_style.set_content_margin_all(10)
+	theme_btn.add_theme_stylebox_override("hover", theme_hover_style)
+
+	theme_btn.pressed.connect(_on_theme_toggle_pressed)
+	bottom_vbox.add_child(theme_btn)
+
+	# Settings button
 	var settings_btn = Button.new()
 	settings_btn.text = "  ⚙  Settings"
 	settings_btn.custom_minimum_size = Vector2(0, 44)
 	settings_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	settings_btn.add_theme_font_size_override("font_size", 13)
 	settings_btn.add_theme_color_override("font_color", UITheme.SIDEBAR_TEXT)
+	settings_btn.add_theme_color_override("font_hover_color", UITheme.TEXT_WHITE)
 
 	var btn_style = StyleBoxFlat.new()
 	btn_style.bg_color = Color(0, 0, 0, 0)
@@ -428,7 +455,7 @@ func create_sidebar_bottom(parent: VBoxContainer) -> void:
 	hover_style.set_content_margin_all(10)
 	settings_btn.add_theme_stylebox_override("hover", hover_style)
 
-	bottom_panel.add_child(settings_btn)
+	bottom_vbox.add_child(settings_btn)
 
 func create_main_content() -> void:
 	"""Create main content area - fills space between sidebar and edges"""
@@ -446,9 +473,10 @@ func create_main_content() -> void:
 	main_content.offset_bottom = -BOTTOM_HEIGHT
 
 	# Add a background
-	var content_bg = ColorRect.new()
+	content_bg = ColorRect.new()
+	content_bg.name = "ContentBackground"
 	content_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	content_bg.color = UITheme.BG_MAIN
+	content_bg.color = UITheme.get_bg_main()
 	main_content.add_child(content_bg)
 
 func create_bottom_bar() -> void:
@@ -464,11 +492,8 @@ func create_bottom_bar() -> void:
 	bottom_bar.anchor_bottom = 1
 	bottom_bar.offset_top = -BOTTOM_HEIGHT
 
-	var bottom_style = StyleBoxFlat.new()
-	bottom_style.bg_color = UITheme.PANEL_BG_COLOR
-	bottom_style.border_color = UITheme.PANEL_BORDER_COLOR
-	bottom_style.border_width_top = 1
-	bottom_bar.add_theme_stylebox_override("panel", bottom_style)
+	# Use theme-aware bottom bar style
+	bottom_bar.add_theme_stylebox_override("panel", UITheme.create_bottom_bar_style())
 
 	var bottom_margin = MarginContainer.new()
 	bottom_margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -496,24 +521,16 @@ func create_bottom_bar() -> void:
 		btn.text = action.text
 		btn.custom_minimum_size = Vector2(130, 36)
 		btn.add_theme_font_size_override("font_size", 12)
-		btn.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
-		btn.add_theme_color_override("font_hover_color", UITheme.TEXT_PRIMARY)
-		btn.add_theme_color_override("font_pressed_color", UITheme.TEXT_PRIMARY)
+		btn.add_theme_color_override("font_color", UITheme.get_text_primary())
+		btn.add_theme_color_override("font_hover_color", UITheme.get_text_primary())
+		btn.add_theme_color_override("font_pressed_color", UITheme.get_text_primary())
 
-		var btn_style = StyleBoxFlat.new()
-		btn_style.bg_color = Color(0.94, 0.94, 0.96)
-		btn_style.set_corner_radius_all(8)
-		btn_style.set_content_margin_all(8)
-		btn.add_theme_stylebox_override("normal", btn_style)
-
-		var btn_hover = StyleBoxFlat.new()
-		btn_hover.bg_color = Color(0.88, 0.88, 0.92)
-		btn_hover.set_corner_radius_all(8)
-		btn_hover.set_content_margin_all(8)
-		btn.add_theme_stylebox_override("hover", btn_hover)
+		# Use theme-aware button styles
+		btn.add_theme_stylebox_override("normal", UITheme.create_button_style())
+		btn.add_theme_stylebox_override("hover", UITheme.create_button_hover_style())
 
 		var btn_pressed_style = StyleBoxFlat.new()
-		btn_pressed_style.bg_color = Color(0.82, 0.82, 0.88)
+		btn_pressed_style.bg_color = UITheme.get_hover_color()
 		btn_pressed_style.set_corner_radius_all(8)
 		btn_pressed_style.set_content_margin_all(8)
 		btn.add_theme_stylebox_override("pressed", btn_pressed_style)
@@ -682,3 +699,66 @@ func _input(event: InputEvent) -> void:
 				KEY_5:
 					_on_speed_button_pressed(5)
 					get_viewport().set_input_as_handled()
+				KEY_T:
+					# T key toggles theme
+					_on_theme_toggle_pressed()
+					get_viewport().set_input_as_handled()
+
+func _on_theme_toggle_pressed() -> void:
+	"""Handle theme toggle button press"""
+	UITheme.toggle_theme()
+
+func _on_theme_changed() -> void:
+	"""Called when theme is changed - update UI colors"""
+	print("Theme changed to: %s" % ("Dark" if UITheme.is_dark_mode() else "Light"))
+
+	# Update backgrounds
+	if main_bg:
+		main_bg.color = UITheme.get_bg_main()
+	if content_bg:
+		content_bg.color = UITheme.get_bg_main()
+
+	# Update header style
+	if header:
+		header.add_theme_stylebox_override("panel", UITheme.create_header_style())
+
+	# Update bottom bar style
+	if bottom_bar:
+		bottom_bar.add_theme_stylebox_override("panel", UITheme.create_bottom_bar_style())
+
+	# Update header text colors
+	if money_label:
+		# Keep profit/loss colors, they're universal
+		pass
+	if reputation_label:
+		reputation_label.add_theme_color_override("font_color", UITheme.get_text_primary())
+	if date_label:
+		date_label.add_theme_color_override("font_color", UITheme.get_text_primary())
+
+	# Update speed buttons
+	if speed_container:
+		for i in range(speed_container.get_child_count()):
+			var btn = speed_container.get_child(i) as Button
+			if btn and not btn.button_pressed:
+				btn.add_theme_color_override("font_color", UITheme.get_text_primary())
+				btn.add_theme_color_override("font_hover_color", UITheme.get_text_primary())
+				btn.add_theme_stylebox_override("normal", UITheme.create_button_style())
+				btn.add_theme_stylebox_override("hover", UITheme.create_button_hover_style())
+
+	# Update bottom bar buttons
+	if bottom_bar:
+		var bottom_margin = bottom_bar.get_node_or_null("MarginContainer")
+		if bottom_margin:
+			var bottom_hbox = bottom_margin.get_node_or_null("HBoxContainer")
+			if bottom_hbox:
+				for child in bottom_hbox.get_children():
+					if child is Button:
+						child.add_theme_color_override("font_color", UITheme.get_text_primary())
+						child.add_theme_color_override("font_hover_color", UITheme.get_text_primary())
+						child.add_theme_stylebox_override("normal", UITheme.create_button_style())
+						child.add_theme_stylebox_override("hover", UITheme.create_button_hover_style())
+
+	# Update theme toggle button text
+	var theme_btn = _find_node_recursive(sidebar, "ThemeToggleButton") as Button
+	if theme_btn:
+		theme_btn.text = "  %s  Dark Mode" % UITheme.ICON_MOON if UITheme.is_dark_mode() else "  %s  Light Mode" % UITheme.ICON_SUN
