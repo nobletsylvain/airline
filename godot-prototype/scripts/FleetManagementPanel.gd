@@ -114,7 +114,7 @@ func create_search_bar(parent: VBoxContainer) -> void:
 	search_style.bg_color = UITheme.get_panel_bg()
 	search_style.set_corner_radius_all(6)
 	search_style.set_content_margin_all(8)
-	search_style.border_color = UITheme.get_border_color()
+	search_style.border_color = UITheme.get_panel_border()
 	search_style.set_border_width_all(1)
 	search_field.add_theme_stylebox_override("normal", search_style)
 	search_field.text_changed.connect(_on_search_changed)
@@ -224,7 +224,7 @@ func create_aircraft_card(aircraft: AircraftInstance) -> PanelContainer:
 	card_style.bg_color = UITheme.get_panel_bg()
 	card_style.set_corner_radius_all(12)
 	card_style.set_content_margin_all(16)
-	card_style.border_color = UITheme.get_border_color()
+	card_style.border_color = UITheme.get_panel_border()
 	card_style.set_border_width_all(1)
 	card.add_theme_stylebox_override("panel", card_style)
 
