@@ -150,11 +150,13 @@ func create_status_sections() -> void:
 func create_status_section(status: AircraftInstance.Status) -> VBoxContainer:
 	"""Create a section for a specific status"""
 	var section = VBoxContainer.new()
-	section.name = "Section_%s" % AircraftInstance.STATUS_NAMES[status]
+	# Use status int value to avoid spaces in name
+	section.name = "Section_%d" % status
 	section.add_theme_constant_override("separation", 12)
 
 	# Section header
 	var header = HBoxContainer.new()
+	header.name = "Header"
 	header.add_theme_constant_override("separation", 10)
 	section.add_child(header)
 
@@ -349,9 +351,12 @@ func refresh() -> void:
 	# Update each section
 	for status in status_sections:
 		var section = status_sections[status]
-		var cards_container = section.get_node("CardsContainer")
-		var empty_label = section.get_node("EmptyLabel")
-		var count_label = section.get_node("CountLabel")
+		var cards_container = section.get_node_or_null("CardsContainer")
+		var empty_label = section.get_node_or_null("EmptyLabel")
+		var count_label = section.get_node_or_null("Header/CountLabel")
+
+		if not cards_container or not empty_label:
+			continue
 
 		# Clear existing cards
 		for child in cards_container.get_children():
@@ -359,7 +364,8 @@ func refresh() -> void:
 
 		# Add aircraft cards
 		var aircraft_for_status = grouped.get(status, [])
-		count_label.text = "(%d)" % aircraft_for_status.size()
+		if count_label:
+			count_label.text = "(%d)" % aircraft_for_status.size()
 
 		if aircraft_for_status.is_empty():
 			empty_label.visible = true
