@@ -756,12 +756,15 @@ func _draw_airport_marker(marker: Control, airport: Airport) -> void:
 	elif airport == hover_airport:
 		marker.draw_circle(center, radius + 2, Color.LIGHT_GRAY)
 
+	# Draw outline around main circle (dark gray border)
+	marker.draw_circle(center, radius + 1.0, Color(0.3, 0.3, 0.3, 0.8))
+
 	# Draw main circle
 	marker.draw_circle(center, radius, color)
 
-	# Draw IATA code
+	# Draw IATA code (black text for visibility)
 	var font_size: int = 10
-	marker.draw_string(ThemeDB.fallback_font, Vector2(center.x - 10, center.y - 10), airport.iata_code, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color.WHITE)
+	marker.draw_string(ThemeDB.fallback_font, Vector2(center.x - 10, center.y - 10), airport.iata_code, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color.BLACK)
 
 func _on_airport_marker_input(event: InputEvent, airport: Airport) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
