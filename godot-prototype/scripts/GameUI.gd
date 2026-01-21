@@ -139,40 +139,13 @@ func create_content_panels(parent: Control) -> void:
 	parent.add_child(market_panel)
 
 func create_fleet_panel() -> Control:
-	"""Create fleet management panel"""
-	var panel = PanelContainer.new()
+	"""Create fleet management panel using FleetManagementPanel"""
+	var panel = FleetManagementPanel.new()
 	panel.name = "FleetPanel"
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
-	var style = UITheme.create_panel_style()
-	style.bg_color = UITheme.BG_MAIN
-	panel.add_theme_stylebox_override("panel", style)
-
-	var margin = MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 24)
-	margin.add_theme_constant_override("margin_right", 24)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_bottom", 24)
-	panel.add_child(margin)
-
-	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 16)
-	margin.add_child(vbox)
-
-	# Title
-	var title = Label.new()
-	title.text = "Fleet Management"
-	title.add_theme_font_size_override("font_size", 24)
-	title.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
-	vbox.add_child(title)
-
-	# Fleet content will be populated dynamically
-	var content = Label.new()
-	content.name = "FleetContent"
-	content.text = "Your fleet will be displayed here.\n\nPurchase aircraft from the market to grow your fleet."
-	content.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
-	vbox.add_child(content)
+	# Connect purchase button to aircraft dialog
+	panel.purchase_aircraft_pressed.connect(_on_buy_aircraft_button_pressed)
 
 	return panel
 
@@ -366,22 +339,9 @@ func update_fleet_panel() -> void:
 	if not fleet_panel or not GameData.player_airline:
 		return
 
-	var content = fleet_panel.get_node_or_null("MarginContainer/VBoxContainer/FleetContent")
-	if content and content is Label:
-		var aircraft = GameData.player_airline.aircraft
-		if aircraft.is_empty():
-			content.text = "No aircraft in your fleet yet.\n\nPurchase aircraft to start operations."
-		else:
-			var text = "Total Aircraft: %d\n\n" % aircraft.size()
-			for ac in aircraft:
-				var status = "In Flight" if ac.is_assigned else "Available"
-				text += "%s [#%d] - %s - Condition: %.0f%%\n" % [
-					ac.model.get_display_name(),
-					ac.id,
-					status,
-					ac.condition
-				]
-			content.text = text
+	# FleetManagementPanel has its own refresh method
+	if fleet_panel is FleetManagementPanel:
+		fleet_panel.refresh()
 
 func update_routes_panel() -> void:
 	"""Update routes panel content"""
