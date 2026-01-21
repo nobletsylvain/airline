@@ -323,40 +323,73 @@ func _update_play_button_style() -> void:
 	play_button.add_theme_color_override("font_color", UITheme.TEXT_WHITE)
 	play_button.add_theme_color_override("font_hover_color", UITheme.TEXT_WHITE)
 
+func _process(_delta: float) -> void:
+	"""Update time display every frame for smooth animation"""
+	update_time_display()
+
 func update_time_display() -> void:
-	"""Update the date/time display from GameData"""
+	"""Update the date/time display from GameData - uses live hourly tracking"""
 	if not date_label:
 		return
 
-	# Calculate date from week number - Game starts in 1990
-	var week = GameData.current_week
-	var year = 1990 + (week / 52)
-	var week_in_year = week % 52
+	# Calculate total hours since game start (week 0, hour 0)
+	# Game starts January 1, 1990 at 00:00
+	var total_hours: float = (GameData.current_week * 168.0) + GameData.current_hour
 
-	# Convert week to approximate date
+	# Convert total hours to days (24 hours per day)
+	var total_days: int = int(total_hours / 24.0)
+
+	# Calculate year, month, day from total days since Jan 1, 1990
+	var days_in_months = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 	var month_names = ["January", "February", "March", "April", "May", "June",
 					   "July", "August", "September", "October", "November", "December"]
 	var day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
-	# Approximate month and day from week
-	var month_index = int(week_in_year / 4.33) % 12
-	var day_of_month = ((week_in_year % 4) * 7) + 1
-	day_of_month = clamp(day_of_month, 1, 28)  # Keep in safe range
+	# Start from 1990
+	var year: int = 1990
+	var remaining_days: int = total_days
 
-	date_label.text = "%s %d, %d" % [month_names[month_index], day_of_month, year]
-	day_label.text = day_names[week_in_year % 7]
+	# Count years
+	while true:
+		var days_in_year = 365
+		if _is_leap_year(year):
+			days_in_year = 366
+		if remaining_days < days_in_year:
+			break
+		remaining_days -= days_in_year
+		year += 1
 
-	# Time based on simulation progress (if available)
-	if simulation_engine and simulation_engine.has_method("get_week_progress"):
-		var progress = simulation_engine.get_week_progress()
-		var hours = int(progress * 24 * 7) % 24
-		var minutes = int(progress * 24 * 60 * 7) % 60
-		time_label.text = "%02d:%02d" % [hours, minutes]
+	# Update leap year for February
+	if _is_leap_year(year):
+		days_in_months[1] = 29
 	else:
-		# Show current time of day based on week progress
-		var hours = 8 + (week % 12)  # Vary between 8:00 and 20:00
-		var minutes = (week * 13) % 60
-		time_label.text = "%02d:%02d" % [hours, minutes]
+		days_in_months[1] = 28
+
+	# Count months
+	var month: int = 0
+	while month < 12 and remaining_days >= days_in_months[month]:
+		remaining_days -= days_in_months[month]
+		month += 1
+
+	# Day of month (1-indexed)
+	var day_of_month: int = remaining_days + 1
+
+	# Day of week (Jan 1, 1990 was a Monday = index 0)
+	var day_of_week: int = total_days % 7
+
+	# Update date label
+	date_label.text = "%s %d, %d" % [month_names[month], day_of_month, year]
+	day_label.text = day_names[day_of_week]
+
+	# Calculate time of day from current_hour
+	var hour_in_week: float = GameData.current_hour
+	var hour_of_day: int = int(hour_in_week) % 24
+	var minute_of_hour: int = int((hour_in_week - int(hour_in_week)) * 60)
+	time_label.text = "%02d:%02d" % [hour_of_day, minute_of_hour]
+
+func _is_leap_year(year: int) -> bool:
+	"""Check if a year is a leap year"""
+	return (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0)
 
 func set_simulation_engine(engine: Node) -> void:
 	"""Set the simulation engine reference"""

@@ -4,6 +4,7 @@ extends Node
 
 # Game state
 var current_week: int = 0
+var current_hour: float = 0.0  # Hour within the week (0-167), updated live
 var current_cycle: int = 0
 var is_simulating: bool = false
 var next_aircraft_id: int = 1

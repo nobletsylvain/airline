@@ -97,9 +97,13 @@ func _process(delta: float) -> void:
 	var hours_elapsed: float = delta / seconds_per_hour
 	time_accumulator += hours_elapsed
 
+	# Update GameData with current hour (for live time display)
+	GameData.current_hour = time_accumulator
+
 	# Check if a week has passed (168 hours)
 	if time_accumulator >= 168.0:
 		time_accumulator = fmod(time_accumulator, 168.0)
+		GameData.current_hour = time_accumulator
 		simulate_week()
 
 func simulate_week() -> void:
