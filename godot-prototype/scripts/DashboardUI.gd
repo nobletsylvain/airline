@@ -195,6 +195,8 @@ func create_speed_controls(parent: HBoxContainer) -> void:
 		btn.tooltip_text = speed.tooltip
 		btn.custom_minimum_size = Vector2(44, 32)
 		btn.add_theme_font_size_override("font_size", 12)
+		btn.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+		btn.add_theme_color_override("font_hover_color", UITheme.TEXT_PRIMARY)
 		btn.toggle_mode = true
 
 		var btn_style = StyleBoxFlat.new()
@@ -494,6 +496,9 @@ func create_bottom_bar() -> void:
 		btn.text = action.text
 		btn.custom_minimum_size = Vector2(130, 36)
 		btn.add_theme_font_size_override("font_size", 12)
+		btn.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
+		btn.add_theme_color_override("font_hover_color", UITheme.TEXT_PRIMARY)
+		btn.add_theme_color_override("font_pressed_color", UITheme.TEXT_PRIMARY)
 
 		var btn_style = StyleBoxFlat.new()
 		btn_style.bg_color = Color(0.94, 0.94, 0.96)

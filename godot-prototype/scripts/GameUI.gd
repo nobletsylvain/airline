@@ -37,23 +37,23 @@ func _ready() -> void:
 		await GameData.game_initialized
 		print("GameUI: GameData initialized!")
 
-	# Setup simulation engine
+	# Setup simulation engine first
 	setup_simulation_engine()
 
-	# Setup dashboard UI
-	setup_dashboard()
-
-	# Setup world map
-	setup_world_map()
+	# Create tutorial overlay early (before any awaits) to catch signals
+	create_tutorial_overlay()
 
 	# Create dialogs
 	create_dialogs()
 
-	# Create tutorial overlay
-	create_tutorial_overlay()
-
 	# Connect signals
 	connect_signals()
+
+	# Setup dashboard UI (has await for deferred layout)
+	setup_dashboard()
+
+	# Setup world map
+	setup_world_map()
 
 	# Initial UI update
 	update_all()
@@ -574,7 +574,7 @@ func _on_purchase_hub_button_pressed() -> void:
 	"""Handle Purchase Hub button press from bottom bar"""
 	print("Purchase Hub button pressed")
 	if hub_purchase_dialog:
-		hub_purchase_dialog.popup_centered()
+		hub_purchase_dialog.show_dialog()
 
 func _on_buy_aircraft_button_pressed() -> void:
 	"""Handle Buy Aircraft button press from bottom bar"""
