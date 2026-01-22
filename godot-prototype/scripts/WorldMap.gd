@@ -547,28 +547,18 @@ func draw_all_planes() -> void:
 			draw_plane_at(plane, screen_pos)
 
 func draw_plane_at(plane: PlaneSprite, screen_pos: Vector2) -> void:
-	"""Draw a plane sprite using texture"""
-	if not plane_texture:
-		return
-
-	var angle: float = plane.get_rotation_angle()
+	"""Draw a plane sprite as a round circle"""
 	var pos: Vector2 = screen_pos
+	var radius: float = 6.0  # Circle radius
 
-	# Scale the texture (original is 16x16, scale up for visibility)
-	var icon_size: float = 32.0
-	var tex_size: Vector2 = Vector2(icon_size, icon_size)
+	# Draw outer ring (darker outline)
+	draw_circle(pos, radius + 1.5, Color(0.1, 0.1, 0.1, 0.8))
 
-	# Create transform for rotation around center
-	# The texture points up by default, so we need to rotate it to point right (0 angle) first
-	# then add the flight angle
-	var rotation_offset: float = -PI / 2  # Rotate from "up" to "right" orientation
-	var total_rotation: float = angle + rotation_offset
+	# Draw main circle with airline color
+	draw_circle(pos, radius, plane.plane_color)
 
-	# Draw with rotation using draw_set_transform
-	var center_offset: Vector2 = tex_size / 2
-	draw_set_transform(pos, total_rotation, Vector2.ONE)
-	draw_texture_rect(plane_texture, Rect2(-center_offset, tex_size), false, plane.plane_color)
-	draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)  # Reset transform
+	# Draw inner highlight for depth
+	draw_circle(pos + Vector2(-1, -1), radius * 0.4, plane.plane_color.lightened(0.3))
 
 func draw_plane_tooltip() -> void:
 	"""Draw tooltip for hovered plane"""
