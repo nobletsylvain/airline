@@ -1,0 +1,78 @@
+63f7b34db8d8cdea90c76aacccf841ec
+::res://::1769029381
+Airliner_roadmap.md::TextFile::-1::1768937468::0::1::::<><><>0<>0<><>::
+CAMPAIGNS_Detailed.md::TextFile::-1::1769027937::0::1::::<><><>0<>0<><>::
+CORE_LOOP_GUIDE.md::TextFile::-1::1768889265::0::1::::<><><>0<>0<><>::
+FTUE_Endless_Mode.md::TextFile::-1::1769028326::0::1::::<><><>0<>0<><>::
+GDD_AirlineTycoon.md::TextFile::-1::1769027944::0::1::::<><><>0<>0<><>::
+icon.svg::CompressedTexture2D::3320373398263532703::1768851343::1768947986::1::::<><><>0<>0<>706550bba70ead8f8996f9304d74d8f8<>res://.godot/imported/icon.svg-218a8f2b3041327d8a5756f3a245f83b.ctex::
+README.md::TextFile::-1::1768851343::0::1::::<><><>0<>0<><>::
+TUTORIAL_GUIDE.md::TextFile::-1::1768889265::0::1::::<><><>0<>0<><>::
+TUTORIAL_UI_SETUP.md::TextFile::-1::1768889265::0::1::::<><><>0<>0<><>::
+::res://assets/::1769029371
+::res://assets/icons/::1769027515
+airplane.png::CompressedTexture2D::2550199490603886664::1769027508::1769027510::1::::<><><>0<>0<>c0c50fc413847addaa004e1b9a012e14<>res://.godot/imported/airplane.png-9a0c377840bb7dbaa99021b8fdb99e53.ctex::
+::res://mockups/::1769029371
+airplane-mode.png::CompressedTexture2D::6201616969247732038::1769021902::1769029371::1::::<><><>0<>0<>a5978fb914cd5310d3c652130438d0a3<>res://.godot/imported/airplane-mode.png-0c1862d7fde4832753a8e2e14c944463.ctex::
+plane.png::CompressedTexture2D::2707342735880627534::1769026324::1769029371::1::::<><><>0<>0<>58db0c4c66ba9d3b4a917008167a717f<>res://.godot/imported/plane.png-d9b681851aadc735ccab3d888bb018b7.ctex::
+::res://mockups/Airline Management Game Landing Page/::1768946798
+ATTRIBUTIONS.md::TextFile::-1::1768946171::0::1::::<><><>0<>0<><>::
+package.json::JSON::-1::1768946171::0::1::::<><><>0<>0<><>::
+README.md::TextFile::-1::1768946171::0::1::::<><><>0<>0<><>::
+::res://mockups/Airline Management Game Landing Page/guidelines/::1768946798
+Guidelines.md::TextFile::-1::1768946171::0::1::::<><><>0<>0<><>::
+::res://mockups/Airline Management Game Landing Page/src/::1768946798
+::res://mockups/Airline Management Game Landing Page/src/app/::1768946798
+::res://mockups/Airline Management Game Landing Page/src/app/components/::1768946798
+::res://mockups/Airline Management Game Landing Page/src/app/components/figma/::1768946798
+::res://mockups/Airline Management Game Landing Page/src/app/components/ui/::1768946798
+::res://mockups/Airline Management Game Landing Page/src/styles/::1768946798
+::res://mockups/Airline Tycoon Dashboard/::1768946798
+ATTRIBUTIONS.md::TextFile::-1::1768946776::0::1::::<><><>0<>0<><>::
+package.json::JSON::-1::1768946776::0::1::::<><><>0<>0<><>::
+README.md::TextFile::-1::1768946776::0::1::::<><><>0<>0<><>::
+::res://mockups/Airline Tycoon Dashboard/guidelines/::1768946798
+Guidelines.md::TextFile::-1::1768946776::0::1::::<><><>0<>0<><>::
+::res://mockups/Airline Tycoon Dashboard/src/::1768946798
+::res://mockups/Airline Tycoon Dashboard/src/app/::1768946798
+::res://mockups/Airline Tycoon Dashboard/src/app/components/::1768946798
+::res://mockups/Airline Tycoon Dashboard/src/app/components/figma/::1768946798
+::res://mockups/Airline Tycoon Dashboard/src/app/components/ui/::1768946798
+::res://mockups/Airline Tycoon Dashboard/src/lib/::1768946798
+::res://mockups/Airline Tycoon Dashboard/src/styles/::1768946798
+::res://scenes/::1768975295
+Main.tscn::PackedScene::3868036259958221947::1768975295::0::1::::<><><>0<>0<><>::uid://bpytg6ecxnlq7::::res://scripts/GameUI.gd<>uid://bam7ss67fiomu::::res://scripts/WorldMap.gd<>uid://50j1sxnhc3po::::res://scripts/SimulationEngine.gd<>uid://bp5grsulartxr::::res://scripts/DashboardUI.gd
+MainMenu.tscn::PackedScene::-1::1768947986::0::1::::<><><>0<>0<><>::res://scripts/MainMenu.gd
+::res://scripts/::1769027524
+AIController.gd::GDScript::2991130157043880018::1768935924::0::1::::AIController<>Node<><>0<>0<><>::
+Aircraft.gd::GDScript::2660749269093628241::1768889265::0::1::::AircraftModel<>Resource<><>0<>0<><>::
+AircraftConfiguration.gd::GDScript::29645398769782533::1768889265::0::1::::AircraftConfiguration<>Resource<><>0<>0<><>::
+AircraftInstance.gd::GDScript::8257214081293230114::1769019974::0::1::::AircraftInstance<>Resource<><>0<>0<><>::
+AircraftPurchaseDialog.gd::GDScript::7842101503018105058::1769020695::0::1::::AircraftPurchaseDialog<>ConfirmationDialog<><>0<>0<><>::
+Airline.gd::GDScript::7297914937310679688::1768933054::0::1::::Airline<>Resource<><>0<>0<><>::
+Airport.gd::GDScript::3424683130238733453::1768851343::0::1::::Airport<>Resource<><>0<>0<><>::
+DashboardUI.gd::GDScript::3501580308155233619::1769020695::0::1::::DashboardUI<>Control<><>0<>0<><>::
+FleetCard.gd::GDScript::555021270661460393::1768947986::0::1::::FleetCard<>PanelContainer<><>0<>0<><>::
+FleetManagementPanel.gd::GDScript::3618514301831407597::1769020200::0::1::::FleetManagementPanel<>Control<><>0<>0<><>::
+GameData.gd::GDScript::2972971445042412598::1769027524::0::1::::<>Node<><>0<>0<><>::
+GameManager.gd::GDScript::7958437027092162833::1768947986::0::1::::GameManager<>Node<><>0<>0<><>::
+GameUI.gd::GDScript::3489964376512216580::1769019974::0::1::::<>Control<><>0<>0<><>::
+HubPurchaseDialog.gd::GDScript::1777542845485273619::1768937468::0::1::::HubPurchaseDialog<>ConfirmationDialog<><>0<>0<><>::
+Loan.gd::GDScript::4573367473110245499::1768851343::0::1::::Loan<>Resource<><>0<>0<><>::
+MainMenu.gd::GDScript::1845187745061999120::1768948369::0::1::::MainMenu<>Control<><>0<>0<><>::
+MapTileManager.gd::GDScript::3029604834098931683::1768944357::0::1::::MapTileManager<>Node<><>0<>0<><>::
+MarketAnalysis.gd::GDScript::7581373592453853098::1768937468::0::1::::MarketAnalysis<>Node<><>0<>0<><>::
+ObjectiveSystem.gd::GDScript::3238260153344605022::1768889265::0::1::::ObjectiveSystem<>Node<><>0<>0<><>::
+PlaneSprite.gd::GDScript::1478148417937416620::1769025934::0::1::::PlaneSprite<>Node2D<><>0<>0<><>::
+Route.gd::GDScript::2573663506630116136::1768889265::0::1::::Route<>Resource<><>0<>0<><>::
+RouteCard.gd::GDScript::3418951150619535449::1768945959::0::1::::RouteCard<>PanelContainer<><>0<>0<><>::
+RouteConfigDialog.gd::GDScript::8308667529856175354::1768933054::0::1::::RouteConfigDialog<>ConfirmationDialog<><>0<>0<><>::
+RouteOpportunityDialog.gd::GDScript::1713311576873761870::1768937468::0::1::::RouteOpportunityDialog<>Window<><>0<>0<><>::
+Sidebar.gd::GDScript::513039322441027898::1768947986::0::1::::Sidebar<>PanelContainer<><>0<>0<><>::
+SimulationEngine.gd::GDScript::2157868618119821916::1769019288::0::1::::<>Node<><>0<>0<><>::
+TimeSpeedPanel.gd::GDScript::2932856499240503040::1769020695::0::1::::TimeSpeedPanel<>PanelContainer<><>0<>0<><>::
+TutorialManager.gd::GDScript::7190536732904833496::1768934831::0::1::::TutorialManager<>Node<><>0<>0<><>::
+TutorialOverlay.gd::GDScript::6775067049631198532::1768935924::0::1::::TutorialOverlay<>CanvasLayer<><>0<>0<><>::
+TutorialStep.gd::GDScript::4668868292165651577::1768889265::0::1::::TutorialStep<>Resource<><>0<>0<><>::
+UITheme.gd::GDScript::1087411063599326680::1768976225::0::1::::UITheme<>Node<><>0<>0<><>::
+WorldMap.gd::GDScript::2413169299570819124::1769027508::0::1::::<>Control<><>0<>0<><>::

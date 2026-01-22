@@ -13,8 +13,12 @@ config_version=5
 config/name="Airline Tycoon Prototype"
 config/description="A prototype airline tycoon game based on airline-club.com"
 run/main_scene="res://scenes/MainMenu.tscn"
-config/features=PackedStringArray("4.3", "GL Compatibility")
+config/features=PackedStringArray("4.5", "GL Compatibility")
 config/icon="res://icon.svg"
+
+[autoload]
+
+GameData="*res://scripts/GameData.gd"
 
 [display]
 
@@ -22,9 +26,9 @@ window/size/viewport_width=2560
 window/size/viewport_height=1440
 window/stretch/mode="canvas_items"
 
-[autoload]
+[dotnet]
 
-GameData="*res://scripts/GameData.gd"
+project/assembly_name="Airline Tycoon Prototype"
 
 [rendering]
 

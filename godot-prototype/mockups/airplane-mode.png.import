@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bqtuxevfodjb1"
-path="res://.godot/imported/airplane-mode.png-eb9bebf8c35fadf2de7428798f13020f.ctex"
+uid="uid://cumdywt0ooogs"
+path="res://.godot/imported/airplane-mode.png-0c1862d7fde4832753a8e2e14c944463.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/airplane-mode.png"
-dest_files=["res://.godot/imported/airplane-mode.png-eb9bebf8c35fadf2de7428798f13020f.ctex"]
+source_file="res://mockups/airplane-mode.png"
+dest_files=["res://.godot/imported/airplane-mode.png-0c1862d7fde4832753a8e2e14c944463.ctex"]
 
 [params]
 
