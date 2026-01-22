@@ -3,7 +3,7 @@ class_name MarketAnalysis
 
 ## Analyzes market demand, supply, and identifies route opportunities
 
-static func analyze_route_opportunity(from: Airport, to: Airport, airlines: Array[Airline]) -> Dictionary:
+static func analyze_route_opportunity(from: Airport, to: Airport, airlines: Array[Airline], player_airline: Airline = null) -> Dictionary:
 	"""
 	Analyze a potential route and return opportunity metrics
 	Returns: {
@@ -13,6 +13,7 @@ static func analyze_route_opportunity(from: Airport, to: Airport, airlines: Arra
 		competition: int,  # Number of competitors
 		profitability_score: float,  # 0-100 score
 		market_saturation: float  # 0-1 (0=empty, 1=saturated)
+		bidirectional: Dictionary  # Bidirectional demand breakdown
 	}
 	"""
 	var result: Dictionary = {
@@ -23,16 +24,18 @@ static func analyze_route_opportunity(from: Airport, to: Airport, airlines: Arra
 		"profitability_score": 0.0,
 		"market_saturation": 0.0,
 		"average_price": 0.0,
-		"distance_km": 0.0
+		"distance_km": 0.0,
+		"bidirectional": {}
 	}
 
 	# Calculate distance
 	var distance: float = calculate_great_circle_distance(from, to)
 	result.distance_km = distance
 
-	# Calculate potential demand
-	var demand: float = calculate_potential_demand(from, to, distance)
-	result.demand = demand
+	# Calculate bidirectional demand (includes breakdown)
+	var bidirectional: Dictionary = calculate_bidirectional_demand(from, to, distance)
+	result.bidirectional = bidirectional
+	result.demand = bidirectional.total_demand
 
 	# Calculate current supply and competition
 	var supply_data: Dictionary = calculate_current_supply(from, to, airlines)
@@ -41,9 +44,20 @@ static func analyze_route_opportunity(from: Airport, to: Airport, airlines: Arra
 	result.average_price = supply_data.average_price
 
 	# Calculate opportunity metrics
-	result.gap = max(0.0, demand - result.supply)
-	result.market_saturation = result.supply / demand if demand > 0 else 0.0
-	result.profitability_score = calculate_profitability_score(result, distance)
+	result.gap = max(0.0, result.demand - result.supply)
+	result.market_saturation = result.supply / result.demand if result.demand > 0 else 0.0
+	
+	# Enhanced profitability scoring with bidirectional and hub network effects
+	var hub: Airport = null
+	if player_airline and player_airline.has_hub(from):
+		hub = from
+	
+	result.profitability_score = calculate_profitability_score(
+		result, 
+		distance, 
+		player_airline, 
+		hub
+	)
 
 	return result
 
@@ -240,10 +254,14 @@ static func calculate_current_supply(from: Airport, to: Airport, airlines: Array
 		"average_price": total_price / price_count if price_count > 0 else 0.0
 	}
 
-static func calculate_profitability_score(opportunity: Dictionary, distance_km: float) -> float:
+static func calculate_profitability_score(opportunity: Dictionary, distance_km: float, airline: Airline = null, hub: Airport = null) -> float:
 	"""
 	Score the profitability of a route opportunity (0-100)
 	Higher score = better opportunity
+	
+	Enhanced with:
+	- Bidirectional demand analysis (asymmetric routes get bonus)
+	- Hub network effects (connecting passenger potential)
 	"""
 	var score: float = 50.0  # Start neutral
 
@@ -270,9 +288,136 @@ static func calculate_profitability_score(opportunity: Dictionary, distance_km: 
 	if opportunity.demand > 2000:
 		score += 10.0
 
+	# === ENHANCED: Bidirectional Demand Bonus ===
+	# Routes with strong directional demand (asymmetric) are often more profitable
+	# because they can optimize pricing and capacity for the stronger direction
+	var bidirectional: Dictionary = opportunity.get("bidirectional", {})
+	if not bidirectional.is_empty():
+		var outbound_total: float = bidirectional.get("outbound_total", 0)
+		var inbound_total: float = bidirectional.get("inbound_total", 0)
+		var total_demand: float = outbound_total + inbound_total
+		
+		if total_demand > 0:
+			# Calculate asymmetry ratio (1.0 = balanced, >1.5 = very asymmetric)
+			var asymmetry: float = 0.0
+			if outbound_total > inbound_total:
+				asymmetry = outbound_total / inbound_total if inbound_total > 0 else 2.0
+			else:
+				asymmetry = inbound_total / outbound_total if outbound_total > 0 else 2.0
+			
+			# Moderate asymmetry (1.3-1.8) is good - allows optimization
+			# Very asymmetric (>2.0) can be challenging but profitable
+			if asymmetry >= 1.3 and asymmetry <= 2.0:
+				score += 8.0  # Strategic advantage bonus
+			elif asymmetry > 2.0:
+				score += 5.0  # High asymmetry - still valuable but harder to optimize
+			
+			# Strong directional demand bonus (one direction > 1000 pax/week)
+			if max(outbound_total, inbound_total) > 1000:
+				score += 5.0
+
+	# === ENHANCED: Hub Network Effects Bonus ===
+	# Routes that create valuable connections get bonus points
+	if airline and hub and opportunity.has("from_airport") and opportunity.has("to_airport"):
+		var from_airport: Airport = opportunity.from_airport
+		var to_airport: Airport = opportunity.to_airport
+		
+		# Analyze connection potential for this route
+		var connection_potential: float = estimate_connection_potential(
+			airline, hub, from_airport, to_airport
+		)
+		
+		# Bonus based on connecting passenger potential
+		if connection_potential > 200:
+			score += 12.0  # Excellent hub synergy
+		elif connection_potential > 100:
+			score += 8.0   # Good hub synergy
+		elif connection_potential > 50:
+			score += 5.0   # Moderate hub synergy
+		
+		# Additional bonus if this route completes a hub network (many connections)
+		var network_value: int = count_potential_connections(airline, hub, from_airport, to_airport)
+		if network_value >= 10:
+			score += 5.0  # Creates many connection opportunities
+		elif network_value >= 5:
+			score += 3.0  # Creates several connection opportunities
+
 	return clamp(score, 0.0, 100.0)
 
-static func find_best_opportunities(player_base: Airport, all_airports: Array[Airport], airlines: Array[Airline], top_n: int = 10) -> Array[Dictionary]:
+static func estimate_connection_potential(airline: Airline, hub: Airport, from_airport: Airport, to_airport: Airport) -> float:
+	"""Estimate total connecting passenger potential for a new route"""
+	var total_potential: float = 0.0
+	
+	# This route would be: from_airport → to_airport (or hub → to_airport if from_airport is hub)
+	# We need to check both directions of connections
+	
+	# Case 1: Route FROM hub TO destination (hub → to_airport)
+	# Connections: origin → hub → to_airport
+	if from_airport == hub:
+		for route in airline.routes:
+			if route.to_airport == hub and route.from_airport != to_airport:
+				# Estimate connection
+				var estimated_distance: float = route.distance_km + MarketAnalysis.calculate_great_circle_distance(hub, to_airport)
+				var estimated_quality: float = 60.0  # Assume moderate quality
+				
+				var connection: Dictionary = {
+					"first_leg": route,
+					"hub": hub,
+					"total_distance": estimated_distance,
+					"connection_quality": estimated_quality
+				}
+				
+				var connecting_pax: float = calculate_connecting_passenger_demand(
+					route.from_airport,
+					to_airport,
+					connection,
+					0.0
+				)
+				total_potential += connecting_pax
+		
+		# Case 2: Route FROM destination TO hub (to_airport → hub)
+		# Connections: to_airport → hub → other_destination
+		for route in airline.routes:
+			if route.from_airport == hub and route.to_airport != to_airport:
+				var estimated_distance: float = MarketAnalysis.calculate_great_circle_distance(to_airport, hub) + route.distance_km
+				var estimated_quality: float = 60.0
+				
+				var connection: Dictionary = {
+					"second_leg": route,
+					"hub": hub,
+					"total_distance": estimated_distance,
+					"connection_quality": estimated_quality
+				}
+				
+				var connecting_pax: float = calculate_connecting_passenger_demand(
+					to_airport,
+					route.to_airport,
+					connection,
+					0.0
+				)
+				total_potential += connecting_pax
+	
+	return total_potential
+
+static func count_potential_connections(airline: Airline, hub: Airport, from_airport: Airport, to_airport: Airport) -> int:
+	"""Count how many connection opportunities this route would create"""
+	var count: int = 0
+	
+	if from_airport == hub:
+		# Route: hub → to_airport
+		# Count routes ending at hub (can connect to to_airport)
+		for route in airline.routes:
+			if route.to_airport == hub and route.from_airport != to_airport:
+				count += 1
+		
+		# Count routes starting from hub (to_airport can connect to them)
+		for route in airline.routes:
+			if route.from_airport == hub and route.to_airport != to_airport:
+				count += 1
+	
+	return count
+
+static func find_best_opportunities(player_base: Airport, all_airports: Array[Airport], airlines: Array[Airline], player_airline: Airline = null, top_n: int = 10) -> Array[Dictionary]:
 	"""Find the best route opportunities from a given base airport"""
 	var opportunities: Array[Dictionary] = []
 
@@ -280,7 +425,7 @@ static func find_best_opportunities(player_base: Airport, all_airports: Array[Ai
 		if destination == player_base:
 			continue  # Skip same airport
 
-		var analysis: Dictionary = analyze_route_opportunity(player_base, destination, airlines)
+		var analysis: Dictionary = analyze_route_opportunity(player_base, destination, airlines, player_airline)
 		analysis.from_airport = player_base
 		analysis.to_airport = destination
 

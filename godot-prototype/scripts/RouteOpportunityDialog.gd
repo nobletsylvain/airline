@@ -188,8 +188,26 @@ func show_for_hub(airport: Airport) -> void:
 	# Apply default filter
 	apply_filter("all")
 
+	# Connect to route network change signals to refresh scores when routes are added/removed
+	# Disconnect first to avoid duplicate connections
+	if GameData.route_network_changed.is_connected(_on_route_network_changed):
+		GameData.route_network_changed.disconnect(_on_route_network_changed)
+	GameData.route_network_changed.connect(_on_route_network_changed)
+	
 	# Show dialog
 	popup_centered()
+
+func _on_route_network_changed(airline: Airline) -> void:
+	"""Called when route network changes (route added or removed) - refresh opportunity scores"""
+	if airline == GameData.player_airline and visible and hub_airport:
+		# Re-analyze opportunities to update scores with new network effects
+		# This ensures profitability scores reflect current hub network state
+		analyze_opportunities()
+		apply_filter(current_filter)  # Reapply current filter
+		
+		# If an opportunity was selected, refresh its details to show updated connection potential
+		if not selected_opportunity.is_empty() and selected_opportunity.has("airport"):
+			update_destination_details()
 
 func analyze_opportunities() -> void:
 	"""Analyze all possible routes from the hub"""
@@ -337,13 +355,13 @@ func _on_destination_selected(index: int) -> void:
 	if index >= 0 and index < filtered_opportunities.size():
 		selected_opportunity = filtered_opportunities[index]
 		update_destination_details()
-		create_route_button.disabled = not selected_opportunity.can_fly
+		create_route_button.disabled = not selected_opportunity.get("can_fly", false)
 
 func _on_destination_activated(index: int) -> void:
 	"""Destination double-clicked - create route immediately"""
 	if index >= 0 and index < filtered_opportunities.size():
 		selected_opportunity = filtered_opportunities[index]
-		if selected_opportunity.can_fly:
+		if selected_opportunity.get("can_fly", false):
 			_on_create_route_pressed()
 
 func update_destination_details() -> void:
@@ -351,13 +369,16 @@ func update_destination_details() -> void:
 	if not destination_details_label or selected_opportunity.is_empty():
 		return
 
-	var airport: Airport = selected_opportunity.airport
-	var distance: float = selected_opportunity.distance
-	var flight_type: String = selected_opportunity.flight_type
-	var analysis: Dictionary = selected_opportunity.analysis
+	var airport: Airport = selected_opportunity.get("airport", null)
+	if not airport or not hub_airport:
+		return
+	
+	var distance: float = selected_opportunity.get("distance", 0.0)
+	var flight_type: String = selected_opportunity.get("flight_type", "Unknown")
+	var analysis: Dictionary = selected_opportunity.get("analysis", {})
 	var bidirectional: Dictionary = selected_opportunity.get("bidirectional", {})
-	var can_fly: bool = selected_opportunity.can_fly
-	var compatible: Array[String] = selected_opportunity.compatible_aircraft
+	var can_fly: bool = selected_opportunity.get("can_fly", false)
+	var compatible: Array[String] = selected_opportunity.get("compatible_aircraft", [])
 
 	var demand: float = analysis.get("demand", 0)
 	var supply: float = analysis.get("supply", 0)
@@ -578,9 +599,12 @@ func analyze_connection_potential(destination: Airport) -> Dictionary:
 
 func _on_create_route_pressed() -> void:
 	"""Create route button pressed"""
-	if selected_opportunity.is_empty() or not selected_opportunity.can_fly:
+	if selected_opportunity.is_empty() or not selected_opportunity.get("can_fly", false):
 		return
 
-	var to_airport: Airport = selected_opportunity.airport
+	var to_airport: Airport = selected_opportunity.get("airport", null)
+	if not to_airport:
+		return
+	
 	route_selected.emit(hub_airport, to_airport)
 	hide()

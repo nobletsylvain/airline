@@ -1173,6 +1173,52 @@ func _on_floating_panel_action2() -> void:
 	if floating_panel_target is Route:
 		var route: Route = floating_panel_target
 		if route.airline_id == GameData.player_airline.id:
-			# TODO: Cancel/delete route confirmation
-			print("Cancel route requested for: %s" % route.get_display_name())
+			# Show confirmation dialog for route deletion
+			show_route_deletion_confirmation(route)
 	hide_floating_panel()
+
+func show_route_deletion_confirmation(route: Route) -> void:
+	"""Show confirmation dialog before deleting a route"""
+	var dialog = AcceptDialog.new()
+	dialog.title = "Cancel Route"
+	dialog.dialog_text = "Are you sure you want to cancel the route %s?\n\nThis will free up the assigned aircraft, but you will lose this route's revenue." % route.get_display_name()
+	dialog.ok_button_text = "Cancel Route"
+	dialog.cancel_button_text = "Keep Route"
+	
+	# Add to scene tree (add to root or find GameUI)
+	var root = get_tree().root
+	if root:
+		root.add_child(dialog)
+	
+	# Connect signals
+	dialog.confirmed.connect(func():
+		delete_route(route)
+		dialog.queue_free()
+	)
+	dialog.canceled.connect(func():
+		dialog.queue_free()
+	)
+	
+	# Show dialog
+	dialog.popup_centered()
+
+func delete_route(route: Route) -> void:
+	"""Delete a route from the player's airline"""
+	if not route or not GameData.player_airline:
+		return
+	
+	if route not in GameData.player_airline.routes:
+		print("Route not found in airline routes")
+		return
+	
+	# Remove route from airline
+	GameData.player_airline.remove_route(route)
+	
+	# Emit network change signal for profitability recalculation
+	GameData.route_removed.emit(route, GameData.player_airline)
+	GameData.route_network_changed.emit(GameData.player_airline)
+	
+	# Refresh map display
+	refresh_routes()
+	
+	print("Route deleted: %s" % route.get_display_name())

@@ -19,6 +19,10 @@ var route_opportunity_dialog: RouteOpportunityDialog = null
 var hub_purchase_dialog: HubPurchaseDialog = null
 var aircraft_purchase_dialog: AircraftPurchaseDialog = null
 
+# First route suggestion tracking
+var first_route_suggestion_shown: bool = false
+var first_route_celebration_shown: bool = false
+
 # Tutorial system
 var tutorial_overlay_layer: CanvasLayer = null
 var tutorial_panel: Panel = null
@@ -58,6 +62,10 @@ func _ready() -> void:
 
 	# Initial UI update
 	update_all()
+	
+	# Check for first route suggestion after a short delay
+	await get_tree().create_timer(1.0).timeout
+	check_first_route_suggestion()
 
 	print("GameUI: _ready() complete!")
 
@@ -283,13 +291,16 @@ func create_dialogs() -> void:
 	print("Dialogs created")
 
 func connect_signals() -> void:
-	"""Connect game data signals"""
-	if GameData.player_airline:
-		GameData.player_airline.balance_changed.connect(_on_balance_changed)
-		GameData.player_airline.route_added.connect(_on_route_added)
+	"""Connect all game signals"""
+	# Connect GameData signals
+	if GameData:
+		GameData.first_route_created.connect(_on_first_route_created)
+		if GameData.player_airline:
+			GameData.player_airline.balance_changed.connect(_on_balance_changed)
+			GameData.player_airline.route_added.connect(_on_route_added)
 
-	GameData.aircraft_purchased.connect(_on_aircraft_purchased)
-	GameData.loan_created.connect(_on_loan_created)
+		GameData.aircraft_purchased.connect(_on_aircraft_purchased)
+		GameData.loan_created.connect(_on_loan_created)
 
 func _on_tab_changed(tab_name: String) -> void:
 	"""Handle tab navigation"""
@@ -592,7 +603,18 @@ func _on_route_added(route: Route) -> void:
 	update_all()
 
 func _on_aircraft_purchased(aircraft: AircraftInstance, airline: Airline) -> void:
+	"""Handle aircraft purchase - check for first route suggestion"""
+	# Update UI
 	update_all()
+	
+	# If this is player's first aircraft and they have a hub, suggest first route
+	if airline == GameData.player_airline and airline.aircraft.size() == 1:
+		if not airline.hubs.is_empty() and airline.routes.is_empty():
+			# Wait a moment for UI to update, then suggest
+			await get_tree().create_timer(0.5).timeout
+			# Re-check conditions after delay (player might have created route)
+			if airline.routes.is_empty() and not airline.aircraft.is_empty():
+				check_first_route_suggestion()
 
 func _on_loan_created(loan: Loan, airline: Airline) -> void:
 	update_all()
@@ -611,6 +633,165 @@ func format_money(amount: float) -> String:
 		return "%s%.2fK" % [sign, abs_amount / 1000.0]
 	else:
 		return "%s%.0f" % [sign, abs_amount]
+
+# First Route Suggestion & Celebration
+
+func check_first_route_suggestion() -> void:
+	"""Check if player has aircraft and hub but no routes, then suggest first route"""
+	if not GameData.player_airline:
+		return
+	
+	# Prevent showing multiple suggestion dialogs
+	if first_route_suggestion_shown:
+		return
+	
+	# Only suggest if player has aircraft and hub but no routes
+	if GameData.player_airline.aircraft.is_empty():
+		return  # No aircraft yet
+	
+	if GameData.player_airline.hubs.is_empty():
+		return  # No hub yet
+	
+	if GameData.player_airline.routes.size() > 0:
+		return  # Already has routes
+	
+	# Find best first route opportunity
+	var hub: Airport = GameData.player_airline.hubs[0]
+	var opportunities: Array[Dictionary] = GameData.find_route_opportunities(hub, 3)
+	
+	if opportunities.is_empty():
+		return
+	
+	# Get the best opportunity
+	var best_opp: Dictionary = opportunities[0]
+	var destination: Airport = best_opp.get("to_airport", null)
+	if not destination:
+		return  # Invalid opportunity data
+	
+	# Check if any aircraft can fly this route
+	var distance: float = best_opp.get("distance_km", 0.0)
+	if distance <= 0:
+		return  # Invalid distance
+	
+	var can_fly: bool = false
+	var compatible_aircraft: AircraftInstance = null
+	for aircraft in GameData.player_airline.aircraft:
+		if aircraft.model.can_fly_distance(distance) and not aircraft.is_assigned:
+			can_fly = true
+			compatible_aircraft = aircraft
+			break
+	
+	if not can_fly:
+		return  # No compatible aircraft
+	
+	# Mark as shown and display suggestion dialog
+	first_route_suggestion_shown = true
+	show_first_route_suggestion(hub, destination, best_opp, compatible_aircraft)
+
+func show_first_route_suggestion(from: Airport, to: Airport, opportunity: Dictionary, aircraft: AircraftInstance) -> void:
+	"""Show a dialog suggesting the player's first route"""
+	var dialog = AcceptDialog.new()
+	dialog.title = "Recommended First Route"
+	
+	var score: float = opportunity.get("profitability_score", 0)
+	var demand: float = opportunity.get("demand", 0)
+	var distance: float = opportunity.get("distance_km", 0)
+	
+	# Get estimated revenue (rough calculation)
+	var pricing: Dictionary = GameData.get_recommended_pricing_for_route(from, to)
+	if pricing.is_empty():
+		pricing = {"economy": 100.0, "business": 250.0, "first": 500.0}  # Fallback pricing
+	var estimated_weekly_revenue: float = demand * 0.7 * (pricing.get("economy", 100.0) * 0.7 + pricing.get("business", 250.0) * 0.25 + pricing.get("first", 500.0) * 0.05)
+	
+	# Use plain text (AcceptDialog doesn't support BBCode)
+	var message: String = "Ready to launch your first route?\n\n"
+	message += "%s → %s\n" % [from.iata_code, to.iata_code]
+	message += "Distance: %.0f km\n\n" % distance
+	message += "• Profitability Score: %.0f/100\n" % score
+	message += "• Weekly Demand: %.0f passengers\n" % demand
+	message += "• Estimated Revenue: $%s/week\n\n" % format_money(estimated_weekly_revenue)
+	message += "This route is perfect for your %s!\n" % aircraft.model.get_display_name()
+	message += "\nWould you like to create this route now?"
+	
+	dialog.dialog_text = message
+	dialog.ok_button_text = "Create Route"
+	dialog.cancel_button_text = "I'll choose myself"
+	
+	# Add to scene tree (use get_tree().root or add as child of this node)
+	add_child(dialog)
+	
+	# Connect signals
+	dialog.confirmed.connect(func():
+		create_suggested_first_route(from, to, aircraft, pricing)
+		dialog.queue_free()
+	)
+	dialog.canceled.connect(func():
+		dialog.queue_free()
+	)
+	
+	# Show dialog
+	dialog.popup_centered()
+
+func create_suggested_first_route(from: Airport, to: Airport, aircraft: AircraftInstance, pricing: Dictionary) -> void:
+	"""Create the suggested first route with optimal settings"""
+	var route: Route = GameData.create_route_for_airline(GameData.player_airline, from, to, aircraft)
+	if route:
+		# Set optimal frequency (daily for first route)
+		route.frequency = 7
+		print("Created suggested first route: %s" % route.get_display_name())
+
+func _on_first_route_created(route: Route, airline: Airline) -> void:
+	"""Celebrate when player creates their first route"""
+	if airline != GameData.player_airline:
+		return
+	
+	# Prevent showing multiple celebration dialogs
+	if first_route_celebration_shown:
+		return
+	
+	first_route_celebration_shown = true
+	show_first_flight_celebration(route)
+
+func show_first_flight_celebration(route: Route) -> void:
+	"""Show celebration popup for first route"""
+	var dialog = AcceptDialog.new()
+	dialog.title = "🎉 First Flight!"
+	
+	# Calculate estimated weekly revenue
+	var demand: float = MarketAnalysis.calculate_potential_demand(
+		route.from_airport,
+		route.to_airport,
+		route.distance_km
+	)
+	var estimated_revenue: float = demand * 0.7 * (
+		route.price_economy * 0.7 + 
+		route.price_business * 0.25 + 
+		route.price_first * 0.05
+	)
+	
+	# Use plain text (AcceptDialog doesn't support BBCode)
+	var message: String = "Congratulations!\n\n"
+	message += "Your airline is now operational!\n\n"
+	message += "%s → %s\n" % [route.from_airport.iata_code, route.to_airport.iata_code]
+	message += "Distance: %.0f km\n" % route.distance_km
+	message += "Frequency: %d flights/week\n\n" % route.frequency
+	message += "Estimated Weekly Revenue: $%s\n\n" % format_money(estimated_revenue)
+	message += "Start the simulation to see your first passengers fly!\n"
+	message += "Your route will generate revenue each week."
+	
+	dialog.dialog_text = message
+	dialog.ok_button_text = "Let's Fly!"
+	
+	# Add to scene tree (use get_tree().root or add as child of this node)
+	add_child(dialog)
+	
+	# Connect signal
+	dialog.confirmed.connect(func():
+		dialog.queue_free()
+	)
+	
+	# Show dialog
+	dialog.popup_centered()
 
 # Tutorial System
 

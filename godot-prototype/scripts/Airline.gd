@@ -33,6 +33,7 @@ var weekly_loan_payment: float = 0.0
 
 signal balance_changed(new_balance: float)
 signal route_added(route: Route)
+signal route_removed(route: Route)
 signal aircraft_purchased(aircraft: AircraftInstance)
 signal loan_taken(loan: Loan)
 signal loan_paid_off(loan: Loan)
@@ -88,6 +89,17 @@ func deduct_balance(amount: float) -> bool:
 func add_route(route: Route) -> void:
 	routes.append(route)
 	route_added.emit(route)
+
+func remove_route(route: Route) -> void:
+	"""Remove a route from the airline"""
+	if route in routes:
+		# Unassign aircraft from this route
+		for aircraft in route.assigned_aircraft:
+			aircraft.is_assigned = false
+			aircraft.assigned_route_id = 0
+		
+		routes.erase(route)
+		route_removed.emit(route)
 
 func calculate_weekly_profit() -> float:
 	return weekly_revenue - weekly_expenses

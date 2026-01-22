@@ -33,6 +33,9 @@ signal aircraft_purchased(aircraft: AircraftInstance, airline: Airline)
 signal loan_created(loan: Loan, airline: Airline)
 signal ai_decision_made(airline: Airline, decision_type: String)
 signal route_created(route: Route, airline: Airline)
+signal first_route_created(route: Route, airline: Airline)  # Special signal for first route
+signal route_removed(route: Route, airline: Airline)  # Signal when route is removed
+signal route_network_changed(airline: Airline)  # Signal when route network changes (for profitability recalculation)
 
 func _ready() -> void:
 	# Create tutorial and objective systems first
@@ -54,6 +57,10 @@ func initialize_game_data() -> void:
 	create_aircraft_models()
 	create_player_airline()
 	create_ai_airlines()
+	
+	# Auto-assign initial hub if one was selected in menu
+	auto_assign_initial_hub()
+	
 	game_initialized.emit()
 
 	# Start tutorial for first-time players
@@ -61,6 +68,25 @@ func initialize_game_data() -> void:
 		print("\nStarting tutorial in 2 seconds...")
 		await get_tree().create_timer(2.0).timeout
 		tutorial_manager.start_tutorial()
+
+func auto_assign_initial_hub() -> void:
+	"""Auto-assign the hub if one was selected in the main menu"""
+	if not player_airline:
+		return
+	
+	var hub_code: String = player_airline.get_meta("initial_hub_code", "")
+	if hub_code.length() == 0:
+		return  # No hub selected
+	
+	var hub_airport: Airport = get_airport_by_iata(hub_code)
+	if hub_airport:
+		# First hub is free, so just add it
+		player_airline.add_hub(hub_airport)
+		print("Auto-assigned initial hub: %s (%s)" % [hub_airport.iata_code, hub_airport.city])
+		# Remove the meta since we've used it
+		player_airline.remove_meta("initial_hub_code")
+	else:
+		print("Warning: Could not find airport with code: %s" % hub_code)
 
 func _on_tutorial_completed() -> void:
 	"""Called when tutorial is finished"""
@@ -363,11 +389,11 @@ func create_loan(airline: Airline, amount: float, term_weeks: int) -> Loan:
 
 func find_route_opportunities(from_airport: Airport, top_n: int = 10) -> Array[Dictionary]:
 	"""Find best route opportunities from a given airport"""
-	return MarketAnalysis.find_best_opportunities(from_airport, airports, airlines, top_n)
+	return MarketAnalysis.find_best_opportunities(from_airport, airports, airlines, player_airline, top_n)
 
 func analyze_route(from: Airport, to: Airport) -> Dictionary:
 	"""Analyze a specific route for demand, supply, and opportunity"""
-	return MarketAnalysis.analyze_route_opportunity(from, to, airlines)
+	return MarketAnalysis.analyze_route_opportunity(from, to, airlines, player_airline)
 
 func get_recommended_pricing_for_route(from: Airport, to: Airport) -> Dictionary:
 	"""Get AI-recommended pricing for a route"""
@@ -406,8 +432,14 @@ func create_route_for_airline(airline: Airline, from: Airport, to: Airport, airc
 	# Add to airline
 	airline.add_route(route)
 
-	# Emit signal
+	# Check if this is the player's first route
+	var is_first_route: bool = (airline == player_airline and airline.routes.size() == 1)
+
+	# Emit signals
 	route_created.emit(route, airline)
+	route_network_changed.emit(airline)  # Notify that network changed (for profitability recalculation)
+	if is_first_route:
+		first_route_created.emit(route, airline)
 
 	# Notify tutorial if player route
 	if airline == player_airline and tutorial_manager:
