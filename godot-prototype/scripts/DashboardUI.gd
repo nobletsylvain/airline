@@ -264,6 +264,8 @@ func create_sidebar_nav(parent: VBoxContainer) -> void:
 		{"id": "routes", "label": "Route Map", "icon": "🗺"},
 		{"id": "finances", "label": "Finances", "icon": UITheme.ICON_MONEY},
 		{"id": "market", "label": "Market", "icon": UITheme.ICON_ARROW_UP_RIGHT},
+		{"id": "delegates", "label": "Delegates", "icon": "👥"},
+		{"id": "diplomacy", "label": "Diplomacy", "icon": "🌍"},
 	]
 
 	for item in nav_items:

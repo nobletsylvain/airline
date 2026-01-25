@@ -126,6 +126,7 @@ func simulate_week() -> void:
 
 	# Process AI decisions
 	process_ai_decisions()
+	process_delegate_tasks()
 
 	# Update objectives after simulation
 	if GameData.objective_system:
@@ -349,6 +350,11 @@ func process_ai_decisions() -> void:
 	"""Process AI decision-making for all AI airlines"""
 	for ai_controller in GameData.ai_controllers:
 		ai_controller.make_decisions(GameData.current_week)
+
+func process_delegate_tasks() -> void:
+	"""Process delegate tasks for all airlines"""
+	for airline in GameData.airlines:
+		airline.process_delegate_tasks()
 
 func get_competing_routes(route: Route) -> Array[Dictionary]:
 	"""Find all routes operating between the same airports (including this one)"""

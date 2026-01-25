@@ -46,10 +46,12 @@ static func unregister_theme_callback(callback: Callable) -> void:
 # COLOR PALETTE - Base Colors (unchanged by theme)
 # ============================================================================
 
-# Primary Brand Colors
+# Primary Brand Colors (Figma-inspired)
 const PRIMARY_BLUE = Color("#3b82f6")        # Blue-500 - Primary accent
 const PRIMARY_BLUE_DARK = Color("#2563eb")   # Blue-600 - Hover states
 const PRIMARY_BLUE_LIGHT = Color("#60a5fa")  # Blue-400 - Light accent
+const BLUE_GRADIENT_START = Color("#3b82f6") # For gradient effects
+const BLUE_GRADIENT_END = Color("#2563eb")   # For gradient effects
 
 # Profit/Loss Colors (Tailwind emerald/red)
 const PROFIT_COLOR = Color("#10b981")        # Emerald-500 - Positive values
@@ -79,9 +81,11 @@ const GRADE_B_COLOR = Color("#3b82f6")       # Blue-500 - B rank
 const GRADE_C_COLOR = Color("#10b981")       # Emerald-500 - C rank
 const GRADE_NEW_COLOR = Color("#94a3b8")     # Slate-400 - New
 
-# Sidebar Colors (Always dark)
+# Sidebar Colors (Always dark - Figma gradient style)
 const SIDEBAR_BG = Color("#0f172a")          # Slate-900 - Sidebar background
+const SIDEBAR_BG_GRADIENT_END = Color("#1e293b") # Slate-800 - Gradient end
 const SIDEBAR_ACTIVE = Color("#3b82f6")      # Blue-500 - Active nav item
+const SIDEBAR_ACTIVE_GRADIENT = Color("#2563eb") # Blue-600 - Active gradient
 const SIDEBAR_HOVER = Color("#1e293b")       # Slate-800 - Hover state
 const SIDEBAR_TEXT = Color("#94a3b8")        # Slate-400 - Inactive text
 const SIDEBAR_TEXT_ACTIVE = Color("#ffffff") # White - Active text
@@ -258,28 +262,30 @@ static func get_condition_color(condition: float) -> Color:
 # ============================================================================
 
 static func create_panel_style() -> StyleBoxFlat:
-	"""Create standard panel style based on current theme"""
+	"""Create standard panel style - Figma-inspired with enhanced shadows"""
 	var style = StyleBoxFlat.new()
 	style.bg_color = get_panel_bg()
 	style.border_color = get_panel_border()
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(PANEL_BORDER_RADIUS)
+	style.set_corner_radius_all(16)  # More rounded like Figma
 	style.set_content_margin_all(PANEL_PADDING)
 	style.shadow_color = Color(0, 0, 0, 0.1 if is_dark_mode() else 0.05)
 	style.shadow_size = 4
+	style.shadow_offset = Vector2(0, 2)  # Subtle offset for depth
 	return style
 
 static func create_card_style(selected: bool = false, profit: float = 0.0) -> StyleBoxFlat:
-	"""Create card style with optional selection and profit border"""
+	"""Create card style - Figma-inspired with enhanced shadows and rounded corners"""
 	var style = StyleBoxFlat.new()
 	if selected:
 		style.bg_color = CARD_SELECTED_BG if not is_dark_mode() else Color("#1e3a5f")
 	else:
 		style.bg_color = get_card_bg()
-	style.set_corner_radius_all(CARD_BORDER_RADIUS)
+	style.set_corner_radius_all(12)  # More rounded like Figma (was 16)
 	style.set_content_margin_all(CARD_PADDING)
 	style.shadow_color = Color(0, 0, 0, 0.1 if is_dark_mode() else 0.05)
 	style.shadow_size = 2
+	style.shadow_offset = Vector2(0, 1)  # Subtle offset
 
 	if profit != 0:
 		style.border_color = get_profit_color(profit)
@@ -390,20 +396,26 @@ static func create_button_hover_style() -> StyleBoxFlat:
 	return style
 
 static func create_primary_button_style() -> StyleBoxFlat:
+	"""Create primary button style - Figma-inspired with enhanced shadow"""
 	var style = StyleBoxFlat.new()
 	style.bg_color = PRIMARY_BLUE
-	style.set_corner_radius_all(BUTTON_BORDER_RADIUS)
+	style.set_corner_radius_all(10)  # More rounded like Figma
 	style.set_content_margin_all(12)
-	style.shadow_color = Color(0.231, 0.510, 0.965, 0.3)
+	style.shadow_color = Color(0.231, 0.510, 0.965, 0.3)  # Blue shadow
 	style.shadow_size = 8
+	style.shadow_offset = Vector2(0, 4)  # Offset shadow
 	return style
 
 static func create_secondary_button_style() -> StyleBoxFlat:
+	"""Create secondary button style - Figma-inspired outlined style"""
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0, 0, 0, 0)
-	style.border_color = Color(1, 1, 1, 0.2) if is_dark_mode() else Color(0, 0, 0, 0.1)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(BUTTON_BORDER_RADIUS)
+	style.bg_color = Color(0, 0, 0, 0)  # Transparent
+	if is_dark_mode():
+		style.border_color = Color(1, 1, 1, 0.2)
+	else:
+		style.border_color = Color(0.231, 0.510, 0.965, 1.0)  # Blue border like Figma
+	style.set_border_width_all(1.5)  # Slightly thicker
+	style.set_corner_radius_all(10)  # More rounded
 	style.set_content_margin_all(12)
 	return style
 

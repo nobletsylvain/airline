@@ -12,12 +12,16 @@ var fleet_panel: Control = null
 var routes_panel: Control = null
 var finances_panel: Control = null
 var market_panel: Control = null
+var delegates_panel: Control = null
+var country_relations_panel: Control = null
 
 # Dialog references
 var route_config_dialog: RouteConfigDialog = null
 var route_opportunity_dialog: RouteOpportunityDialog = null
 var hub_purchase_dialog: HubPurchaseDialog = null
 var aircraft_purchase_dialog: AircraftPurchaseDialog = null
+var delegate_assignment_dialog: DelegateAssignmentDialog = null
+var loan_dialog: LoanDialog = null
 
 # First route suggestion tracking
 var first_route_suggestion_shown: bool = false
@@ -146,6 +150,16 @@ func create_content_panels(parent: Control) -> void:
 	market_panel.visible = false
 	parent.add_child(market_panel)
 
+	# Delegates Panel
+	delegates_panel = create_delegates_panel()
+	delegates_panel.visible = false
+	parent.add_child(delegates_panel)
+
+	# Country Relations Panel
+	country_relations_panel = create_country_relations_panel()
+	country_relations_panel.visible = false
+	parent.add_child(country_relations_panel)
+
 func create_fleet_panel() -> Control:
 	"""Create fleet management panel using FleetManagementPanel"""
 	var panel = FleetManagementPanel.new()
@@ -195,74 +209,48 @@ func create_routes_panel() -> Control:
 	return panel
 
 func create_finances_panel() -> Control:
-	"""Create finances panel"""
-	var panel = PanelContainer.new()
+	"""Create finances panel using FinancesPanel"""
+	var panel = FinancesPanel.new()
 	panel.name = "FinancesPanel"
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-
-	var style = UITheme.create_panel_style()
-	style.bg_color = UITheme.BG_MAIN
-	panel.add_theme_stylebox_override("panel", style)
-
-	var margin = MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 24)
-	margin.add_theme_constant_override("margin_right", 24)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_bottom", 24)
-	panel.add_child(margin)
-
-	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 16)
-	margin.add_child(vbox)
-
-	var title = Label.new()
-	title.text = "Financial Overview"
-	title.add_theme_font_size_override("font_size", 24)
-	title.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
-	vbox.add_child(title)
-
-	var content = Label.new()
-	content.name = "FinancesContent"
-	content.text = "Financial data will be displayed here."
-	content.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
-	vbox.add_child(content)
-
+	
+	# Connect signals
+	panel.loan_requested.connect(_on_loan_requested)
+	panel.loan_payoff_requested.connect(_on_loan_payoff_requested)
+	
 	return panel
 
 func create_market_panel() -> Control:
-	"""Create market panel"""
-	var panel = PanelContainer.new()
+	"""Create market panel using MarketPanel"""
+	var panel = MarketPanel.new()
 	panel.name = "MarketPanel"
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	
+	# Connect signals
+	panel.route_opportunity_selected.connect(_on_market_opportunity_selected)
+	
+	return panel
 
-	var style = UITheme.create_panel_style()
-	style.bg_color = UITheme.BG_MAIN
-	panel.add_theme_stylebox_override("panel", style)
+func create_delegates_panel() -> Control:
+	"""Create delegates management panel"""
+	var panel = DelegatesPanel.new()
+	panel.name = "DelegatesPanel"
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
-	var margin = MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 24)
-	margin.add_theme_constant_override("margin_right", 24)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_bottom", 24)
-	panel.add_child(margin)
+	# Connect signals
+	panel.delegate_assignment_requested.connect(_on_delegate_assignment_requested)
+	panel.task_cancelled.connect(_on_task_cancelled)
 
-	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 16)
-	margin.add_child(vbox)
+	return panel
 
-	var title = Label.new()
-	title.text = "Market & Competitors"
-	title.add_theme_font_size_override("font_size", 24)
-	title.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
-	vbox.add_child(title)
+func create_country_relations_panel() -> Control:
+	"""Create country relations panel"""
+	var panel = CountryRelationsPanel.new()
+	panel.name = "CountryRelationsPanel"
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
-	var content = Label.new()
-	content.name = "MarketContent"
-	content.text = "Market data and competitors will be displayed here."
-	content.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
-	vbox.add_child(content)
+	# Connect signals
+	panel.relationship_details_requested.connect(_on_relationship_details_requested)
 
 	return panel
 
@@ -287,6 +275,16 @@ func create_dialogs() -> void:
 	aircraft_purchase_dialog = AircraftPurchaseDialog.new()
 	add_child(aircraft_purchase_dialog)
 	aircraft_purchase_dialog.aircraft_purchased.connect(_on_aircraft_dialog_purchased)
+
+	# Delegate assignment dialog
+	delegate_assignment_dialog = DelegateAssignmentDialog.new()
+	add_child(delegate_assignment_dialog)
+	delegate_assignment_dialog.delegate_assigned.connect(_on_delegate_assigned)
+
+	# Loan dialog
+	loan_dialog = LoanDialog.new()
+	add_child(loan_dialog)
+	loan_dialog.loan_created.connect(_on_loan_dialog_created)
 
 	print("Dialogs created")
 
@@ -317,6 +315,10 @@ func _on_tab_changed(tab_name: String) -> void:
 		finances_panel.visible = false
 	if market_panel:
 		market_panel.visible = false
+	if delegates_panel:
+		delegates_panel.visible = false
+	if country_relations_panel:
+		country_relations_panel.visible = false
 
 	# Show selected panel
 	match tab_name:
@@ -339,6 +341,16 @@ func _on_tab_changed(tab_name: String) -> void:
 			if market_panel:
 				market_panel.visible = true
 				update_market_panel()
+		"delegates":
+			if delegates_panel:
+				delegates_panel.visible = true
+				if delegates_panel.has_method("update_delegates_info"):
+					delegates_panel.update_delegates_info()
+		"diplomacy", "relations":
+			if country_relations_panel:
+				country_relations_panel.visible = true
+				if country_relations_panel.has_method("load_countries"):
+					country_relations_panel.load_countries()
 
 func update_all() -> void:
 	"""Update all UI elements"""
@@ -382,57 +394,18 @@ func update_finances_panel() -> void:
 	if not finances_panel or not GameData.player_airline:
 		return
 
-	var content = finances_panel.get_node_or_null("MarginContainer/VBoxContainer/FinancesContent")
-	if content and content is Label:
-		var airline = GameData.player_airline
-		var profit = airline.calculate_weekly_profit()
-		var profit_sign = "+" if profit >= 0 else ""
-
-		content.text = """Balance: $%s
-
-Weekly Summary:
-  Revenue: $%s
-  Expenses: $%s
-  Profit: %s$%s
-
-Loans:
-  Total Debt: $%s
-  Weekly Payments: $%s
-  Credit Limit: $%s
-
-Grade: %s
-Reputation: %.1f""" % [
-			format_money(airline.balance),
-			format_money(airline.weekly_revenue),
-			format_money(airline.weekly_expenses),
-			profit_sign,
-			format_money(profit),
-			format_money(airline.total_debt),
-			format_money(airline.weekly_loan_payment),
-			format_money(airline.get_credit_limit()),
-			airline.get_grade(),
-			airline.reputation
-		]
+	# FinancesPanel has its own refresh method
+	if finances_panel is FinancesPanel:
+		finances_panel.refresh()
 
 func update_market_panel() -> void:
 	"""Update market panel content"""
 	if not market_panel:
 		return
 
-	var content = market_panel.get_node_or_null("MarginContainer/VBoxContainer/MarketContent")
-	if content and content is Label:
-		var text = "Competitor Airlines:\n\n"
-		for airline in GameData.airlines:
-			if airline.id == GameData.player_airline.id:
-				continue
-			text += "%s (%s)\n  Grade: %s | Fleet: %d | Routes: %d\n\n" % [
-				airline.name,
-				airline.airline_code,
-				airline.get_grade(),
-				airline.aircraft.size(),
-				airline.routes.size()
-			]
-		content.text = text
+	# MarketPanel has its own refresh method
+	if market_panel is MarketPanel:
+		market_panel.refresh()
 
 # Event Handlers
 
@@ -792,6 +765,181 @@ func show_first_flight_celebration(route: Route) -> void:
 	
 	# Show dialog
 	dialog.popup_centered()
+
+# Delegate System Handlers
+
+func _on_delegate_assignment_requested(task_type: String, target: Dictionary) -> void:
+	"""Handle delegate assignment request"""
+	if delegate_assignment_dialog:
+		delegate_assignment_dialog.show_for_task_type(task_type, target)
+
+func _on_delegate_assigned(task_type: String, target_data: Dictionary) -> void:
+	"""Handle delegate assignment confirmation"""
+	if not GameData.player_airline:
+		return
+	
+	# Get available delegate
+	var available_delegates = GameData.player_airline.get_available_delegates()
+	if available_delegates.is_empty():
+		print("No available delegates")
+		return
+	
+	var delegate = available_delegates[0]  # Use first available
+	
+	# Create task based on type
+	var task: DelegateTask = null
+	match task_type:
+		"country":
+			var country_code = target_data.get("code", "")
+			if country_code.is_empty():
+				return
+			task = DelegateTask.new(
+				GameData.next_delegate_task_id,
+				GameData.player_airline.id,
+				DelegateTask.TaskType.COUNTRY_RELATIONSHIP,
+				4,  # 4 weeks duration
+				GameData.current_week
+			)
+			task.target_country_code = country_code
+			task.relationship_bonus = delegate.get_effectiveness() * 5.0  # 3-5 points
+		
+		"negotiation":
+			var from_airport = target_data.get("from_airport", null)
+			var to_airport = target_data.get("to_airport", null)
+			if not from_airport or not to_airport:
+				return
+			task = DelegateTask.new(
+				GameData.next_delegate_task_id,
+				GameData.player_airline.id,
+				DelegateTask.TaskType.ROUTE_NEGOTIATION,
+				2,  # 2 weeks for negotiation
+				GameData.current_week
+			)
+			task.target_route_from = from_airport.iata_code
+			task.target_route_to = to_airport.iata_code
+			task.difficulty_reduction = delegate.get_effectiveness() * 20.0  # 12-20 point reduction
+		
+		"campaign":
+			var location = target_data.get("location", "")
+			var cost = target_data.get("cost", 0.0)
+			if location.is_empty():
+				return
+			task = DelegateTask.new(
+				GameData.next_delegate_task_id,
+				GameData.player_airline.id,
+				DelegateTask.TaskType.CAMPAIGN,
+				4,  # 4 weeks
+				GameData.current_week
+			)
+			task.campaign_location = location
+			task.campaign_cost = cost
+			task.reputation_bonus = delegate.get_effectiveness() * 2.0  # 1.2-2.0 reputation
+	
+	if task:
+		GameData.next_delegate_task_id += 1
+		
+		# Assign delegate to task
+		if GameData.player_airline.assign_delegate_to_task(delegate, task):
+			# Deduct campaign cost if applicable
+			if task.task_type == DelegateTask.TaskType.CAMPAIGN:
+				GameData.player_airline.deduct_balance(task.campaign_cost)
+			
+			print("Delegate assigned: %s to %s" % [delegate.name, task.get_task_type_string()])
+			
+			# Update delegates panel
+			if delegates_panel and delegates_panel.has_method("update_delegates_info"):
+				delegates_panel.update_delegates_info()
+
+func _on_task_cancelled(task_id: int) -> void:
+	"""Handle task cancellation"""
+	if not GameData.player_airline:
+		return
+	
+	# Find task by ID
+	var task: DelegateTask = null
+	for t in GameData.player_airline.delegate_tasks:
+		if t.id == task_id:
+			task = t
+			break
+	
+	if task:
+		if GameData.player_airline.cancel_delegate_task(task):
+			print("Task cancelled: %d" % task_id)
+			
+			# Update delegates panel
+			if delegates_panel and delegates_panel.has_method("update_delegates_info"):
+				delegates_panel.update_delegates_info()
+
+func _on_relationship_details_requested(country_code: String) -> void:
+	"""Handle relationship details request"""
+	print("Relationship details requested for: %s" % country_code)
+	# TODO: Show detailed relationship dialog
+	# For now, just print
+
+# Finance Panel Handlers
+
+func _on_loan_requested() -> void:
+	"""Handle loan request from finances panel"""
+	if loan_dialog and GameData.player_airline:
+		loan_dialog.show_for_airline(GameData.player_airline)
+
+func _on_loan_payoff_requested(loan: Loan) -> void:
+	"""Handle loan payoff request"""
+	if not GameData.player_airline:
+		return
+	
+	var payoff_amount = loan.remaining_balance
+	if GameData.player_airline.balance >= payoff_amount:
+		# Confirm payoff
+		var confirm_dialog = ConfirmationDialog.new()
+		confirm_dialog.title = "Pay Off Loan"
+		confirm_dialog.dialog_text = "Pay off this loan for %s?" % UITheme.format_money(payoff_amount)
+		confirm_dialog.ok_button_text = "Pay Off"
+		confirm_dialog.cancel_button_text = "Cancel"
+		get_tree().root.add_child(confirm_dialog)
+		confirm_dialog.confirmed.connect(func():
+			GameData.player_airline.deduct_balance(payoff_amount)
+			loan.pay_off_early()
+			GameData.player_airline.update_debt_totals()
+			print("Loan paid off: $%.0f" % payoff_amount)
+			
+			# Refresh finances panel
+			if finances_panel is FinancesPanel:
+				finances_panel.refresh()
+			
+			confirm_dialog.queue_free()
+		)
+		confirm_dialog.canceled.connect(func(): confirm_dialog.queue_free())
+		confirm_dialog.popup_centered()
+	else:
+		# Show error
+		var error_dialog = AcceptDialog.new()
+		error_dialog.title = "Insufficient Funds"
+		error_dialog.dialog_text = "You need %s to pay off this loan, but only have %s" % [
+			UITheme.format_money(payoff_amount),
+			UITheme.format_money(GameData.player_airline.balance)
+		]
+		get_tree().root.add_child(error_dialog)
+		error_dialog.popup_centered()
+		error_dialog.confirmed.connect(func(): error_dialog.queue_free())
+
+func _on_loan_dialog_created(loan: Loan) -> void:
+	"""Handle loan creation from loan dialog"""
+	print("Loan created: $%.0f" % loan.principal)
+	
+	# Refresh finances panel
+	if finances_panel is FinancesPanel:
+		finances_panel.refresh()
+
+# Market Panel Handlers
+
+func _on_market_opportunity_selected(opportunity: Dictionary) -> void:
+	"""Handle market opportunity selection"""
+	var from_airport = opportunity.get("from_airport", null)
+	var to_airport = opportunity.get("to_airport", null)
+	
+	if from_airport and to_airport and route_opportunity_dialog:
+		route_opportunity_dialog.show_for_route(from_airport, to_airport)
 
 # Tutorial System
 

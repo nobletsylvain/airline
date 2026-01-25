@@ -22,6 +22,8 @@ var hubs: Array[Airport] = []  # Airports where airline has hub access (can orig
 var routes: Array[Route] = []
 var aircraft: Array[AircraftInstance] = []
 var loans: Array[Loan] = []
+var delegates: Array[Delegate] = []  # Available delegates
+var delegate_tasks: Array[DelegateTask] = []  # Active delegate tasks
 
 # Financial tracking
 var total_revenue: float = 0.0
@@ -230,3 +232,115 @@ func get_hub_names() -> String:
 	for hub in hubs:
 		names.append(hub.iata_code)
 	return ", ".join(names)
+
+## Delegate Management
+
+func get_available_delegates() -> Array[Delegate]:
+	"""Get list of available (unassigned) delegates"""
+	var available: Array[Delegate] = []
+	for delegate in delegates:
+		if delegate.is_available:
+			available.append(delegate)
+	return available
+
+func get_busy_delegates() -> Array[Delegate]:
+	"""Get list of busy (assigned) delegates"""
+	var busy: Array[Delegate] = []
+	for delegate in delegates:
+		if not delegate.is_available:
+			busy.append(delegate)
+	return busy
+
+func get_total_delegates() -> int:
+	"""Get total number of delegates"""
+	return delegates.size()
+
+func get_available_delegate_count() -> int:
+	"""Get count of available delegates"""
+	return get_available_delegates().size()
+
+func add_delegate(delegate: Delegate) -> void:
+	"""Add a delegate to the airline"""
+	if delegate not in delegates:
+		delegates.append(delegate)
+
+func assign_delegate_to_task(delegate: Delegate, task: DelegateTask) -> bool:
+	"""Assign a delegate to a task"""
+	if delegate.airline_id != id:
+		return false
+	
+	if not delegate.assign_task(task):
+		return false
+	
+	if task not in delegate_tasks:
+		delegate_tasks.append(task)
+	
+	return true
+
+func cancel_delegate_task(task: DelegateTask) -> bool:
+	"""Cancel a delegate task"""
+	if task not in delegate_tasks:
+		return false
+	
+	# Find delegate assigned to this task
+	for delegate in delegates:
+		if delegate.current_task == task:
+			delegate.cancel_task()
+			break
+	
+	delegate_tasks.erase(task)
+	return true
+
+func process_delegate_tasks() -> void:
+	"""Process all delegate tasks for the week"""
+	for task in delegate_tasks:
+		if task.is_completed():
+			# Complete the task
+			_complete_delegate_task(task)
+		else:
+			# Advance progress
+			task.advance_week()
+
+func _complete_delegate_task(task: DelegateTask) -> void:
+	"""Complete a delegate task and apply effects"""
+	# Find delegate
+	for delegate in delegates:
+		if delegate.current_task == task:
+			delegate.complete_task()
+			break
+	
+	# Apply task effects
+	match task.task_type:
+		DelegateTask.TaskType.COUNTRY_RELATIONSHIP:
+			# Improve country relationship
+			GameData.improve_country_relationship(id, task.target_country_code, task.relationship_bonus)
+		DelegateTask.TaskType.ROUTE_NEGOTIATION:
+			# Route negotiation discount is applied when creating route
+			pass
+		DelegateTask.TaskType.CAMPAIGN:
+			# Boost reputation
+			reputation += task.reputation_bonus
+	
+	# Remove completed task
+	delegate_tasks.erase(task)
+
+func get_delegate_task_for_route(from_airport: Airport, to_airport: Airport) -> DelegateTask:
+	"""Get active negotiation task for a route, if any"""
+	for task in delegate_tasks:
+		if task.task_type == DelegateTask.TaskType.ROUTE_NEGOTIATION:
+			if task.target_route_from == from_airport.iata_code and task.target_route_to == to_airport.iata_code:
+				return task
+	return null
+
+func initialize_delegates(count: int = 3) -> void:
+	"""Initialize starting delegates for new airline"""
+	delegates.clear()
+	for i in range(count):
+		var delegate = Delegate.new(
+			GameData.next_delegate_id + i,
+			id,
+			"Delegate %d" % (i + 1),
+			1  # Starting level
+		)
+		delegates.append(delegate)
+	GameData.next_delegate_id += count

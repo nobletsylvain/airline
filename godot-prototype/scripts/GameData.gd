@@ -9,6 +9,8 @@ var current_cycle: int = 0
 var is_simulating: bool = false
 var next_aircraft_id: int = 1
 var next_loan_id: int = 1
+var next_delegate_id: int = 1
+var next_delegate_task_id: int = 1
 
 # Collections
 var airports: Array[Airport] = []
@@ -16,6 +18,8 @@ var airlines: Array[Airline] = []
 var aircraft_models: Array[AircraftModel] = []
 var player_airline: Airline = null
 var ai_controllers: Array[AIController] = []
+var countries: Array[Country] = []  # All countries in the game
+var country_relationships: Dictionary = {}  # {airline_id: {country_code: relationship_score}}
 
 # Tutorial & Progression
 var tutorial_manager: TutorialManager = null
@@ -55,11 +59,16 @@ func initialize_game_data() -> void:
 	"""Initialize sample airports and aircraft models"""
 	create_sample_airports()
 	create_aircraft_models()
+	create_countries()
 	create_player_airline()
 	create_ai_airlines()
 	
 	# Auto-assign initial hub if one was selected in menu
 	auto_assign_initial_hub()
+	
+	# Initialize delegates for player
+	if player_airline:
+		player_airline.initialize_delegates(3)  # Start with 3 delegates
 	
 	game_initialized.emit()
 
@@ -230,6 +239,227 @@ func create_aircraft_models() -> void:
 		)
 
 		aircraft_models.append(model)
+
+func create_countries() -> void:
+	"""Create countries from airport data"""
+	countries.clear()
+	country_relationships.clear()
+	
+	# Extract unique countries from airports
+	var country_codes: Dictionary = {}  # country_code -> country_data
+	
+	for airport in airports:
+		var country_code = airport.country
+		if country_code.is_empty():
+			continue
+		
+		# Normalize country code (use standardized code)
+		var normalized_code = _normalize_country_code(country_code)
+		
+		if not country_codes.has(normalized_code):
+			# Get region from first airport of this country
+			var country_name = _get_country_name(country_code)
+			var country = Country.new(normalized_code, country_name, airport.region)
+			
+			# Calculate average GDP and total population from airports
+			var total_gdp = 0.0
+			var total_pop = 0
+			var airport_count = 0
+			
+			for ap in airports:
+				var ap_code = _normalize_country_code(ap.country)
+				if ap_code == normalized_code:
+					total_gdp += ap.gdp_per_capita
+					total_pop += ap.annual_passengers * 1000  # Rough estimate
+					airport_count += 1
+			
+			if airport_count > 0:
+				country.gdp_per_capita = total_gdp / airport_count
+				country.population = total_pop
+			
+			countries.append(country)
+			country_codes[normalized_code] = country
+	
+	print("Created %d countries" % countries.size())
+
+func _normalize_country_code(code: String) -> String:
+	"""Normalize country code to standard format"""
+	# Map common variations to standard codes
+	var code_map = {
+		"USA": "US",
+		"United States": "US",
+		"UK": "GB",
+		"United Kingdom": "GB",
+		"UAE": "AE",
+		"United Arab Emirates": "AE",
+		"South Korea": "KR",
+		"Korea": "KR",
+		"Japan": "JP",
+		"France": "FR",
+		"Germany": "DE",
+		"Singapore": "SG",
+		"Australia": "AU",
+		"China": "CN",
+	}
+	
+	if code_map.has(code):
+		return code_map[code]
+	
+	# If already a 2-letter code, return as-is
+	if code.length() == 2:
+		return code.to_upper()
+	
+	# Otherwise try to find matching country by name (only if countries already exist)
+	if not countries.is_empty():
+		for country in countries:
+			if country.name == code:
+				return country.code
+	
+	# Return first 2 letters uppercase as fallback
+	return code.substr(0, 2).to_upper()
+
+func _get_country_name(code: String) -> String:
+	"""Get country name from code"""
+	var country_names = {
+		"USA": "United States",
+		"UK": "United Kingdom",
+		"UAE": "United Arab Emirates",
+		"Japan": "Japan",
+		"France": "France",
+		"Germany": "Germany",
+		"Singapore": "Singapore",
+		"South Korea": "South Korea",
+		"Australia": "Australia",
+		"China": "China",
+	}
+	# Check if code is already a name (some airports use full names)
+	if country_names.has(code):
+		return country_names[code]
+	# If not found, return code as-is (might already be a name)
+	return code
+
+func get_country_by_code(code: String) -> Country:
+	"""Get country by code"""
+	for country in countries:
+		if country.code == code:
+			return country
+	return null
+
+func get_country_relationship(airline_id: int, country_code: String) -> float:
+	"""Get relationship score between airline and country (-100 to +100)"""
+	# Normalize country code
+	var normalized_code = _normalize_country_code(country_code)
+	
+	if not country_relationships.has(airline_id):
+		country_relationships[airline_id] = {}
+	
+	var airline_relationships = country_relationships[airline_id]
+	if not airline_relationships.has(normalized_code):
+		# Initialize relationship based on home country
+		var airline = get_airline_by_id(airline_id)
+		if airline:
+			var home_country = airline.get_meta("home_country", "")
+			var normalized_home = _normalize_country_code(home_country)
+			if normalized_home == normalized_code:
+				airline_relationships[normalized_code] = 15.0  # Home country bonus
+			else:
+				airline_relationships[normalized_code] = 0.0  # Neutral
+		else:
+			airline_relationships[normalized_code] = 0.0
+	
+	return airline_relationships.get(normalized_code, 0.0)
+
+func improve_country_relationship(airline_id: int, country_code: String, amount: float) -> void:
+	"""Improve relationship with a country"""
+	var normalized_code = _normalize_country_code(country_code)
+	
+	if not country_relationships.has(airline_id):
+		country_relationships[airline_id] = {}
+	
+	var current = get_country_relationship(airline_id, normalized_code)
+	var new_relationship = clamp(current + amount, -100.0, 100.0)
+	country_relationships[airline_id][normalized_code] = new_relationship
+
+func get_airline_by_id(airline_id: int) -> Airline:
+	"""Get airline by ID"""
+	for airline in airlines:
+		if airline.id == airline_id:
+			return airline
+	return null
+
+func calculate_country_relationship(airline_id: int, country_code: String) -> float:
+	"""Calculate relationship score based on various factors"""
+	var normalized_code = _normalize_country_code(country_code)
+	var base_relationship = get_country_relationship(airline_id, normalized_code)
+	var airline = get_airline_by_id(airline_id)
+	if not airline:
+		return base_relationship
+	
+	# Home country bonus (already included in base, but check again)
+	var home_country = airline.get_meta("home_country", "")
+	var normalized_home = _normalize_country_code(home_country)
+	if normalized_home == normalized_code and base_relationship < 15.0:
+		base_relationship = 15.0  # Ensure home country gets bonus
+	
+	# Market share bonus (routes to this country)
+	var market_share_bonus = _calculate_market_share_bonus(airline, normalized_code)
+	base_relationship += market_share_bonus
+	
+	# Delegate level bonus
+	var delegate_bonus = _calculate_delegate_bonus(airline, normalized_code)
+	base_relationship += delegate_bonus
+	
+	return clamp(base_relationship, -100.0, 100.0)
+
+func _calculate_market_share_bonus(airline: Airline, country_code: String) -> float:
+	"""Calculate relationship bonus from market share in country"""
+	var routes_to_country = 0
+	var total_routes_to_country = 0
+	
+	for route in airline.routes:
+		if route.to_airport:
+			var route_country = _normalize_country_code(route.to_airport.country)
+			if route_country == country_code:
+				routes_to_country += 1
+	
+	# Count total routes to this country from all airlines
+	for other_airline in airlines:
+		for route in other_airline.routes:
+			if route.to_airport:
+				var route_country = _normalize_country_code(route.to_airport.country)
+				if route_country == country_code:
+					total_routes_to_country += 1
+	
+	if total_routes_to_country == 0:
+		return 0.0
+	
+	var market_share = float(routes_to_country) / float(total_routes_to_country)
+	# Market share bonus: up to +20 for 100% market share
+	return market_share * 20.0
+
+func _calculate_delegate_bonus(airline: Airline, country_code: String) -> float:
+	"""Calculate relationship bonus from active delegate tasks"""
+	var bonus = 0.0
+	var normalized_code = _normalize_country_code(country_code)
+	
+	for task in airline.delegate_tasks:
+		if task.task_type == DelegateTask.TaskType.COUNTRY_RELATIONSHIP:
+			var task_country = _normalize_country_code(task.target_country_code)
+			if task_country == normalized_code:
+				# Bonus based on task progress and delegate level
+				var delegate = _get_delegate_for_task(airline, task)
+				if delegate:
+					var effectiveness = delegate.get_effectiveness()
+					bonus += task.progress * effectiveness * 5.0  # Up to 5 points per delegate
+	
+	return bonus
+
+func _get_delegate_for_task(airline: Airline, task: DelegateTask) -> Delegate:
+	"""Get delegate assigned to a task"""
+	for delegate in airline.delegates:
+		if delegate.current_task == task:
+			return delegate
+	return null
 
 func create_player_airline() -> void:
 	"""Create the player's airline using settings from main menu"""
