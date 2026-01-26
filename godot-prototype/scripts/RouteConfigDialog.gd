@@ -25,6 +25,10 @@ var business_price_input: SpinBox
 var first_price_input: SpinBox
 var use_recommended_button: Button
 var recommended_label: Label
+var pending_price_label: Label  # G.6: Shows pending price status
+
+# E.4: Demand impact preview
+var demand_preview_label: RichTextLabel
 
 # Data
 var from_airport: Airport = null
@@ -39,9 +43,10 @@ func _init() -> void:
 	title = "Configure Route"
 	size = Vector2i(800, 700)
 	ok_button_text = "Create Route"
-	cancel_button_text = "Cancel"
+	# Note: cancel button text set in _ready() via get_cancel_button().text
 
 func _ready() -> void:
+	get_cancel_button().text = "Cancel"
 	build_ui()
 	confirmed.connect(_on_confirmed)
 
@@ -175,6 +180,37 @@ func build_ui() -> void:
 	var first_hbox = create_price_input_row("First Class:", "first")
 	pricing_vbox.add_child(first_hbox)
 	first_price_input = first_hbox.get_node("SpinBox")
+	
+	# G.6: Pending price indicator
+	pending_price_label = Label.new()
+	pending_price_label.name = "PendingPriceLabel"
+	pending_price_label.add_theme_font_size_override("font_size", 12)
+	pending_price_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.2))  # Yellow/orange
+	pending_price_label.visible = false  # Hidden by default
+	pricing_vbox.add_child(pending_price_label)
+	
+	# E.4: Demand impact preview panel
+	var preview_panel = PanelContainer.new()
+	preview_panel.name = "DemandPreviewPanel"
+	var preview_style = StyleBoxFlat.new()
+	preview_style.bg_color = Color(0.15, 0.2, 0.25, 0.9)
+	preview_style.set_corner_radius_all(8)
+	preview_style.set_content_margin_all(12)
+	preview_panel.add_theme_stylebox_override("panel", preview_style)
+	pricing_vbox.add_child(preview_panel)
+	
+	demand_preview_label = RichTextLabel.new()
+	demand_preview_label.name = "DemandPreviewLabel"
+	demand_preview_label.bbcode_enabled = true
+	demand_preview_label.fit_content = true
+	demand_preview_label.custom_minimum_size = Vector2(0, 80)
+	demand_preview_label.add_theme_font_size_override("normal_font_size", 13)
+	preview_panel.add_child(demand_preview_label)
+	
+	# Connect price inputs to update preview (E.4)
+	economy_price_input.value_changed.connect(_on_price_changed)
+	business_price_input.value_changed.connect(_on_price_changed)
+	first_price_input.value_changed.connect(_on_price_changed)
 
 func create_section_panel(title: String) -> PanelContainer:
 	"""Create a styled panel for a section"""
@@ -249,11 +285,14 @@ func setup_route(p_from: Airport, p_to: Airport) -> void:
 	update_aircraft_list()
 	update_frequency_label()
 	update_recommended_pricing()
+	update_demand_preview()  # E.4: Show initial demand forecast
 
 func setup_edit_route(route: Route) -> void:
-	"""Initialize dialog for editing an existing route"""
+	"""Initialize dialog for editing an existing route
+	G.6: Price changes take effect next day for cause-effect visibility
+	"""
 	editing_route = route
-	ok_button_text = "Save Changes"
+	ok_button_text = "Save (prices effective tomorrow)"
 
 	from_airport = route.from_airport
 	to_airport = route.to_airport
@@ -296,8 +335,12 @@ func setup_edit_route(route: Route) -> void:
 	if first_price_input:
 		first_price_input.value = route.price_first
 
+	# G.6: Show pending price info if applicable
+	update_pending_price_display()
+
 	update_frequency_label()
 	update_aircraft_details()
+	update_demand_preview()  # E.4: Show initial demand forecast
 
 func update_route_info() -> void:
 	"""Update route information display"""
@@ -350,6 +393,24 @@ func update_market_analysis() -> void:
 		text += "\n\n[color=#FF6666]⚠ Low profitability - high competition or low demand[/color]"
 
 	market_analysis_label.text = text
+
+
+func update_pending_price_display() -> void:
+	"""G.6: Update pending price indicator for existing routes"""
+	if not pending_price_label:
+		return
+	
+	# Only show for existing routes being edited
+	if not editing_route:
+		pending_price_label.visible = false
+		return
+	
+	if editing_route.has_pending_price_changes():
+		pending_price_label.visible = true
+		pending_price_label.text = "⏳ " + editing_route.get_price_change_summary()
+	else:
+		pending_price_label.visible = false
+
 
 func update_aircraft_list() -> void:
 	"""Update available aircraft list"""
@@ -438,10 +499,140 @@ func _on_aircraft_selected(index: int) -> void:
 		selected_aircraft = available_aircraft[index]
 		update_aircraft_details()
 		update_frequency_label()
+		update_demand_preview()  # E.4: Update preview when aircraft changes
 
 func _on_frequency_changed(value: float) -> void:
 	"""Frequency slider changed"""
 	update_frequency_label()
+	update_demand_preview()  # E.4: Update preview when frequency changes
+
+
+func _on_price_changed(_value: float) -> void:
+	"""E.4: Price input changed - update demand preview"""
+	update_demand_preview()
+
+
+func update_demand_preview() -> void:
+	"""E.4: Calculate and display demand impact preview based on current price settings.
+	Uses the same elasticity formula as SimulationEngine (G.2) for consistency.
+	"""
+	if not demand_preview_label:
+		return
+	
+	if not from_airport or not to_airport or not selected_aircraft:
+		demand_preview_label.text = "[i]Select an aircraft to see demand forecast[/i]"
+		return
+	
+	# Get current settings from UI
+	var price_economy: float = economy_price_input.value if economy_price_input else 100.0
+	var frequency: int = int(frequency_slider.value) if frequency_slider else 7
+	
+	# Calculate baseline price (same formula as SimulationEngine)
+	var baseline_price: float = max(50.0, route_distance * 0.15)
+	
+	# Calculate elasticity multiplier (same formula as SimulationEngine G.2)
+	var elasticity_factor: float = 1.2  # Default leisure market elasticity
+	if route_distance < 800:
+		elasticity_factor = 1.4  # Short routes more price-sensitive
+	elif route_distance > 3000:
+		elasticity_factor = 1.0  # Long routes less sensitive (business)
+	
+	var price_ratio: float = baseline_price / price_economy if price_economy > 0 else 1.0
+	var elasticity_multiplier: float = pow(price_ratio, elasticity_factor)
+	elasticity_multiplier = clamp(elasticity_multiplier, 0.3, 2.0)
+	
+	# Get base market demand
+	var base_demand: float = market_analysis.get("demand", 500)
+	
+	# Calculate market share (simplified - assume we capture portion based on competition)
+	var competition: int = market_analysis.get("competition", 0)
+	var market_share: float = 1.0 / (1 + competition * 0.5)  # Rough approximation
+	
+	# Calculate adjusted demand with elasticity
+	var route_demand: float = base_demand * market_share * elasticity_multiplier
+	
+	# Calculate weekly capacity
+	var weekly_capacity: int = selected_aircraft.get_total_capacity() * frequency
+	
+	# Calculate load factor (capped at 100%)
+	var projected_passengers: int = mini(int(route_demand), weekly_capacity)
+	var load_factor: float = float(projected_passengers) / float(weekly_capacity) * 100.0 if weekly_capacity > 0 else 0.0
+	
+	# Calculate estimated revenue
+	var estimated_revenue: float = projected_passengers * price_economy
+	
+	# Determine price status
+	var price_status: String
+	var price_color: String
+	var price_deviation: float = ((price_economy - baseline_price) / baseline_price) * 100.0
+	
+	if abs(price_deviation) < 5:
+		price_status = "competitive"
+		price_color = "#66FF66"
+	elif price_deviation > 0:
+		price_status = "+%.0f%% above baseline" % price_deviation
+		price_color = "#FF9966" if price_deviation > 30 else "#FFAA00"
+	else:
+		price_status = "%.0f%% below baseline" % price_deviation
+		price_color = "#66FFFF"
+	
+	# Determine load factor color
+	var load_color: String
+	if load_factor >= 85:
+		load_color = "#66FF66"  # Green - excellent
+	elif load_factor >= 65:
+		load_color = "#FFFF66"  # Yellow - good
+	elif load_factor >= 45:
+		load_color = "#FFAA00"  # Orange - moderate
+	else:
+		load_color = "#FF6666"  # Red - low
+	
+	# Build preview text
+	var text: String = "[b]📊 Demand Forecast[/b] [i](estimates only)[/i]\n\n"
+	
+	# Price analysis
+	text += "Price: [b]€%.0f[/b] vs baseline €%.0f [color=%s](%s)[/color]\n" % [
+		price_economy, baseline_price, price_color, price_status
+	]
+	
+	# Demand impact
+	text += "Demand multiplier: [b]%.0f%%[/b] " % (elasticity_multiplier * 100)
+	if elasticity_multiplier < 0.9:
+		text += "[color=#FF9966](reduced due to high price)[/color]\n"
+	elif elasticity_multiplier > 1.1:
+		text += "[color=#66FFFF](boosted due to low price)[/color]\n"
+	else:
+		text += "[color=#AAAAAA](near baseline)[/color]\n"
+	
+	# Projections
+	text += "\n[b]Weekly Projections:[/b]\n"
+	text += "• Passengers: [b]~%d[/b] / %d capacity\n" % [projected_passengers, weekly_capacity]
+	text += "• Load Factor: [color=%s][b]~%.0f%%[/b][/color]\n" % [load_color, load_factor]
+	text += "• Est. Revenue: [b]~€%s[/b]" % format_money(estimated_revenue)
+	
+	# Add warning if overpriced significantly
+	if price_deviation > 50:
+		text += "\n\n[color=#FF6666]⚠ Price may be too high - expect low demand[/color]"
+	elif load_factor > 95:
+		text += "\n\n[color=#66FF66]💡 Consider raising price - demand exceeds capacity[/color]"
+	
+	demand_preview_label.text = text
+
+
+func format_money(amount: float) -> String:
+	"""Format money with thousands separators"""
+	var s: String = str(int(amount))
+	var result: String = ""
+	var count: int = 0
+	
+	for i in range(s.length() - 1, -1, -1):
+		result = s[i] + result
+		count += 1
+		if count % 3 == 0 and i > 0:
+			result = "," + result
+	
+	return result
+
 
 func _on_use_recommended_pressed() -> void:
 	"""Apply recommended pricing"""

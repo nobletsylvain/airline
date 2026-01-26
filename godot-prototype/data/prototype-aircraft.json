@@ -1,0 +1,37 @@
+{
+	"_comment": "Prototype aircraft for Phase 1. ATR 72-600 is the starting aircraft per prototype-scope.md §8.3",
+	"_version": "1.0",
+	"aircraft": [
+		{
+			"name": "ATR 72-600",
+			"manufacturer": "ATR",
+			"category": "regional_turboprop",
+			
+			"_specs_comment": "Values from prototype-scope.md §8.3 Starting Aircraft Specifications",
+			"max_seats": 72,
+			"range_km": 1500,
+			"speed_kmh": 510,
+			"fuel_burn_per_hour": 350,
+			"runway_requirement": 1333,
+			
+			"_economics_comment": "Daily cost ~€8,000 (fuel + crew + mx reserve) per prototype-scope.md §8.3",
+			"price": 26500000,
+			"lease_rate_monthly": 180000,
+			"daily_cost": 8000,
+			"maintenance_cost_per_hour": 450,
+			"turnaround_minutes": 30,
+			
+			"_capacity_comment": "72 seats single class for prototype. No premium classes.",
+			"min_economy": 50,
+			"max_business": 0,
+			"max_first": 0,
+			"default_config": {
+				"economy": 72,
+				"business": 0,
+				"first": 0
+			},
+			
+			"_notes": "Typical route length 300-800 km per prototype-scope.md. Hard to lose money if load factor >50%."
+		}
+	]
+}

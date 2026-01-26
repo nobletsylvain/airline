@@ -30,18 +30,46 @@ const SPEED_NAMES: Dictionary = {
 	SpeedLevel.VERY_FAST: "Very Fast",
 }
 
+## ============================================================================
+## PRICE ELASTICITY PARAMETERS (G.2)
+## Hypothesis values - adjust during playtesting
+## ============================================================================
+
+# Elasticity factor: how sensitive demand is to price changes
+# 1.0 = unit elastic (10% price increase = 10% demand decrease)
+# 1.2 = elastic (leisure market - more price sensitive)
+# 0.8 = inelastic (business routes - less price sensitive)
+const ELASTICITY_FACTOR_DEFAULT: float = 1.2  # Hypothesis: elastic leisure market
+
+# Baseline price per km for calculating "fair" price
+# Regional turboprop routes: ~€0.15/km is competitive baseline
+const BASELINE_PRICE_PER_KM: float = 0.15
+
+# Minimum base price (even for very short routes)
+const BASELINE_PRICE_MINIMUM: float = 50.0
+
+# Elasticity bounds to prevent extreme swings
+const ELASTICITY_MULTIPLIER_MIN: float = 0.3  # Price at 3x baseline = 30% demand
+const ELASTICITY_MULTIPLIER_MAX: float = 2.0  # Price at 0.5x baseline = cap at 200%
+
 @export var auto_simulate: bool = false
 
 var is_running: bool = false
-var time_accumulator: float = 0.0  # Accumulates in game hours
+var time_accumulator: float = 0.0  # Accumulates in game hours (0-168 per week)
 var current_speed_level: SpeedLevel = SpeedLevel.NORMAL
 var seconds_per_hour: float = 2.0  # Current speed setting
+
+# Day tracking for pending price system (G.6)
+# Week has 7 days, each day = 24 hours
+var current_day_in_week: int = 0  # 0-6 (Monday=0, Sunday=6)
 
 signal simulation_started()
 signal simulation_paused()
 signal speed_changed(speed_level: SpeedLevel, speed_name: String)
 signal week_completed(week_number: int)
+signal day_completed(day_number: int)  # G.6: Signal for day tick
 signal route_simulated(route: Route, passengers: int, revenue: float)
+signal pending_prices_applied(routes_changed: int)  # G.6: Signal when prices update
 
 func _ready() -> void:
 	set_process(false)
@@ -95,15 +123,31 @@ func _process(delta: float) -> void:
 
 	# Convert real seconds to game hours based on speed
 	var hours_elapsed: float = delta / seconds_per_hour
+	var old_hour: float = time_accumulator
 	time_accumulator += hours_elapsed
 
 	# Update GameData with current hour (for live time display)
 	GameData.current_hour = time_accumulator
 
+	# === DAY TICK (G.6): Check if a new day has started ===
+	# Each day = 24 hours, days are 0-6 (Monday-Sunday)
+	var old_day: int = int(old_hour / 24.0)
+	var new_day: int = int(time_accumulator / 24.0)
+	
+	# Day changed within the week (not crossing week boundary)
+	if new_day > old_day and new_day < 7:
+		current_day_in_week = new_day
+		process_day_tick(new_day)
+
 	# Check if a week has passed (168 hours)
 	if time_accumulator >= 168.0:
 		time_accumulator = fmod(time_accumulator, 168.0)
 		GameData.current_hour = time_accumulator
+		current_day_in_week = 0  # Reset to Monday
+		
+		# Apply pending prices at week start (new Monday)
+		process_day_tick(0)
+		
 		simulate_week()
 
 func simulate_week() -> void:
@@ -139,6 +183,57 @@ func simulate_week() -> void:
 	week_completed.emit(GameData.current_week)
 	print("=== Week %d Complete ===" % GameData.current_week)
 
+
+## ============================================================================
+## DAY TICK PROCESSING (G.6)
+## Handles daily events like applying pending price changes
+## ============================================================================
+
+func process_day_tick(day: int) -> void:
+	"""Process daily events - called at start of each new day (24-hour boundary)"""
+	var day_names: Array[String] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+	var day_name: String = day_names[day] if day < day_names.size() else "Day %d" % day
+	
+	print("\n--- %s (Day %d of Week %d) ---" % [day_name, day + 1, GameData.current_week + 1])
+	
+	# Apply any pending price changes
+	var routes_changed: int = apply_all_pending_prices()
+	
+	if routes_changed > 0:
+		print("Applied price changes to %d route(s)" % routes_changed)
+		pending_prices_applied.emit(routes_changed)
+	
+	# Emit day completed signal
+	day_completed.emit(day)
+
+
+func apply_all_pending_prices() -> int:
+	"""Apply pending price changes across all airlines' routes. Returns count of changed routes."""
+	var changed_count: int = 0
+	
+	for airline in GameData.airlines:
+		for route in airline.routes:
+			if route.has_pending_price_changes():
+				if route.apply_pending_prices():
+					changed_count += 1
+	
+	return changed_count
+
+
+func get_current_day_name() -> String:
+	"""Get the name of the current day in the week"""
+	var day_names: Array[String] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+	if current_day_in_week >= 0 and current_day_in_week < day_names.size():
+		return day_names[current_day_in_week]
+	return "Unknown"
+
+
+func get_hours_until_next_day() -> float:
+	"""Get hours remaining until the next day tick"""
+	var current_hour_in_day: float = fmod(time_accumulator, 24.0)
+	return 24.0 - current_hour_in_day
+
+
 func simulate_route(route: Route, airline: Airline) -> void:
 	"""Simulate passenger demand and revenue for a route"""
 	if not route.from_airport or not route.to_airport:
@@ -155,6 +250,38 @@ func simulate_route(route: Route, airline: Airline) -> void:
 
 	# Apply market share to demand
 	var route_demand: float = base_demand * market_share
+
+	# === PRICE ELASTICITY (G.2): Adjust demand based on pricing ===
+	var elasticity_factor: float = get_elasticity_factor_for_route(route)
+	var elasticity_data: Dictionary = calculate_price_elasticity(route, elasticity_factor)
+	var elasticity_multiplier: float = elasticity_data.multiplier
+	
+	# Debug: Show demand BEFORE elasticity
+	var demand_before_elasticity: float = route_demand
+	
+	# Apply elasticity to demand
+	route_demand *= elasticity_multiplier
+	
+	# Debug: Show elasticity impact
+	print("    [Elasticity] %s: base_demand=%.0f, market_share=%.2f, demand_before=%.0f, multiplier=%.2f, demand_after=%.0f" % [
+		route.get_display_name(),
+		base_demand,
+		market_share,
+		demand_before_elasticity,
+		elasticity_multiplier,
+		route_demand
+	])
+	print("    [Pricing] price=€%.0f, baseline=€%.0f, deviation=%.0f%%" % [
+		route.price_economy,
+		elasticity_data.baseline_price,
+		elasticity_data.price_deviation_pct
+	])
+	
+	# Store elasticity data on route for UI display
+	route.set_meta("elasticity_multiplier", elasticity_multiplier)
+	route.set_meta("baseline_price", elasticity_data.baseline_price)
+	route.set_meta("is_overpriced", elasticity_data.is_overpriced)
+	route.set_meta("price_deviation_pct", elasticity_data.price_deviation_pct)
 
 	# === HUB NETWORK EFFECTS: Add connecting passengers ===
 	var connecting_passengers: float = calculate_connecting_passengers_for_route(route, airline)
@@ -199,6 +326,16 @@ func simulate_route(route: Route, airline: Airline) -> void:
 	route.revenue_generated = total_revenue
 	route.fuel_cost = fuel_cost
 	route.weekly_profit = total_revenue - total_costs
+	
+	# Debug: Show final passenger calculation
+	var load_factor: float = float(route.passengers_transported) / float(total_capacity) * 100.0 if total_capacity > 0 else 0.0
+	print("    [Final] passengers=%d/%d capacity (%.0f%% LF), revenue=€%.0f, profit=€%.0f" % [
+		route.passengers_transported,
+		total_capacity,
+		load_factor,
+		total_revenue,
+		route.weekly_profit
+	])
 
 	# Update airline stats
 	airline.weekly_revenue += total_revenue
@@ -212,11 +349,22 @@ func simulate_route(route: Route, airline: Airline) -> void:
 
 	route_simulated.emit(route, route.passengers_transported, total_revenue)
 
-	print("  Route %s: %d pax, $%.0f revenue, $%.0f profit" % [
+	# Debug output with elasticity info
+	var price_status: String = "fair"
+	if elasticity_data.is_overpriced:
+		price_status = "+%.0f%% overpriced" % elasticity_data.price_deviation_pct
+	elif elasticity_data.price_deviation_pct < -5:
+		price_status = "%.0f%% discount" % abs(elasticity_data.price_deviation_pct)
+	
+	print("  Route %s: %d pax, $%.0f revenue, $%.0f profit (price: €%.0f, baseline: €%.0f, %s, demand x%.2f)" % [
 		route.get_display_name(),
 		route.passengers_transported,
 		total_revenue,
-		route.weekly_profit
+		route.weekly_profit,
+		route.price_economy,
+		elasticity_data.baseline_price,
+		price_status,
+		elasticity_multiplier
 	])
 
 func calculate_demand(route: Route) -> float:
@@ -230,6 +378,88 @@ func calculate_demand(route: Route) -> float:
 	)
 
 	return demand
+
+
+## ============================================================================
+## PRICE ELASTICITY (G.2)
+## ============================================================================
+
+func calculate_price_elasticity(route: Route, elasticity_factor: float = ELASTICITY_FACTOR_DEFAULT) -> Dictionary:
+	"""
+	Calculate price elasticity multiplier for a route.
+	
+	Formula: elasticity_multiplier = (baseline_price / actual_price) ^ elasticity_factor
+	
+	Returns: {
+		multiplier: float,  # Demand multiplier (0.3 to 2.0)
+		baseline_price: float,  # Calculated fair price
+		actual_price: float,  # Current route economy price
+		price_ratio: float,  # baseline / actual
+		is_overpriced: bool,  # Price above baseline
+		price_deviation_pct: float  # How much above/below baseline (%)
+	}
+	"""
+	# Calculate baseline "fair" price based on distance
+	# Regional routes: €0.15/km base + minimum floor
+	var baseline_price: float = max(
+		BASELINE_PRICE_MINIMUM,
+		route.distance_km * BASELINE_PRICE_PER_KM
+	)
+	
+	# Get actual economy price (primary driver of volume)
+	var actual_price: float = route.price_economy
+	
+	# Safety: prevent division by zero
+	if actual_price <= 0:
+		actual_price = baseline_price
+	
+	# Calculate price ratio (baseline / actual)
+	var price_ratio: float = baseline_price / actual_price
+	
+	# Calculate elasticity multiplier
+	# If actual_price > baseline: ratio < 1, multiplier < 1 (fewer passengers)
+	# If actual_price < baseline: ratio > 1, multiplier > 1 (more passengers)
+	var multiplier: float = pow(price_ratio, elasticity_factor)
+	
+	# Clamp to prevent extreme values
+	multiplier = clamp(multiplier, ELASTICITY_MULTIPLIER_MIN, ELASTICITY_MULTIPLIER_MAX)
+	
+	# Calculate deviation percentage for UI display
+	var price_deviation_pct: float = ((actual_price - baseline_price) / baseline_price) * 100.0
+	
+	return {
+		"multiplier": multiplier,
+		"baseline_price": baseline_price,
+		"actual_price": actual_price,
+		"price_ratio": price_ratio,
+		"is_overpriced": actual_price > baseline_price,
+		"price_deviation_pct": price_deviation_pct,
+		"elasticity_factor": elasticity_factor
+	}
+
+
+func get_elasticity_factor_for_route(route: Route) -> float:
+	"""
+	Get the appropriate elasticity factor for a route.
+	
+	Can be customized based on:
+	- Route distance (short = more elastic, long-haul business = less elastic)
+	- Time of day (future: business hours less elastic)
+	- Competitor presence
+	
+	For prototype: return default elasticity factor.
+	"""
+	# PROTOTYPE: Use uniform elasticity factor
+	# Future enhancement: vary by route characteristics
+	var factor: float = ELASTICITY_FACTOR_DEFAULT
+	
+	# Short regional routes are more price-sensitive (leisure travelers)
+	if route.distance_km < 800:
+		factor = 1.4  # More elastic
+	elif route.distance_km > 3000:
+		factor = 1.0  # Less elastic (business travelers on long-haul)
+	
+	return factor
 
 func calculate_class_distribution(route: Route, airline: Airline) -> Dictionary:
 	"""

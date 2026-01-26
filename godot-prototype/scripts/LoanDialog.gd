@@ -22,9 +22,9 @@ func _init() -> void:
 	title = "Take Loan"
 	size = Vector2i(500, 400)
 	ok_button_text = "Take Loan"
-	cancel_button_text = "Cancel"
 
 func _ready() -> void:
+	get_cancel_button().text = "Cancel"
 	build_ui()
 	confirmed.connect(_on_confirmed)
 	hide()

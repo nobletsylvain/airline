@@ -438,31 +438,37 @@ static func find_best_opportunities(player_base: Airport, all_airports: Array[Ai
 	return opportunities.slice(0, min(top_n, opportunities.size()))
 
 static func get_recommended_pricing(demand: float, supply: float, distance_km: float, competition: int) -> Dictionary:
-	"""Calculate recommended pricing for each class"""
-	# Base price from distance
-	var base_economy: float = 50.0 + (distance_km * 0.15)
+	"""Calculate recommended pricing for each class
+	
+	NOTE: Base price uses same formula as SimulationEngine price elasticity (G.2)
+	to ensure consistency between recommended prices and demand calculation.
+	"""
+	# Base price from distance (same formula as SimulationEngine.BASELINE_PRICE_PER_KM)
+	# €0.15/km with €50 minimum
+	var baseline_economy: float = max(50.0, distance_km * 0.15)
 
 	# Adjust for supply/demand balance
 	var demand_multiplier: float = 1.0
-	if supply > 0:
+	if demand > 0 and supply > 0:
 		var saturation: float = supply / demand
 		if saturation < 0.7:
-			demand_multiplier = 1.2  # High demand, can charge more
+			demand_multiplier = 1.15  # High demand, can charge slightly more
 		elif saturation > 1.2:
 			demand_multiplier = 0.85  # Oversupply, must discount
 
-	# Competition adjustment
-	var competition_penalty: float = max(0.85, 1.0 - (competition * 0.05))
+	# Competition adjustment (less aggressive - elasticity handles demand impact)
+	var competition_adjustment: float = max(0.90, 1.0 - (competition * 0.03))
 
-	# Calculate prices
-	var economy: float = base_economy * demand_multiplier * competition_penalty
+	# Calculate prices - recommend at or slightly below baseline for good fill
+	var economy: float = baseline_economy * demand_multiplier * competition_adjustment
 	var business: float = economy * 2.5
 	var first: float = economy * 5.0
 
 	return {
 		"economy": round(economy),
 		"business": round(business),
-		"first": round(first)
+		"first": round(first),
+		"baseline_economy": round(baseline_economy)  # For UI reference
 	}
 
 static func calculate_great_circle_distance(from: Airport, to: Airport) -> float:

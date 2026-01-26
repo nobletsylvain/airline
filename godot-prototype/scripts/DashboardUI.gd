@@ -258,14 +258,17 @@ func create_sidebar_nav(parent: VBoxContainer) -> void:
 	nav_vbox.add_theme_constant_override("separation", 4)
 	nav_margin.add_child(nav_vbox)
 
+	# PROTOTYPE SIMPLIFICATION (S.3, S.4): Delegates and Diplomacy tabs hidden
+	# These features are out of scope for prototype testing per prototype-scope.md
 	var nav_items = [
 		{"id": "map", "label": "Live Radar", "icon": "📡"},
 		{"id": "fleet", "label": "Fleet Management", "icon": UITheme.ICON_PLANE},
 		{"id": "routes", "label": "Route Map", "icon": "🗺"},
 		{"id": "finances", "label": "Finances", "icon": UITheme.ICON_MONEY},
 		{"id": "market", "label": "Market", "icon": UITheme.ICON_ARROW_UP_RIGHT},
-		{"id": "delegates", "label": "Delegates", "icon": "👥"},
-		{"id": "diplomacy", "label": "Diplomacy", "icon": "🌍"},
+		# NOTE: Tabs below disabled for prototype (S.3, S.4) - uncomment to re-enable
+		#{"id": "delegates", "label": "Delegates", "icon": "👥"},
+		#{"id": "diplomacy", "label": "Diplomacy", "icon": "🌍"},
 	]
 
 	for item in nav_items:

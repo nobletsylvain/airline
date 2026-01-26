@@ -1,0 +1,29 @@
+# Godot 4 .gitignore
+
+# Godot-specific ignores
+.godot/
+
+# Mono-specific ignores (if using C#)
+.mono/
+data_*/
+mono_crash.*.json
+
+# System/Editor
+.import/
+export.cfg
+export_presets.cfg
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+*~
+
+# Build output
+*.exe
+*.x86_64
+*.x86
+*.apk
+*.pck

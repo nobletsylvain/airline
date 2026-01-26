@@ -56,9 +56,11 @@ func _ready() -> void:
 	initialize_game_data()
 
 func initialize_game_data() -> void:
-	"""Initialize sample airports and aircraft models"""
-	create_sample_airports()
-	create_aircraft_models()
+	"""Initialize game data from JSON files via DataLoader"""
+	# Load data from JSON files (prototype-airports.json, prototype-aircraft.json)
+	load_airports_from_json()
+	load_aircraft_from_json()
+	
 	create_countries()
 	create_player_airline()
 	create_ai_airlines()
@@ -66,17 +68,54 @@ func initialize_game_data() -> void:
 	# Auto-assign initial hub if one was selected in menu
 	auto_assign_initial_hub()
 	
-	# Initialize delegates for player
-	if player_airline:
-		player_airline.initialize_delegates(3)  # Start with 3 delegates
+	# PROTOTYPE SIMPLIFICATION (S.3): Delegates disabled for prototype
+	# Uncomment below to re-enable delegate system
+	#if player_airline:
+	#	player_airline.initialize_delegates(3)  # Start with 3 delegates
 	
 	game_initialized.emit()
 
-	# Start tutorial for first-time players
-	if is_first_time_player:
-		print("\nStarting tutorial in 2 seconds...")
-		await get_tree().create_timer(2.0).timeout
-		tutorial_manager.start_tutorial()
+	# PROTOTYPE SIMPLIFICATION (S.5): Tutorial disabled for prototype testing
+	# Uncomment below to re-enable tutorial auto-start
+	#if is_first_time_player:
+	#	print("\nStarting tutorial in 2 seconds...")
+	#	await get_tree().create_timer(2.0).timeout
+	#	tutorial_manager.start_tutorial()
+	print("Tutorial auto-start disabled for prototype (S.5)")
+
+
+func load_airports_from_json() -> void:
+	"""Load airports from JSON via DataLoader autoload singleton"""
+	var data_loader = get_node_or_null("/root/DataLoader")
+	
+	if data_loader:
+		airports = data_loader.load_airports()
+	else:
+		push_warning("DataLoader autoload not available")
+		airports = []
+	
+	if airports.is_empty():
+		push_warning("No airports loaded from JSON, falling back to hardcoded data")
+		create_sample_airports()  # Fallback to hardcoded data
+	else:
+		print("GameData: Loaded %d airports from JSON" % airports.size())
+
+
+func load_aircraft_from_json() -> void:
+	"""Load aircraft models from JSON via DataLoader autoload singleton"""
+	var data_loader = get_node_or_null("/root/DataLoader")
+	
+	if data_loader:
+		aircraft_models = data_loader.load_aircraft_models()
+	else:
+		push_warning("DataLoader autoload not available")
+		aircraft_models = []
+	
+	if aircraft_models.is_empty():
+		push_warning("No aircraft models loaded from JSON, falling back to hardcoded data")
+		create_aircraft_models()  # Fallback to hardcoded data
+	else:
+		print("GameData: Loaded %d aircraft models from JSON" % aircraft_models.size())
 
 func auto_assign_initial_hub() -> void:
 	"""Auto-assign the hub if one was selected in the main menu"""
@@ -103,7 +142,10 @@ func _on_tutorial_completed() -> void:
 	print("\nObjectives are now active! Check your progress anytime.")
 
 func create_sample_airports() -> void:
-	"""Create airports with realistic data (passenger traffic, hub tiers, etc.)"""
+	"""LEGACY FALLBACK: Create airports with hardcoded data.
+	This is only called if JSON loading fails. Prefer using prototype-airports.json.
+	"""
+	push_warning("Using hardcoded airport data (JSON load failed)")
 	# Data format: iata, name, city, country, region, lat, lon, elevation, hub_tier, annual_pax(M), runways, max_slots, gdp_per_capita, landing_fee, pax_fee
 	var airport_data: Array[Dictionary] = [
 		# MEGA HUBS (Tier 1: 100M+ passengers)
@@ -161,62 +203,28 @@ func create_sample_airports() -> void:
 		airports.append(airport)
 
 func create_aircraft_models() -> void:
-	"""Create sample aircraft models with realistic configurable seats"""
-	# Format: name, manufacturer, max_seats, range, price, min_economy, max_first, max_business, default_config
+	"""LEGACY FALLBACK: Create aircraft models with hardcoded data.
+	This is only called if JSON loading fails. Prefer using prototype-aircraft.json.
+	
+	PROTOTYPE SIMPLIFICATION (S.1): Only ATR 72-600 available.
+	"""
+	push_warning("Using hardcoded aircraft data (JSON load failed)")
+	
+	# PROTOTYPE: Only ATR 72-600 per prototype-scope.md §8.3
+	# Other aircraft commented out for prototype - re-enable later
 	var models: Array[Dictionary] = [
-		# Narrow-body short/medium haul
+		# Regional turboprop - PROTOTYPE ONLY AIRCRAFT
 		{
-			"name": "737-800", "mfr": "Boeing",
-			"max_seats": 189, "range": 5665, "price": 89000000,
-			"min_economy": 100, "max_first": 12, "max_business": 30,
-			"default": {"eco": 162, "bus": 12, "first": 0}  # Mixed config
+			"name": "ATR 72-600", "mfr": "ATR",
+			"max_seats": 72, "range": 1500, "price": 26500000,
+			"min_economy": 50, "max_first": 0, "max_business": 0,
+			"default": {"eco": 72, "bus": 0, "first": 0}  # Single class
 		},
-		{
-			"name": "A320", "mfr": "Airbus",
-			"max_seats": 180, "range": 6150, "price": 98000000,
-			"min_economy": 100, "max_first": 12, "max_business": 30,
-			"default": {"eco": 150, "bus": 12, "first": 0}  # Mixed config
-		},
-		{
-			"name": "737-700", "mfr": "Boeing",
-			"max_seats": 149, "range": 6230, "price": 74000000,
-			"min_economy": 90, "max_first": 12, "max_business": 24,
-			"default": {"eco": 126, "bus": 8, "first": 0}  # Mixed config
-		},
-		{
-			"name": "A220-300", "mfr": "Airbus",
-			"max_seats": 160, "range": 6297, "price": 91000000,
-			"min_economy": 120, "max_first": 8, "max_business": 20,
-			"default": {"eco": 135, "bus": 0, "first": 0}  # All economy
-		},
-
-		# Wide-body long haul
-		{
-			"name": "787-9", "mfr": "Boeing",
-			"max_seats": 296, "range": 14140, "price": 265000000,
-			"min_economy": 180, "max_first": 16, "max_business": 60,
-			"default": {"eco": 242, "bus": 38, "first": 8}  # Premium config
-		},
-		{
-			"name": "A350-900", "mfr": "Airbus",
-			"max_seats": 325, "range": 15000, "price": 317000000,
-			"min_economy": 200, "max_first": 18, "max_business": 70,
-			"default": {"eco": 270, "bus": 40, "first": 8}  # Premium config
-		},
-		{
-			"name": "777-300ER", "mfr": "Boeing",
-			"max_seats": 396, "range": 13649, "price": 375000000,
-			"min_economy": 250, "max_first": 20, "max_business": 80,
-			"default": {"eco": 310, "bus": 58, "first": 8}  # Premium config
-		},
-
-		# Super jumbo
-		{
-			"name": "A380", "mfr": "Airbus",
-			"max_seats": 853, "range": 15200, "price": 445000000,
-			"min_economy": 400, "max_first": 28, "max_business": 120,
-			"default": {"eco": 399, "bus": 80, "first": 14}  # Premium config
-		},
+		# NOTE: Additional aircraft disabled for prototype (S.1)
+		# Uncomment below to restore full fleet variety
+		#{"name": "737-800", "mfr": "Boeing", "max_seats": 189, ...},
+		#{"name": "A320", "mfr": "Airbus", "max_seats": 180, ...},
+		# ... etc
 	]
 
 	for model_data in models:
@@ -486,12 +494,20 @@ func create_player_airline() -> void:
 		player_airline.set_meta("initial_hub_code", hub_code)
 
 func create_ai_airlines() -> void:
-	"""Create AI-controlled competitor airlines"""
+	"""Create AI-controlled competitor airlines
+	
+	PROTOTYPE SIMPLIFICATION (S.2): Only 1 static competitor per prototype-scope.md §8.3.
+	"""
+	# PROTOTYPE: Reduced to 1 competitor (Euro Express - balanced European carrier)
+	# Other AI airlines disabled for prototype - re-enable later
 	var ai_airlines_data: Array[Dictionary] = [
-		{"name": "Global Wings", "code": "GLW", "country": "UK", "personality": AIController.AIPersonality.AGGRESSIVE},
-		{"name": "Pacific Air", "code": "PAC", "country": "Japan", "personality": AIController.AIPersonality.BALANCED},
-		{"name": "Euro Express", "code": "EEX", "country": "Germany", "personality": AIController.AIPersonality.CONSERVATIVE},
-		{"name": "TransContinental", "code": "TCN", "country": "USA", "personality": AIController.AIPersonality.BALANCED},
+		# Single static competitor for prototype testing
+		{"name": "Euro Express", "code": "EEX", "country": "DE", "personality": AIController.AIPersonality.BALANCED},
+		# NOTE: Additional AI airlines disabled for prototype (S.2)
+		# Uncomment below to restore full AI competition
+		#{"name": "Global Wings", "code": "GLW", "country": "UK", "personality": AIController.AIPersonality.AGGRESSIVE},
+		#{"name": "Pacific Air", "code": "PAC", "country": "Japan", "personality": AIController.AIPersonality.BALANCED},
+		#{"name": "TransContinental", "code": "TCN", "country": "USA", "personality": AIController.AIPersonality.BALANCED},
 	]
 
 	var next_id: int = 2  # Player is ID 1

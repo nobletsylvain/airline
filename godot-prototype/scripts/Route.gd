@@ -19,10 +19,16 @@ class_name Route
 @export var _deprecated_capacity_business: int = 0
 @export var _deprecated_capacity_first: int = 0
 
-# Pricing (per passenger)
+# Pricing (per passenger) - active prices used in simulation
 @export var price_economy: float = 100.0
 @export var price_business: float = 200.0
 @export var price_first: float = 500.0
+
+# Pending prices (G.6) - applied on next day tick for cause-effect visibility
+# null means no pending change; value means change queued for tomorrow
+var pending_price_economy: Variant = null  # float or null
+var pending_price_business: Variant = null  # float or null
+var pending_price_first: Variant = null  # float or null
 
 # Quality metrics
 @export var service_quality: float = 50.0
@@ -129,3 +135,112 @@ func get_display_name() -> String:
 	if from_airport and to_airport:
 		return "%s → %s" % [from_airport.iata_code, to_airport.iata_code]
 	return "Unknown Route"
+
+
+## ============================================================================
+## PENDING PRICE SYSTEM (G.6)
+## Prices set by player take effect next day for cause-effect visibility
+## ============================================================================
+
+func set_pending_price_economy(new_price: float) -> void:
+	"""Queue an economy price change for next day"""
+	if new_price != price_economy:
+		pending_price_economy = new_price
+		print("Route %s: Economy price change queued: €%.0f → €%.0f (effective tomorrow)" % [
+			get_display_name(), price_economy, new_price
+		])
+	else:
+		pending_price_economy = null  # Cancel pending if same as current
+
+
+func set_pending_price_business(new_price: float) -> void:
+	"""Queue a business price change for next day"""
+	if new_price != price_business:
+		pending_price_business = new_price
+	else:
+		pending_price_business = null
+
+
+func set_pending_price_first(new_price: float) -> void:
+	"""Queue a first class price change for next day"""
+	if new_price != price_first:
+		pending_price_first = new_price
+	else:
+		pending_price_first = null
+
+
+func set_pending_prices(economy: float, business: float, first: float) -> void:
+	"""Queue all price changes for next day"""
+	set_pending_price_economy(economy)
+	set_pending_price_business(business)
+	set_pending_price_first(first)
+
+
+func apply_pending_prices() -> bool:
+	"""Apply any pending price changes. Called on day tick. Returns true if prices changed."""
+	var changed: bool = false
+	
+	if pending_price_economy != null:
+		var old_price: float = price_economy
+		price_economy = pending_price_economy
+		pending_price_economy = null
+		changed = true
+		print("Route %s: Economy price now €%.0f (was €%.0f)" % [
+			get_display_name(), price_economy, old_price
+		])
+	
+	if pending_price_business != null:
+		price_business = pending_price_business
+		pending_price_business = null
+		changed = true
+	
+	if pending_price_first != null:
+		price_first = pending_price_first
+		pending_price_first = null
+		changed = true
+	
+	return changed
+
+
+func has_pending_price_changes() -> bool:
+	"""Check if any price changes are pending"""
+	return (pending_price_economy != null or 
+			pending_price_business != null or 
+			pending_price_first != null)
+
+
+func get_pending_price_economy() -> float:
+	"""Get pending economy price, or current if none pending"""
+	if pending_price_economy != null:
+		return pending_price_economy
+	return price_economy
+
+
+func get_pending_price_business() -> float:
+	"""Get pending business price, or current if none pending"""
+	if pending_price_business != null:
+		return pending_price_business
+	return price_business
+
+
+func get_pending_price_first() -> float:
+	"""Get pending first price, or current if none pending"""
+	if pending_price_first != null:
+		return pending_price_first
+	return price_first
+
+
+func get_price_change_summary() -> String:
+	"""Get human-readable summary of pending changes for UI"""
+	if not has_pending_price_changes():
+		return ""
+	
+	var changes: Array[String] = []
+	if pending_price_economy != null:
+		changes.append("Economy: €%.0f → €%.0f" % [price_economy, pending_price_economy])
+	if pending_price_business != null:
+		changes.append("Business: €%.0f → €%.0f" % [price_business, pending_price_business])
+	if pending_price_first != null:
+		changes.append("First: €%.0f → €%.0f" % [price_first, pending_price_first])
+	
+	return "Price changes from tomorrow: " + ", ".join(changes)

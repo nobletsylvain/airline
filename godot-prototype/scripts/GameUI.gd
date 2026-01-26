@@ -27,6 +27,9 @@ var loan_dialog: LoanDialog = null
 var first_route_suggestion_shown: bool = false
 var first_route_celebration_shown: bool = false
 
+# Feedback system (H.3-H.5)
+var feedback_manager: FeedbackManager = null
+
 # Tutorial system
 var tutorial_overlay_layer: CanvasLayer = null
 var tutorial_panel: Panel = null
@@ -48,6 +51,9 @@ func _ready() -> void:
 
 	# Setup simulation engine first
 	setup_simulation_engine()
+	
+	# Create feedback manager (H.3-H.5: Daily/weekly summaries, price change notifications)
+	setup_feedback_manager()
 
 	# Create tutorial overlay early (before any awaits) to catch signals
 	create_tutorial_overlay()
@@ -82,6 +88,20 @@ func setup_simulation_engine() -> void:
 		simulation_engine.simulation_started.connect(_on_simulation_started)
 		simulation_engine.simulation_paused.connect(_on_simulation_paused)
 		simulation_engine.speed_changed.connect(_on_speed_changed)
+
+
+func setup_feedback_manager() -> void:
+	"""Create and configure feedback manager (H.3-H.5)"""
+	feedback_manager = FeedbackManager.new()
+	feedback_manager.name = "FeedbackManager"
+	add_child(feedback_manager)
+	
+	# Pass simulation engine reference
+	if simulation_engine:
+		feedback_manager.set_simulation_engine(simulation_engine)
+	
+	print("GameUI: FeedbackManager created")
+
 
 func setup_dashboard() -> void:
 	"""Configure dashboard UI and embed content"""
@@ -356,6 +376,12 @@ func update_all() -> void:
 	"""Update all UI elements"""
 	if dashboard_ui:
 		dashboard_ui.update_stats()
+	
+	# Refresh panels with simulation-dependent data
+	update_routes_panel()
+	update_fleet_panel()
+	update_finances_panel()
+	update_market_panel()
 
 func update_fleet_panel() -> void:
 	"""Update fleet panel content"""
@@ -482,9 +508,10 @@ func _on_route_configured(config: Dictionary) -> void:
 	if editing_route:
 		route = editing_route
 		route.frequency = frequency
-		route.price_economy = price_economy
-		route.price_business = price_business
-		route.price_first = price_first
+		
+		# G.6: Price changes use pending system (take effect next day)
+		# This creates clear cause-effect visibility for the player
+		route.set_pending_prices(price_economy, price_business, price_first)
 
 		if aircraft != route.assigned_aircraft[0]:
 			for old_aircraft in route.assigned_aircraft:
@@ -502,6 +529,7 @@ func _on_route_configured(config: Dictionary) -> void:
 			return
 
 		route.frequency = frequency
+		# New routes: prices apply immediately (no pending delay for initial setup)
 		route.price_economy = price_economy
 		route.price_business = price_business
 		route.price_first = price_first
@@ -663,7 +691,7 @@ func check_first_route_suggestion() -> void:
 
 func show_first_route_suggestion(from: Airport, to: Airport, opportunity: Dictionary, aircraft: AircraftInstance) -> void:
 	"""Show a dialog suggesting the player's first route"""
-	var dialog = AcceptDialog.new()
+	var dialog = ConfirmationDialog.new()
 	dialog.title = "Recommended First Route"
 	
 	var score: float = opportunity.get("profitability_score", 0)
@@ -688,7 +716,7 @@ func show_first_route_suggestion(from: Airport, to: Airport, opportunity: Dictio
 	
 	dialog.dialog_text = message
 	dialog.ok_button_text = "Create Route"
-	dialog.cancel_button_text = "I'll choose myself"
+	dialog.get_cancel_button().text = "I'll choose myself"
 	
 	# Add to scene tree (use get_tree().root or add as child of this node)
 	add_child(dialog)
@@ -895,7 +923,7 @@ func _on_loan_payoff_requested(loan: Loan) -> void:
 		confirm_dialog.title = "Pay Off Loan"
 		confirm_dialog.dialog_text = "Pay off this loan for %s?" % UITheme.format_money(payoff_amount)
 		confirm_dialog.ok_button_text = "Pay Off"
-		confirm_dialog.cancel_button_text = "Cancel"
+		confirm_dialog.get_cancel_button().text = "Cancel"
 		get_tree().root.add_child(confirm_dialog)
 		confirm_dialog.confirmed.connect(func():
 			GameData.player_airline.deduct_balance(payoff_amount)

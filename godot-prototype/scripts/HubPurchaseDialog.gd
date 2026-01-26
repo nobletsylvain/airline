@@ -19,9 +19,9 @@ func _init() -> void:
 	title = "Purchase Hub Access"
 	size = Vector2i(700, 600)
 	ok_button_text = "Purchase Hub"
-	cancel_button_text = "Cancel"
 
 func _ready() -> void:
+	get_cancel_button().text = "Cancel"
 	build_ui()
 	confirmed.connect(_on_confirmed)
 	hide()  # Start hidden, only show when explicitly opened

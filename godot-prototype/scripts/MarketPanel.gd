@@ -255,7 +255,7 @@ func _update_opportunities() -> void:
 	# Get best opportunities from player's hubs
 	var opportunities: Array[Dictionary] = []
 	for hub in GameData.player_airline.hubs:
-		var hub_opportunities = GameData.find_best_opportunities(hub, GameData.airports, GameData.airlines, GameData.player_airline, 5)
+		var hub_opportunities = GameData.find_route_opportunities(hub, 5)
 		opportunities.append_array(hub_opportunities)
 
 	# Sort by profitability score

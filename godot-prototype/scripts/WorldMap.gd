@@ -811,8 +811,15 @@ func _on_airport_clicked(airport: Airport) -> void:
 			airport_markers[airport.iata_code].queue_redraw()
 
 func refresh_routes() -> void:
-	"""Redraw all routes"""
+	"""Redraw all routes and refresh any visible route info panel"""
 	queue_redraw()
+	
+	# Refresh floating panel if it's showing a route
+	if floating_panel and floating_panel.visible and floating_panel_target is Route:
+		var route: Route = floating_panel_target as Route
+		# Get the current panel position to maintain it
+		var current_pos: Vector2 = floating_panel.position + floating_panel.size / 2
+		show_floating_panel_for_route(route, current_pos)
 
 func clear_selection() -> void:
 	"""Clear airport selection"""
@@ -1169,11 +1176,11 @@ func _on_floating_panel_action2() -> void:
 
 func show_route_deletion_confirmation(route: Route) -> void:
 	"""Show confirmation dialog before deleting a route"""
-	var dialog = AcceptDialog.new()
+	var dialog = ConfirmationDialog.new()
 	dialog.title = "Cancel Route"
 	dialog.dialog_text = "Are you sure you want to cancel the route %s?\n\nThis will free up the assigned aircraft, but you will lose this route's revenue." % route.get_display_name()
 	dialog.ok_button_text = "Cancel Route"
-	dialog.cancel_button_text = "Keep Route"
+	dialog.get_cancel_button().text = "Keep Route"
 	
 	# Add to scene tree (add to root or find GameUI)
 	var root = get_tree().root
