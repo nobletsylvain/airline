@@ -14,11 +14,11 @@
 			"fuel_burn_per_hour": 350,
 			"runway_requirement": 1333,
 			
-			"_economics_comment": "Daily cost ~€8,000 (fuel + crew + mx reserve) per prototype-scope.md §8.3",
-			"price": 26500000,
-			"lease_rate_monthly": 180000,
-			"daily_cost": 8000,
-			"maintenance_cost_per_hour": 450,
+		"_economics_comment": "Daily cost ~€3,500 (fuel + crew + mx reserve) - balanced for 60%+ LF profitability. Price reduced to €15M for better pacing (used turboprop value).",
+		"price": 15000000,
+		"lease_rate_monthly": 120000,
+		"daily_cost": 3500,
+		"maintenance_cost_per_hour": 450,
 			"turnaround_minutes": 30,
 			
 			"_capacity_comment": "72 seats single class for prototype. No premium classes.",

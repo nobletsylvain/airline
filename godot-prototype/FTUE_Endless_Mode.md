@@ -2,8 +2,8 @@
 
 **Document Type:** First-Time User Experience Design  
 **Mode:** Endless/Sandbox (Region-based start)  
-**Last Updated:** January 21, 2026  
-**Version:** 0.1
+**Last Updated:** January 25, 2026  
+**Version:** 0.2
 
 ---
 
@@ -442,6 +442,191 @@ XP accumulates toward milestones, providing an alternative path for players who 
 6. **Advisor is helpful, not annoying** - Provides suggestions, not instructions. Can be dismissed permanently.
 
 7. **Progression feels earned** - Unlocks tied to player achievement, not arbitrary timers.
+
+---
+
+## Returning Player Summary
+
+*Reference: Edge-Case Report 5 (Confused Newbie Returning)*
+
+Players who return after an extended break (7+ days) face significant friction: they've forgotten their strategy, active obligations, pending decisions, and fleet orders. Without a recap mechanism, returning players often:
+- Make decisions that contradict their previous strategy
+- Miss critical pending items (expiring deals, due obligations)
+- Feel lost in their own airline, leading to abandonment
+
+### Trigger Conditions
+
+The "Welcome Back" screen appears when:
+
+| Condition | Threshold | Note |
+|-----------|-----------|------|
+| Days since last session | ≥7 days | Hypothesis — may tune to 5 or 14 based on playtesting |
+| Session length before break | >30 minutes | Don't show for abandoned quick-starts |
+| Game phase | Manager+ | Founders have simpler state to recall |
+
+> **⚠️ Note:** All thresholds are hypotheses requiring playtesting.
+
+### Welcome Back Screen
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  WELCOME BACK, CEO                                       Last played: 12d ago│
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  YOUR AIRLINE AT A GLANCE                                                   │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│  Fleet: 23 aircraft  │  Routes: 47  │  Cash: $4.2M  │  Phase: Executive    │
+│  Monthly P/L: +$312K │  Trend: ▲ Improving                                 │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  RECENT MAJOR DECISIONS (last 30 in-game days)                              │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│  • Opened Chicago hub (Day 847)                                             │
+│  • Acquired 3x Boeing 737 MAX 8 (Day 842)                                   │
+│  • Rejected merger offer from Continental (Day 839)                         │
+│  • Accepted government route subsidy: Denver-Aspen (Day 836)               │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  ACTIVE OBLIGATIONS                                          [View ledger →]│
+│  ─────────────────────────────────────────────────────────────────────────  │
+│  3 obligations active                                                       │
+│  • Oldest: Investment group board seat (142 days dormant)                  │
+│  • Most recent: Regional authority flight guarantee (12 days)              │
+│  • ⚠ 1 obligation showing activity signals                                 │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  PENDING DECISIONS                                                    [4]   │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│  ⚠ EXPIRING SOON                                                           │
+│    • Slot offer at JFK expires in 3 days                                   │
+│    • Aircraft lease renewal due in 8 days (2x A320)                        │
+│  ○ CAN WAIT                                                                │
+│    • Crew contract negotiation (union proposal pending)                    │
+│    • Alliance invitation from Star Alliance                                │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  FLEET ORDERS IN PROGRESS                                                   │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│  • 2x Boeing 787-9 arriving in 45 days (factory order)                     │
+│  • 1x Airbus A321neo in maintenance, ready in 6 days                       │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  YOUR NOTES                                               [Edit notes →]    │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│  "Focus on building transatlantic presence before Q4. Watch fuel           │
+│   hedging — contract expires soon. Consider selling the 757s."             │
+│                                                                             │
+│  Last updated: 12 days ago                                                 │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  [Jump to urgent items]    [Review full state]    [Dismiss & play]         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Information Sections
+
+#### 1. Airline at a Glance
+Quick vital stats to orient the player:
+- Fleet size, route count, cash position
+- Current game phase
+- Monthly profit/loss with trend indicator
+- Days since last session
+
+#### 2. Recent Major Decisions
+The 3-5 most significant decisions from the last 30 in-game days:
+
+| Decision Type | Included | Example |
+|---------------|----------|---------|
+| Hub operations | Open/close hub | "Opened Chicago hub" |
+| Fleet changes | Purchase, sale, lease | "Acquired 3x 737 MAX" |
+| Alliance/merger | Accept/reject | "Rejected Continental merger" |
+| Major contracts | Government, corporate | "Accepted route subsidy" |
+| Obligations created | New debts | "Accepted investment from..." |
+
+Minor decisions (route pricing tweaks, schedule adjustments) are excluded.
+
+#### 3. Active Obligations
+Summary from the Obligations Ledger (see `compromise-system-spec.md`):
+- Total count of active obligations
+- Oldest obligation (may be most likely to be called soon)
+- Most recent obligation
+- Warning count if any show activity signals
+
+#### 4. Pending Decisions
+Decisions waiting for player input, sorted by urgency:
+- **Expiring Soon** — time-sensitive items that will auto-resolve or expire
+- **Can Wait** — important but not time-critical
+
+#### 5. Fleet Orders
+Aircraft in transit, on order, or in maintenance:
+- Factory orders with delivery dates
+- Lease deliveries
+- Aircraft in maintenance with return dates
+
+#### 6. Player Notes (Optional Feature)
+Self-annotation system for strategy reminders:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PLAYER NOTES                                                    [Save]     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ Focus on building transatlantic presence before Q4. Watch fuel      │   │
+│  │ hedging — contract expires soon. Consider selling the 757s.         │   │
+│  │                                                                     │   │
+│  │ TODO:                                                               │   │
+│  │ - Check if Paris slot becomes available                             │   │
+│  │ - Renegotiate catering contract (current one is expensive)          │   │
+│  │ _                                                                   │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  Character limit: 847/1000                                                 │
+│                                                                             │
+│  💡 Tip: Notes appear on the Welcome Back screen when you return.          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Player Notes Features:**
+- Free-form text field (1000 character limit)
+- Accessible anytime from pause menu or dashboard
+- Persists with save file
+- Shown prominently on Welcome Back screen
+- Optional — empty notes section shows "No notes saved. Add notes to remind yourself of your strategy."
+
+### Dismissal Behavior
+
+| Action | Effect |
+|--------|--------|
+| **Dismiss & play** | Closes screen, proceeds to game |
+| **Jump to urgent items** | Opens first expiring decision directly |
+| **Review full state** | Opens dashboard with all panels expanded |
+| **Don't show again** | Checkbox to disable Welcome Back (reversible in settings) |
+
+Screen is always dismissible with ESC. Never blocks gameplay.
+
+### Edge Cases
+
+| Scenario | Handling |
+|----------|----------|
+| No major decisions in period | Section shows "No major decisions in last 30 days" |
+| No active obligations | Section shows "No active obligations" with ✓ |
+| No pending decisions | Section shows "All caught up" with ✓ |
+| No player notes | Shows "Add notes to remind yourself of your strategy" |
+| Very long break (30+ days) | Extended summary with era context if in-game time passed |
+| Multiple sessions in one day | Only show once per calendar day |
+
+### Integration Points
+
+| Spec | Integration |
+|------|-------------|
+| `compromise-system-spec.md` | Obligation summary pulls from Obligations Ledger |
+| `decision-density-spec.md` | Pending decisions count aligns with decision queue |
+| `executive-delegation-spec.md` | Delegated functions shown in "at a glance" if relevant |
+| `tutorial-spec.md` | First-time Welcome Back includes explanation of purpose |
 
 ---
 

@@ -1,6 +1,6 @@
 # Decision Density — Detailed Specification
 
-**Version:** 0.2  
+**Version:** 0.3  
 **Date:** January 2026  
 **Companion to:** GDD v0.7, Executive Delegation Spec, Tutorial Spec  
 **Addresses:** gameplay-concerns.md Section 3
@@ -37,13 +37,33 @@ This document specifies target decision density across game phases — ensuring 
 
 ### 1.2 Phase Transitions
 
+Phase advancement requires both **quantity thresholds** (fleet/routes) AND **quality gates** (viability checks). This prevents exploiting progression by scaling quantity without building a sustainable airline.
+
+*Reference: Edge-Case Report 3 (Speedrunner) identified that pure quantity thresholds could be gamed.*
+
+> **⚠️ Note:** All threshold values are hypotheses requiring playtesting.
+
+#### Founder → Manager Transition
+
+| Requirement | Threshold | Rationale |
+|-------------|-----------|-----------|
+| **Fleet size** | 6+ aircraft | Quantity gate |
+| **Route count** | 10+ routes | Quantity gate |
+| **Profitable routes** | ≥60% of routes profitable | Can't advance on bleeding money |
+| **Cash runway** | 3+ months at current burn | Financial stability |
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  PHASE TRANSITION · Founder → Manager                                       │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  Congratulations. You're not just running routes anymore.                  │
-│  You're managing a system.                                                 │
+│  READINESS CHECK                                                            │
+│  ✓ Fleet size: 8 aircraft (need 6)                                         │
+│  ✓ Route count: 12 routes (need 10)                                        │
+│  ✓ Route profitability: 75% profitable (need 60%)                          │
+│  ✓ Cash runway: 5.2 months (need 3)                                        │
+│                                                                             │
+│  You're ready to become a Manager.                                         │
 │                                                                             │
 │  WHAT CHANGES                                                               │
 │  • COO position unlocks — delegate scheduling and maintenance              │
@@ -54,6 +74,65 @@ This document specifies target decision density across game phases — ensuring 
 │  Your job is shifting from "do everything" to "decide what matters."       │
 │                                                                             │
 │  [Continue] [What should I delegate first?]                                │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Manager → Executive Transition
+
+| Requirement | Threshold | Rationale |
+|-------------|-----------|-----------|
+| **Fleet size** | 16+ aircraft | Quantity gate |
+| **Route count** | 30+ routes | Quantity gate |
+| **Operating margin** | ≥5% trailing 12 months | Sustainable profitability |
+| **Debt service coverage** | ≥1.25x | Can handle financial obligations |
+
+#### Executive → Chairman Transition
+
+| Requirement | Threshold | Rationale |
+|-------------|-----------|-----------|
+| **Fleet size** | 40+ aircraft | Quantity gate |
+| **Route count** | 80+ routes | Quantity gate |
+| **Operating margin** | ≥8% trailing 12 months | Proven business model |
+| **Successful delegation** | 3+ functions at Level 3+ | Organization can run without you |
+
+#### Quality Gate Philosophy
+
+These gates should feel like **natural readiness checks**, not arbitrary blockers:
+
+| Principle | Implementation |
+|-----------|----------------|
+| Gates reflect real airline viability | Metrics match what real boards would assess |
+| Failing gates provides guidance | UI shows what to fix, not just "not ready" |
+| Near-miss flexibility | Within 10% of threshold + strong in other areas = may still transition |
+| No grinding treadmill | Once passed, gates don't need to be maintained |
+
+#### Transition Blocked UI
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PHASE TRANSITION · Manager → Executive                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  READINESS CHECK                                                            │
+│  ✓ Fleet size: 18 aircraft (need 16)                                       │
+│  ✓ Route count: 34 routes (need 30)                                        │
+│  ✗ Operating margin: 3.2% (need 5%)                                        │
+│  ✓ Debt service coverage: 1.4x (need 1.25x)                                │
+│                                                                             │
+│  Not quite ready. Your margins need work.                                  │
+│                                                                             │
+│  WHY THIS MATTERS                                                           │
+│  Executive phase brings shareholder scrutiny and board expectations.       │
+│  At 3.2% margin, you'd face immediate pressure to cut or restructure.     │
+│  Build a sustainable foundation first.                                     │
+│                                                                             │
+│  SUGGESTIONS                                                                │
+│  • Review unprofitable routes (you have 8)                                 │
+│  • Optimize pricing on high-volume routes                                  │
+│  • Renegotiate supplier contracts                                          │
+│                                                                             │
+│  [Review routes] [View finances] [Dismiss]                                 │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -549,3 +628,4 @@ Decision tracking entities (`DecisionLog`, `SessionMetrics`) should be added to 
 |---------|------|---------|
 | 0.1 | January 2026 | Initial specification |
 | 0.2 | January 2026 | Aligned phases with GDD (4 phases: Founder/Manager/Executive/Chairman). Flagged all density numbers as hypotheses. Fixed spec references to existing documents. Moved data model to reference only. |
+| 0.3 | January 2026 | Added quality gates to phase transitions (Section 1.2) to prevent speedrunner exploits. Gates include profitability, margins, and financial stability requirements alongside quantity thresholds. |

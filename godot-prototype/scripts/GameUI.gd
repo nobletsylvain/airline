@@ -513,7 +513,9 @@ func _on_route_configured(config: Dictionary) -> void:
 		# This creates clear cause-effect visibility for the player
 		route.set_pending_prices(price_economy, price_business, price_first)
 
-		if aircraft != route.assigned_aircraft[0]:
+		# Update aircraft if changed
+		var current_aircraft = route.assigned_aircraft[0] if not route.assigned_aircraft.is_empty() else null
+		if aircraft != current_aircraft:
 			for old_aircraft in route.assigned_aircraft:
 				old_aircraft.is_assigned = false
 			route.assigned_aircraft.clear()

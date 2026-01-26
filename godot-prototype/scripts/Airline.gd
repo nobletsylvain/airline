@@ -166,33 +166,47 @@ func process_loan_payments() -> float:
 	return total_paid
 
 func get_credit_limit() -> float:
-	"""Calculate maximum loan amount based on airline performance"""
-	# Base credit on weekly revenue and reputation
-	var base_credit: float = weekly_revenue * 10.0  # 10 weeks of revenue
+	"""Calculate maximum loan amount based on airline performance and assets"""
+	# Revenue-based credit: 20 weeks of revenue
+	var revenue_credit: float = weekly_revenue * 20.0
+	
+	# Asset-based credit: 50% of aircraft fleet value
+	var fleet_value: float = 0.0
+	for ac in aircraft:
+		fleet_value += ac.model.price * (ac.condition / 100.0)
+	var asset_credit: float = fleet_value * 0.5
+	
+	# Balance-based credit: 30% of current cash
+	var cash_credit: float = balance * 0.3
+	
+	# Reputation multiplier (1.0 to 2.0)
 	var reputation_multiplier: float = 1.0 + (reputation / 100.0)
-	return base_credit * reputation_multiplier
+	
+	# Total credit limit (minimum €5M for startups)
+	var total_credit: float = (revenue_credit + asset_credit + cash_credit) * reputation_multiplier
+	return max(5000000.0, total_credit)  # Minimum €5M credit line
 
 func get_interest_rate() -> float:
-	"""Get interest rate based on airline grade"""
+	"""Get interest rate based on airline grade (lowered for better pacing)"""
 	var grade: String = get_grade()
 
 	match grade:
 		"New":
-			return 0.08  # 8% for new airlines
+			return 0.06  # 6% for new airlines (was 8%)
 		"Emerging":
-			return 0.07
+			return 0.055
 		"Established":
-			return 0.06
-		"Professional":
 			return 0.05
+		"Professional":
+			return 0.045
 		"Elite":
 			return 0.04
 		"Legendary":
-			return 0.03
+			return 0.035
 		"Mythic":
-			return 0.02
+			return 0.03
 		_:
-			return 0.08
+			return 0.06
 
 func can_afford_loan_payment(additional_payment: float) -> bool:
 	"""Check if airline can afford an additional loan payment"""

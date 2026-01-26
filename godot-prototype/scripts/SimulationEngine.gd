@@ -320,6 +320,11 @@ func simulate_route(route: Route, airline: Airline) -> void:
 	var airport_fees: float = calculate_airport_fees(route, economy_passengers + business_passengers + first_passengers)
 
 	var total_costs: float = fuel_cost + crew_cost + maintenance_cost + airport_fees
+	
+	# Debug: Cost breakdown
+	print("    [Costs] fuel=€%.0f, crew=€%.0f, mx=€%.0f, airport=€%.0f, TOTAL=€%.0f" % [
+		fuel_cost, crew_cost, maintenance_cost, airport_fees, total_costs
+	])
 
 	# Update route stats
 	route.passengers_transported = economy_passengers + business_passengers + first_passengers
@@ -523,25 +528,55 @@ func calculate_class_distribution(route: Route, airline: Airline) -> Dictionary:
 	}
 
 func calculate_fuel_cost(route: Route) -> float:
-	"""Calculate fuel cost for a route"""
-	var oil_price_per_gallon: float = 3.0  # Simplified
-	var fuel_burn_rate: float = 800.0  # Gallons per hour (simplified average)
-	return route.flight_duration_hours * fuel_burn_rate * oil_price_per_gallon * route.frequency
+	"""Calculate fuel cost for a route based on aircraft daily operating cost.
+	Uses aircraft's daily_cost metadata which includes fuel + crew + maintenance reserve.
+	"""
+	# Get aircraft daily cost from metadata (set by DataLoader from JSON)
+	var daily_cost: float = 3500.0  # Default fallback
+	if not route.assigned_aircraft.is_empty():
+		var aircraft = route.assigned_aircraft[0]
+		daily_cost = aircraft.model.get_meta("daily_cost", 3500.0)
+	
+	# Calculate weekly operating cost based on utilization
+	# Aircraft flies route.frequency times per week, each flight uses flight_duration_hours
+	# Daily cost covers ~8-10 hours of operation, so scale by actual flight hours
+	var flight_hours_per_week: float = route.flight_duration_hours * route.frequency * 2  # Round trip
+	var hours_per_day: float = 8.0  # Assumed daily utilization capacity
+	var days_equivalent: float = flight_hours_per_week / hours_per_day
+	
+	return daily_cost * days_equivalent
+
 
 func calculate_crew_cost(route: Route) -> float:
-	"""Calculate crew costs"""
-	var base_crew_cost: float = 2000.0  # Per flight
-	return base_crew_cost * route.frequency
+	"""Calculate crew costs - included in daily_cost, so minimal extra here"""
+	# Crew cost is already factored into daily_cost
+	# Only add per-flight allowances/per diems
+	var per_diem_per_flight: float = 150.0  # Crew allowances
+	return per_diem_per_flight * route.frequency
+
 
 func calculate_maintenance_cost(route: Route) -> float:
-	"""Calculate maintenance costs"""
-	var cost_per_flight_hour: float = 500.0
-	return route.flight_duration_hours * cost_per_flight_hour * route.frequency
+	"""Calculate maintenance costs - included in daily_cost reserve"""
+	# Maintenance reserve is in daily_cost, but add cycle-based wear
+	var cost_per_cycle: float = 50.0  # Per takeoff/landing cycle
+	return cost_per_cycle * route.frequency
+
 
 func calculate_airport_fees(route: Route, passengers: int) -> float:
 	"""Calculate airport landing and passenger fees"""
-	var landing_fee: float = 5000.0  # Per landing
-	var passenger_fee: float = 10.0  # Per passenger
+	# Use actual airport fees if available, but scale to realistic ATR 72 levels
+	# JSON values are for large aircraft - divide by 10 for regional turboprops
+	var landing_fee: float = 300.0  # Default per landing for ATR 72
+	var passenger_fee: float = 5.0   # Per passenger
+	
+	if route.from_airport:
+		# Scale down JSON values (designed for widebodies) to regional turboprop levels
+		var json_landing = route.from_airport.landing_fee if route.from_airport.landing_fee > 0 else 3000.0
+		landing_fee = json_landing / 10.0  # €8000 → €800
+		
+		var json_pax_fee = route.from_airport.passenger_fee if route.from_airport.passenger_fee > 0 else 50.0
+		passenger_fee = json_pax_fee / 3.0  # €15 → €5
+	
 	return (landing_fee * route.frequency) + (passenger_fee * passengers)
 
 func calculate_airline_finances(airline: Airline) -> void:
