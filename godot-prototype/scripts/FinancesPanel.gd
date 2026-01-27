@@ -1,10 +1,19 @@
+## FinancesPanel.gd
+## Displays airline financial overview including balance, revenue/expenses,
+## fleet operating costs, active loans, and credit information.
+## Part of the main dashboard UI.
 extends Control
 class_name FinancesPanel
 
-## Financial Overview Panel - Display balance, revenue, expenses, loans
-
+## Emitted when user clicks "Take Loan" button to open loan dialog
 signal loan_requested
+
+## Emitted when user requests to pay off a specific loan early
+## @param loan: The Loan resource to pay off
 signal loan_payoff_requested(loan: Loan)
+
+## Standard width for label columns in financial displays
+const LABEL_COLUMN_WIDTH := 120.0
 
 # UI Elements
 var scroll_container: ScrollContainer
@@ -131,7 +140,7 @@ func create_revenue_expenses_card(parent: VBoxContainer) -> void:
 	revenue_title.text = "Revenue:"
 	revenue_title.add_theme_font_size_override("font_size", 14)
 	revenue_title.add_theme_color_override("font_color", UITheme.get_text_secondary())
-	revenue_title.custom_minimum_size = Vector2(120, 0)
+	revenue_title.custom_minimum_size = Vector2(LABEL_COLUMN_WIDTH, 0)
 	revenue_hbox.add_child(revenue_title)
 
 	weekly_revenue_label = Label.new()
@@ -152,7 +161,7 @@ func create_revenue_expenses_card(parent: VBoxContainer) -> void:
 	expenses_title.text = "Expenses:"
 	expenses_title.add_theme_font_size_override("font_size", 14)
 	expenses_title.add_theme_color_override("font_color", UITheme.get_text_secondary())
-	expenses_title.custom_minimum_size = Vector2(120, 0)
+	expenses_title.custom_minimum_size = Vector2(LABEL_COLUMN_WIDTH, 0)
 	expenses_hbox.add_child(expenses_title)
 
 	weekly_expenses_label = Label.new()
@@ -189,7 +198,7 @@ func create_fleet_costs_card(parent: VBoxContainer) -> void:
 		title.text = cost_info[0]
 		title.add_theme_font_size_override("font_size", 13)
 		title.add_theme_color_override("font_color", UITheme.get_text_secondary())
-		title.custom_minimum_size = Vector2(120, 0)
+		title.custom_minimum_size = Vector2(LABEL_COLUMN_WIDTH, 0)
 		hbox.add_child(title)
 		
 		var value_label = Label.new()
@@ -225,7 +234,7 @@ func create_fleet_costs_card(parent: VBoxContainer) -> void:
 	total_title.text = "Total Weekly:"
 	total_title.add_theme_font_size_override("font_size", 14)
 	total_title.add_theme_color_override("font_color", UITheme.get_text_primary())
-	total_title.custom_minimum_size = Vector2(120, 0)
+	total_title.custom_minimum_size = Vector2(LABEL_COLUMN_WIDTH, 0)
 	total_hbox.add_child(total_title)
 	
 	fleet_total_label = Label.new()
@@ -246,7 +255,7 @@ func create_fleet_costs_card(parent: VBoxContainer) -> void:
 	efficiency_title.text = "Cost/Passenger:"
 	efficiency_title.add_theme_font_size_override("font_size", 12)
 	efficiency_title.add_theme_color_override("font_color", UITheme.get_text_secondary())
-	efficiency_title.custom_minimum_size = Vector2(120, 0)
+	efficiency_title.custom_minimum_size = Vector2(LABEL_COLUMN_WIDTH, 0)
 	efficiency_hbox.add_child(efficiency_title)
 	
 	fleet_efficiency_label = Label.new()
@@ -271,7 +280,7 @@ func create_loans_card(parent: VBoxContainer) -> void:
 	debt_title.text = "Total Debt:"
 	debt_title.add_theme_font_size_override("font_size", 14)
 	debt_title.add_theme_color_override("font_color", UITheme.get_text_secondary())
-	debt_title.custom_minimum_size = Vector2(120, 0)
+	debt_title.custom_minimum_size = Vector2(LABEL_COLUMN_WIDTH, 0)
 	debt_hbox.add_child(debt_title)
 
 	total_debt_label = Label.new()
@@ -292,7 +301,7 @@ func create_loans_card(parent: VBoxContainer) -> void:
 	payment_title.text = "Weekly Payment:"
 	payment_title.add_theme_font_size_override("font_size", 14)
 	payment_title.add_theme_color_override("font_color", UITheme.get_text_secondary())
-	payment_title.custom_minimum_size = Vector2(120, 0)
+	payment_title.custom_minimum_size = Vector2(LABEL_COLUMN_WIDTH, 0)
 	payment_hbox.add_child(payment_title)
 
 	weekly_payment_label = Label.new()
@@ -336,7 +345,7 @@ func create_credit_card(parent: VBoxContainer) -> void:
 	credit_title.text = "Credit Limit:"
 	credit_title.add_theme_font_size_override("font_size", 14)
 	credit_title.add_theme_color_override("font_color", UITheme.get_text_secondary())
-	credit_title.custom_minimum_size = Vector2(120, 0)
+	credit_title.custom_minimum_size = Vector2(LABEL_COLUMN_WIDTH, 0)
 	credit_hbox.add_child(credit_title)
 
 	credit_limit_label = Label.new()
@@ -357,7 +366,7 @@ func create_credit_card(parent: VBoxContainer) -> void:
 	rate_title.text = "Interest Rate:"
 	rate_title.add_theme_font_size_override("font_size", 14)
 	rate_title.add_theme_color_override("font_color", UITheme.get_text_secondary())
-	rate_title.custom_minimum_size = Vector2(120, 0)
+	rate_title.custom_minimum_size = Vector2(LABEL_COLUMN_WIDTH, 0)
 	rate_hbox.add_child(rate_title)
 
 	interest_rate_label = Label.new()

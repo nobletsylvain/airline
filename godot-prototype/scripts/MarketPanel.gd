@@ -1,9 +1,28 @@
+## MarketPanel.gd
+## Displays market analysis including competitors, route opportunities,
+## and route competition. Helps player identify profitable expansion targets.
+## Part of the main dashboard UI.
 extends Control
 class_name MarketPanel
 
-## Market Analysis Panel - Display competitors, market opportunities, route competition
-
+## Emitted when user selects a route opportunity to create
+## @param opportunity: Dictionary containing origin, destination, demand, score
 signal route_opportunity_selected(opportunity: Dictionary)
+
+## Maximum route opportunities to display in the panel
+const MAX_OPPORTUNITIES := 15
+
+## Distance threshold for regional aircraft (ATR 72-600 optimal)
+const REGIONAL_RANGE_KM := 1500.0
+
+## Distance threshold for medium-haul narrowbody aircraft
+const MEDIUM_HAUL_KM := 4000.0
+
+## Score threshold for "excellent" opportunity (green badge)
+const SCORE_EXCELLENT := 70.0
+
+## Score threshold for "good" opportunity (yellow badge)
+const SCORE_GOOD := 50.0
 
 # UI Elements
 var scroll_container: ScrollContainer
@@ -281,8 +300,8 @@ func _update_opportunities() -> void:
 	# Sort by profitability score
 	filtered_opportunities.sort_custom(_sort_opportunities_by_score)
 
-	# Limit to top 15
-	var top_opportunities = filtered_opportunities.slice(0, min(15, filtered_opportunities.size()))
+	# Limit to top opportunities
+	var top_opportunities = filtered_opportunities.slice(0, min(MAX_OPPORTUNITIES, filtered_opportunities.size()))
 	
 	if top_opportunities.is_empty():
 		var empty_label = Label.new()
@@ -419,9 +438,9 @@ func create_opportunity_item(opportunity: Dictionary) -> Control:
 	score_badge.tooltip_text = "Profitability Score (0-100)\nHigher = better opportunity"
 	
 	# Color based on score
-	if score >= 70:
+	if score >= SCORE_EXCELLENT:
 		score_badge.add_theme_color_override("font_color", UITheme.PROFIT_COLOR)
-	elif score >= 50:
+	elif score >= SCORE_GOOD:
 		score_badge.add_theme_color_override("font_color", UITheme.WARNING_COLOR)
 	else:
 		score_badge.add_theme_color_override("font_color", UITheme.get_text_secondary())
@@ -448,9 +467,9 @@ func create_opportunity_item(opportunity: Dictionary) -> Control:
 
 func _get_recommended_aircraft(distance_km: float) -> String:
 	"""Get recommended aircraft type based on route distance"""
-	if distance_km <= 1500:
+	if distance_km <= REGIONAL_RANGE_KM:
 		return "ATR 72-600"
-	elif distance_km <= 4000:
+	elif distance_km <= MEDIUM_HAUL_KM:
 		return "737-800 / A320neo"
 	else:
 		return "A320neo"

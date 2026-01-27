@@ -274,6 +274,20 @@ static func create_panel_style() -> StyleBoxFlat:
 	style.shadow_offset = Vector2(0, 2)  # Subtle offset for depth
 	return style
 
+
+## Creates a standard card panel style for UI cards.
+## Returns a StyleBoxFlat with consistent bg, border, corners, and margins.
+static func create_card_panel_style() -> StyleBoxFlat:
+	var style = StyleBoxFlat.new()
+	style.bg_color = get_card_bg()
+	style.border_color = get_panel_border()
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(12)
+	style.set_content_margin_all(16)
+	style.shadow_color = Color(0, 0, 0, 0.05)
+	style.shadow_size = 2
+	return style
+
 static func create_card_style(selected: bool = false, profit: float = 0.0) -> StyleBoxFlat:
 	"""Create card style - Figma-inspired with enhanced shadows and rounded corners"""
 	var style = StyleBoxFlat.new()

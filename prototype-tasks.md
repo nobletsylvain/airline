@@ -595,6 +595,138 @@ M.1 (Connecting flows) ── M.2 (Hub highlight)
 
 ---
 
+## Phase 3 Backlog: Intelligence & Planning
+
+**Status:** Backlog — scope TBD after Phase 2 validation
+
+**Goal:** Help players plan strategically with deeper insights into passenger behavior and market opportunities.
+
+---
+
+### Phase 3 Task Summary
+
+| Component | Tasks | Est. Hours | Priority |
+|-----------|-------|------------|----------|
+| **N. Aircraft Intelligence** | 2 | 6-10 | High |
+| **O. Connection Insights** | 3 | 10-14 | High |
+| **P. Route Deep-Dive** | 2 | 6-8 | Medium |
+| **Q. Market Research** | 2 | 6-10 | Medium |
+| **Total** | **9 tasks** | **28-42 hrs** | |
+
+---
+
+### N. Aircraft Intelligence
+
+#### N.1 Create aircraft comparison panel ❌ Backlog
+**Estimate:** 4-6 hours  
+**Priority:** High  
+**Acceptance Criteria:**
+- [ ] Dedicated tab: "Fleet Comparison"
+- [ ] Side-by-side stats: seats, range, speed, cost/day, price
+- [ ] Per-aircraft metrics: utilization %, revenue/week, profit/week
+- [ ] Unique characteristics highlighted (e.g., "Best for regional", "Low fuel burn")
+- [ ] Sort by: profitability, utilization, cost efficiency
+
+#### N.2 Add aircraft performance history ❌ Backlog
+**Estimate:** 2-4 hours  
+**Priority:** High  
+**Acceptance Criteria:**
+- [ ] Per-aircraft: revenue trend over last 8 weeks
+- [ ] Show routes flown, total passengers carried
+- [ ] Maintenance cost trend
+- [ ] "Best performer" / "Underperformer" badges
+
+---
+
+### O. Connection Insights
+
+#### O.1 Show most-demanded destinations from hub ❌ Backlog
+**Estimate:** 4-6 hours  
+**Priority:** High  
+**Acceptance Criteria:**
+- [ ] Hub panel shows: "Passengers want to fly to: X, Y, Z"
+- [ ] Ranked by unserved demand volume
+- [ ] Indicates if direct route possible with current fleet
+- [ ] Click destination → create route flow
+
+#### O.2 Display passenger pain points ❌ Backlog
+**Estimate:** 3-4 hours  
+**Priority:** High  
+**Acceptance Criteria:**
+- [ ] Show connections with poor experience:
+  - Long layover times
+  - Capacity-constrained routes (high spill)
+  - Price too high for market
+- [ ] Actionable suggestions: "Add frequency" or "Lower price"
+
+#### O.3 Identify unserved connections ❌ Backlog
+**Estimate:** 3-4 hours  
+**Priority:** High  
+**Acceptance Criteria:**
+- [ ] List city pairs with demand but no service (direct or connecting)
+- [ ] Show: origin, destination, estimated weekly demand
+- [ ] Highlight if hub connection would work
+- [ ] "Requires new hub" indicator for distant markets
+
+---
+
+### P. Route Deep-Dive
+
+#### P.1 Expand route opportunity detail view ❌ Backlog
+**Estimate:** 3-4 hours  
+**Priority:** Medium  
+**Acceptance Criteria:**
+- [ ] Click route opportunity → expanded panel:
+  - Demand breakdown: business vs leisure
+  - Seasonality pattern (if implemented)
+  - Competitor presence and pricing
+  - Historical demand trend
+- [ ] "What-if" pricing calculator
+
+#### P.2 Add competitor pricing intelligence ❌ Backlog
+**Estimate:** 3-4 hours  
+**Priority:** Medium  
+**Acceptance Criteria:**
+- [ ] Show competitor price on shared routes
+- [ ] Price comparison: "You: €85 | Competitor: €92"
+- [ ] Market positioning indicator: premium/discount/matched
+- [ ] Suggested response: "Undercut by 5% to gain share"
+
+---
+
+### Q. Market Research (Fog of War)
+
+#### Q.1 Implement market research service ❌ Backlog
+**Estimate:** 4-6 hours  
+**Priority:** Medium  
+**Acceptance Criteria:**
+- [ ] Purchasable service: "Market Research Report"
+- [ ] Cost: €50K-100K per region
+- [ ] Reveals: exact demand numbers, segment split, growth trends
+- [ ] Without research: show ranges ("500-800 pax/week")
+
+#### Q.2 Add demand uncertainty visualization ❌ Backlog
+**Estimate:** 2-4 hours  
+**Priority:** Medium  
+**Acceptance Criteria:**
+- [ ] Unresearched routes show demand as range
+- [ ] Confidence indicator: low/medium/high
+- [ ] After operating route: demand becomes known (learned)
+- [ ] Research removes uncertainty immediately
+
+---
+
+### Phase 3 Exit Criteria
+
+- [ ] Player can compare aircraft performance at a glance
+- [ ] Player knows which destinations passengers want
+- [ ] Player can identify underserved connections
+- [ ] Market research provides strategic value worth the cost
+
+**Validation question:** "Can I plan my network 3-5 routes ahead?"
+
+---
+
 ## Document History
 
 | Version | Date | Changes |
@@ -603,3 +735,4 @@ M.1 (Connecting flows) ── M.2 (Hub highlight)
 | 0.2 | January 2026 | Revised based on Godot Prototype Audit: marked 26 tasks done, 7 partial, added 6 simplification tasks. |
 | 0.3 | January 26, 2026 | **Phase 1 Complete.** All 45 tasks done. Added Playtest Findings and Phase 2 Scope sections. |
 | 0.4 | January 26, 2026 | **Phase 2 Tasks Added.** 18 tasks across 5 components: Fleet Expansion, Route Analytics, Cost Breakdown, AI Competitor, Hub Visualization. Estimated 40-58 hours. |
+| 0.5 | January 26, 2026 | **Phase 3 Backlog Added.** 9 tasks: Aircraft Intelligence, Connection Insights, Route Deep-Dive, Market Research. Estimated 28-42 hours. |
