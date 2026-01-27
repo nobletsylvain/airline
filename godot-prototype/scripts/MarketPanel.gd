@@ -250,31 +250,76 @@ func _update_opportunities() -> void:
 		child.queue_free()
 
 	if not GameData.player_airline or not GameData.airports:
+		var empty_label = Label.new()
+		empty_label.text = "Select a hub to see route opportunities"
+		empty_label.add_theme_font_size_override("font_size", 12)
+		empty_label.add_theme_color_override("font_color", UITheme.get_text_secondary())
+		opportunities_list.add_child(empty_label)
+		return
+	
+	if GameData.player_airline.hubs.is_empty():
+		var empty_label = Label.new()
+		empty_label.text = "You need a hub to see route opportunities. Purchase one in the Fleet tab."
+		empty_label.add_theme_font_size_override("font_size", 12)
+		empty_label.add_theme_color_override("font_color", UITheme.get_text_secondary())
+		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		opportunities_list.add_child(empty_label)
 		return
 
-	# Get best opportunities from player's hubs
+	# Get best opportunities from player's hubs (more per hub for better coverage)
 	var opportunities: Array[Dictionary] = []
 	for hub in GameData.player_airline.hubs:
-		var hub_opportunities = GameData.find_route_opportunities(hub, 5)
+		var hub_opportunities = GameData.find_route_opportunities(hub, 15)
 		opportunities.append_array(hub_opportunities)
 
+	# Filter out routes player already operates
+	var filtered_opportunities: Array[Dictionary] = []
+	for opp in opportunities:
+		var from = opp.get("from_airport", null)
+		var to = opp.get("to_airport", null)
+		if from and to and not _player_has_route(from, to):
+			filtered_opportunities.append(opp)
+	
 	# Sort by profitability score
-	opportunities.sort_custom(_sort_opportunities_by_score)
+	filtered_opportunities.sort_custom(_sort_opportunities_by_score)
 
-	# Limit to top 10
-	var top_opportunities = opportunities.slice(0, min(10, opportunities.size()))
+	# Limit to top 15
+	var top_opportunities = filtered_opportunities.slice(0, min(15, filtered_opportunities.size()))
+	
+	if top_opportunities.is_empty():
+		var empty_label = Label.new()
+		empty_label.text = "No new route opportunities found. You may already be serving all high-demand routes."
+		empty_label.add_theme_font_size_override("font_size", 12)
+		empty_label.add_theme_color_override("font_color", UITheme.get_text_secondary())
+		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		opportunities_list.add_child(empty_label)
+		return
 
 	# Add opportunity items
 	for opp in top_opportunities:
 		var opp_item = create_opportunity_item(opp)
 		opportunities_list.add_child(opp_item)
 
+
+func _player_has_route(from_airport: Airport, to_airport: Airport) -> bool:
+	"""Check if player already has a route between these airports"""
+	if not GameData.player_airline:
+		return false
+	
+	for route in GameData.player_airline.routes:
+		# Check both directions
+		if (route.from_airport == from_airport and route.to_airport == to_airport) or \
+		   (route.from_airport == to_airport and route.to_airport == from_airport):
+			return true
+	
+	return false
+
 func _sort_opportunities_by_score(a: Dictionary, b: Dictionary) -> bool:
 	"""Sort opportunities by profitability score (highest first)"""
 	return a.get("profitability_score", 0.0) > b.get("profitability_score", 0.0)
 
 func create_opportunity_item(opportunity: Dictionary) -> Control:
-	"""Create an opportunity item card"""
+	"""Create an opportunity item card with detailed info"""
 	var item = PanelContainer.new()
 	
 	var style = StyleBoxFlat.new()
@@ -300,9 +345,11 @@ func create_opportunity_item(opportunity: Dictionary) -> Control:
 	info_vbox.add_theme_constant_override("separation", 4)
 	hbox.add_child(info_vbox)
 
-	var route_name = Label.new()
+	# Route name and cities
 	var from_airport = opportunity.get("from_airport", null)
 	var to_airport = opportunity.get("to_airport", null)
+	
+	var route_name = Label.new()
 	if from_airport and to_airport:
 		route_name.text = "%s → %s" % [from_airport.iata_code, to_airport.iata_code]
 	else:
@@ -310,23 +357,68 @@ func create_opportunity_item(opportunity: Dictionary) -> Control:
 	route_name.add_theme_font_size_override("font_size", 14)
 	route_name.add_theme_color_override("font_color", UITheme.get_text_primary())
 	info_vbox.add_child(route_name)
+	
+	# City names
+	var city_label = Label.new()
+	if from_airport and to_airport:
+		city_label.text = "%s to %s" % [from_airport.city, to_airport.city]
+	else:
+		city_label.text = ""
+	city_label.add_theme_font_size_override("font_size", 11)
+	city_label.add_theme_color_override("font_color", UITheme.get_text_secondary())
+	info_vbox.add_child(city_label)
 
-	var opp_details = Label.new()
-	var score = opportunity.get("profitability_score", 0.0)
+	# Distance and recommended aircraft
+	var distance_km: float = opportunity.get("distance_km", 0.0)
+	var recommended_aircraft: String = _get_recommended_aircraft(distance_km)
+	
+	var details_row1 = Label.new()
+	details_row1.text = "%.0f km | %s" % [distance_km, recommended_aircraft]
+	details_row1.add_theme_font_size_override("font_size", 12)
+	details_row1.add_theme_color_override("font_color", UITheme.get_text_secondary())
+	info_vbox.add_child(details_row1)
+
+	# Demand, competition, and competition level indicator
 	var demand = opportunity.get("demand", 0.0)
 	var competition = opportunity.get("competition", 0)
-	opp_details.text = "Score: %.0f | Demand: %.0f pax/wk | Competition: %d" % [score, demand, competition]
-	opp_details.add_theme_font_size_override("font_size", 12)
-	opp_details.add_theme_color_override("font_color", UITheme.get_text_secondary())
-	info_vbox.add_child(opp_details)
+	var competition_text: String
+	var competition_color: Color
+	
+	if competition == 0:
+		competition_text = "No competition"
+		competition_color = UITheme.PROFIT_COLOR
+	elif competition == 1:
+		competition_text = "1 competitor"
+		competition_color = UITheme.WARNING_COLOR
+	else:
+		competition_text = "%d competitors" % competition
+		competition_color = UITheme.LOSS_COLOR
+	
+	var details_row2 = HBoxContainer.new()
+	details_row2.add_theme_constant_override("separation", 8)
+	info_vbox.add_child(details_row2)
+	
+	var demand_label = Label.new()
+	demand_label.text = "~%.0f pax/wk" % demand
+	demand_label.add_theme_font_size_override("font_size", 12)
+	demand_label.add_theme_color_override("font_color", UITheme.get_text_secondary())
+	details_row2.add_child(demand_label)
+	
+	var comp_label = Label.new()
+	comp_label.text = " | %s" % competition_text
+	comp_label.add_theme_font_size_override("font_size", 12)
+	comp_label.add_theme_color_override("font_color", competition_color)
+	details_row2.add_child(comp_label)
 
-	# Score badge
+	# Score badge with tooltip
+	var score = opportunity.get("profitability_score", 0.0)
 	var score_badge = Label.new()
 	score_badge.text = "%.0f" % score
 	score_badge.custom_minimum_size = Vector2(50, 32)
 	score_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	score_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	score_badge.add_theme_font_size_override("font_size", 14)
+	score_badge.tooltip_text = "Profitability Score (0-100)\nHigher = better opportunity"
 	
 	# Color based on score
 	if score >= 70:
@@ -343,17 +435,27 @@ func create_opportunity_item(opportunity: Dictionary) -> Control:
 	score_badge.add_theme_stylebox_override("normal", badge_style)
 	hbox.add_child(score_badge)
 
-	# View button
-	var view_btn = Button.new()
-	view_btn.text = "View"
-	view_btn.custom_minimum_size = Vector2(80, 32)
-	view_btn.add_theme_font_size_override("font_size", 12)
-	var btn_style = UITheme.create_secondary_button_style()
-	view_btn.add_theme_stylebox_override("normal", btn_style)
-	view_btn.pressed.connect(_on_opportunity_selected.bind(opportunity))
-	hbox.add_child(view_btn)
+	# Create Route button (more actionable than "View")
+	var create_btn = Button.new()
+	create_btn.text = "Create Route"
+	create_btn.custom_minimum_size = Vector2(100, 32)
+	create_btn.add_theme_font_size_override("font_size", 12)
+	var btn_style = UITheme.create_primary_button_style()
+	create_btn.add_theme_stylebox_override("normal", btn_style)
+	create_btn.pressed.connect(_on_opportunity_selected.bind(opportunity))
+	hbox.add_child(create_btn)
 
 	return item
+
+
+func _get_recommended_aircraft(distance_km: float) -> String:
+	"""Get recommended aircraft type based on route distance"""
+	if distance_km <= 1500:
+		return "ATR 72-600"
+	elif distance_km <= 4000:
+		return "737-800 / A320neo"
+	else:
+		return "A320neo"
 
 func _update_competition() -> void:
 	"""Update route competition list"""

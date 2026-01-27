@@ -326,11 +326,20 @@ func simulate_route(route: Route, airline: Airline) -> void:
 		fuel_cost, crew_cost, maintenance_cost, airport_fees, total_costs
 	])
 
+	# K.2: Store previous profit for trend tracking
+	route.previous_weekly_profit = route.weekly_profit
+	
 	# Update route stats
 	route.passengers_transported = economy_passengers + business_passengers + first_passengers
 	route.revenue_generated = total_revenue
-	route.fuel_cost = fuel_cost
 	route.weekly_profit = total_revenue - total_costs
+	
+	# Store cost breakdown (K.1: for route details display)
+	route.fuel_cost = fuel_cost
+	route.crew_cost = crew_cost
+	route.maintenance_cost = maintenance_cost
+	route.airport_fees = airport_fees
+	route.total_costs = total_costs
 	
 	# Debug: Show final passenger calculation
 	var load_factor: float = float(route.passengers_transported) / float(total_capacity) * 100.0 if total_capacity > 0 else 0.0

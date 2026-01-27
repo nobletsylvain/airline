@@ -355,6 +355,9 @@ func _draw() -> void:
 
 	# Draw plane tooltip
 	draw_plane_tooltip()
+	
+	# Draw airport tooltip (J.2: demand preview on hover)
+	draw_airport_tooltip()
 
 func draw_map_tiles() -> void:
 	"""Draw visible OpenStreetMap tiles with sub-zoom scaling"""
@@ -473,6 +476,18 @@ func draw_single_route(route: Route, base_color: Color) -> void:
 		line_thickness *= 1.5
 		line_color.a = 1.0
 		line_color = line_color.lightened(0.2)
+	
+	# M.2: Hub network highlighting - dim routes not connected to hovered hub
+	if hover_airport and _is_hub_airport(hover_airport):
+		var is_connected_to_hub: bool = (route.from_airport == hover_airport or route.to_airport == hover_airport)
+		if is_connected_to_hub:
+			# Highlight routes connected to this hub
+			line_color = line_color.lightened(0.15)
+			line_thickness *= 1.3
+			line_color.a = min(1.0, line_color.a + 0.2)
+		else:
+			# Dim routes not connected to this hub
+			line_color.a *= 0.25
 
 	# Draw line
 	draw_line(from_pos, to_pos, line_color, line_thickness)
@@ -611,6 +626,130 @@ func draw_plane_tooltip() -> void:
 			Color.WHITE
 		)
 		y_offset += font_size + 4
+
+
+func draw_airport_tooltip() -> void:
+	"""J.2: Draw tooltip with demand preview when hovering over an airport"""
+	if not hover_airport:
+		return
+	
+	# Don't show tooltip if we're clicking/selecting (floating panel will show instead)
+	if floating_panel and floating_panel.visible:
+		return
+	
+	# Only show demand info if player has at least one hub
+	if not GameData.player_airline or GameData.player_airline.hubs.is_empty():
+		return
+	
+	# Get the player's primary hub (first hub)
+	var player_hub: Airport = GameData.player_airline.hubs[0]
+	
+	# Don't show tooltip for the hub itself
+	if hover_airport == player_hub:
+		return
+	
+	# Calculate distance and demand
+	var distance: float = MarketAnalysis.calculate_great_circle_distance(player_hub, hover_airport)
+	var demand: float = MarketAnalysis.calculate_potential_demand(player_hub, hover_airport, distance)
+	
+	# Get recommended aircraft based on distance
+	var recommended_aircraft: String
+	if distance <= 1500:
+		recommended_aircraft = "ATR 72-600"
+	elif distance <= 4000:
+		recommended_aircraft = "737-800 / A320neo"
+	else:
+		recommended_aircraft = "A320neo"
+	
+	# Check for existing player route
+	var has_player_route: bool = false
+	for route in GameData.player_airline.routes:
+		if (route.from_airport == player_hub and route.to_airport == hover_airport) or \
+		   (route.from_airport == hover_airport and route.to_airport == player_hub):
+			has_player_route = true
+			break
+	
+	# Check for AI competition
+	var competition_count: int = 0
+	for airline in GameData.airlines:
+		if airline == GameData.player_airline:
+			continue
+		for route in airline.routes:
+			if (route.from_airport == player_hub and route.to_airport == hover_airport) or \
+			   (route.from_airport == hover_airport and route.to_airport == player_hub) or \
+			   (route.from_airport.iata_code == player_hub.iata_code and route.to_airport.iata_code == hover_airport.iata_code) or \
+			   (route.from_airport.iata_code == hover_airport.iata_code and route.to_airport.iata_code == player_hub.iata_code):
+				competition_count += 1
+	
+	# Build tooltip text
+	var lines: Array[String] = []
+	lines.append("%s (%s)" % [hover_airport.name, hover_airport.iata_code])
+	lines.append("From %s: %.0f km" % [player_hub.iata_code, distance])
+	lines.append("Est. demand: ~%.0f pax/week" % demand)
+	lines.append("Recommended: %s" % recommended_aircraft)
+	
+	if has_player_route:
+		lines.append("✓ You operate this route")
+	elif competition_count > 0:
+		lines.append("⚠ %d competitor(s)" % competition_count)
+	else:
+		lines.append("★ No competition!")
+	
+	# Get screen position of airport
+	var airport_screen_pos: Vector2 = world_to_screen(hover_airport.position_2d)
+	
+	# Calculate tooltip size
+	var font_size: int = 12
+	var max_width: float = 0.0
+	for line in lines:
+		var line_width: float = line.length() * font_size * 0.55
+		max_width = max(max_width, line_width)
+	
+	var tooltip_size: Vector2 = Vector2(max_width + 20, lines.size() * (font_size + 4) + 16)
+	
+	# Position tooltip above and to the right of airport
+	var tooltip_pos: Vector2 = airport_screen_pos + Vector2(20, -tooltip_size.y - 10)
+	
+	# Keep tooltip on screen
+	if tooltip_pos.x + tooltip_size.x > size.x:
+		tooltip_pos.x = airport_screen_pos.x - tooltip_size.x - 20
+	if tooltip_pos.y < 0:
+		tooltip_pos.y = airport_screen_pos.y + 30
+	if tooltip_pos.x < 10:
+		tooltip_pos.x = 10
+	
+	# Draw background
+	var bg_rect: Rect2 = Rect2(tooltip_pos, tooltip_size)
+	draw_rect(bg_rect, Color(0.05, 0.08, 0.12, 0.95), true)
+	draw_rect(bg_rect, Color(0.3, 0.6, 1.0, 0.6), false, 1.5)
+	
+	# Draw text lines
+	var y_offset: float = 10.0
+	for i in range(lines.size()):
+		var line: String = lines[i]
+		var line_color: Color = Color.WHITE
+		
+		# Color code certain lines
+		if i == 0:
+			line_color = Color(0.4, 0.8, 1.0)  # Airport name in blue
+		elif "No competition" in line:
+			line_color = Color(0.4, 1.0, 0.4)  # Green for no competition
+		elif "competitor" in line:
+			line_color = Color(1.0, 0.8, 0.3)  # Yellow for competition
+		elif "You operate" in line:
+			line_color = Color(0.6, 0.8, 1.0)  # Light blue for existing route
+		
+		draw_string(
+			ThemeDB.fallback_font,
+			tooltip_pos + Vector2(10, y_offset + font_size),
+			line,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			font_size,
+			line_color
+		)
+		y_offset += font_size + 4
+
 
 func draw_route_preview() -> void:
 	"""Draw preview line when creating a route"""
@@ -1019,10 +1158,21 @@ func show_floating_panel_for_airport(airport: Airport, screen_pos: Vector2) -> v
 
 	# Set stats with formatting - use light text for dark panel
 	var pax_millions = airport.annual_passengers
-	stats_label.text = "Traffic: %dM pax/year\nGDP: $%s per capita" % [
+	var stats_text: String = "Traffic: %dM pax/year\nGDP: $%s per capita" % [
 		pax_millions,
 		UITheme.format_number(airport.gdp_per_capita)
 	]
+	
+	# M.1: Show hub network stats for player hubs
+	if is_player_hub:
+		var hub_stats: Dictionary = calculate_hub_stats(airport)
+		stats_text += "\n─── Hub Stats ───"
+		stats_text += "\nRoutes: %d" % hub_stats.route_count
+		stats_text += "\nWeekly Pax: %d" % hub_stats.total_passengers
+		if hub_stats.connecting_passengers > 0:
+			stats_text += "\nConnecting: ~%d" % hub_stats.connecting_passengers
+	
+	stats_label.text = stats_text
 	stats_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
 
 	# Configure buttons
@@ -1090,12 +1240,27 @@ func show_floating_panel_for_route(route: Route, screen_pos: Vector2) -> void:
 
 	var load_color = UITheme.get_load_factor_color(load_factor)
 
-	stats_label.text = "Load: %.0f%% | Pax: %d\nProfit: %s$%s/wk" % [
-		load_factor,
-		route.passengers_transported,
-		profit_sign,
-		UITheme.format_money(abs(profit))
-	]
+	# Build stats with cost breakdown (K.1) and profit trends (K.2)
+	var stats_text: String = "Load: %.0f%% | Pax: %d\n" % [load_factor, route.passengers_transported]
+	stats_text += "Revenue: €%s/wk\n" % UITheme.format_money(route.revenue_generated)
+	
+	# Cost breakdown
+	if route.total_costs > 0:
+		stats_text += "─── Costs ───\n"
+		stats_text += "  Fuel: €%s\n" % UITheme.format_money(route.fuel_cost)
+		stats_text += "  Crew: €%s\n" % UITheme.format_money(route.crew_cost)
+		stats_text += "  Maint: €%s\n" % UITheme.format_money(route.maintenance_cost)
+		stats_text += "  Airport: €%s\n" % UITheme.format_money(route.airport_fees)
+		stats_text += "  Total: €%s\n" % UITheme.format_money(route.total_costs)
+		stats_text += "─────────────\n"
+	
+	# K.2: Profit with margin and trend
+	var profit_margin: float = route.get_profit_margin()
+	var trend: String = route.get_profit_trend()
+	stats_text += "Profit: %s€%s/wk %s\n" % [profit_sign, UITheme.format_money(abs(profit)), trend]
+	stats_text += "Margin: %.0f%%" % profit_margin
+	
+	stats_label.text = stats_text
 	stats_label.add_theme_color_override("font_color", profit_color)
 
 	# Configure buttons
@@ -1138,6 +1303,53 @@ func _position_floating_panel(near_pos: Vector2) -> void:
 		panel_pos.y = 10
 
 	floating_panel.position = panel_pos
+
+
+func _is_hub_airport(airport: Airport) -> bool:
+	"""M.2: Check if an airport is a player hub"""
+	if not airport or not GameData.player_airline:
+		return false
+	return GameData.player_airline.has_hub(airport)
+
+
+func calculate_hub_stats(hub_airport: Airport) -> Dictionary:
+	"""M.1: Calculate hub statistics including connecting passengers"""
+	var stats: Dictionary = {
+		"route_count": 0,
+		"total_passengers": 0,
+		"connecting_passengers": 0
+	}
+	
+	if not GameData.player_airline:
+		return stats
+	
+	var hub_routes: Array[Route] = []
+	
+	# Find all routes from/to this hub
+	for route in GameData.player_airline.routes:
+		if route.from_airport == hub_airport or route.to_airport == hub_airport:
+			hub_routes.append(route)
+			stats.route_count += 1
+			stats.total_passengers += route.passengers_transported
+	
+	# Estimate connecting passengers (passengers who could connect between routes)
+	# This is a simplified estimate: for each pair of routes, some % of passengers connect
+	if hub_routes.size() >= 2:
+		var connection_factor: float = 0.15  # Assume 15% of passengers connect
+		var total_connection_opportunities: int = 0
+		
+		for i in range(hub_routes.size()):
+			for j in range(i + 1, hub_routes.size()):
+				var route1: Route = hub_routes[i]
+				var route2: Route = hub_routes[j]
+				# Connecting passengers = smaller of the two route passenger counts * connection factor
+				var potential_connectors: int = int(min(route1.passengers_transported, route2.passengers_transported) * connection_factor)
+				total_connection_opportunities += potential_connectors
+		
+		stats.connecting_passengers = total_connection_opportunities
+	
+	return stats
+
 
 func hide_floating_panel() -> void:
 	"""Hide the floating info panel"""

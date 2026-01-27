@@ -40,6 +40,7 @@ signal route_created(route: Route, airline: Airline)
 signal first_route_created(route: Route, airline: Airline)  # Special signal for first route
 signal route_removed(route: Route, airline: Airline)  # Signal when route is removed
 signal route_network_changed(airline: Airline)  # Signal when route network changes (for profitability recalculation)
+signal competitor_entered_market(airline: Airline)  # Signal when AI competitor becomes active after grace period
 
 func _ready() -> void:
 	# Create tutorial and objective systems first

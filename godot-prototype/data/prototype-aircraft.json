@@ -1,6 +1,6 @@
 {
-	"_comment": "Prototype aircraft for Phase 1. ATR 72-600 is the starting aircraft per prototype-scope.md §8.3",
-	"_version": "1.0",
+	"_comment": "Prototype aircraft for Phase 1. ATR 72-600 is the starting aircraft per prototype-scope.md §8.3. A320neo and 737-800 added for Task I.1.",
+	"_version": "1.1",
 	"aircraft": [
 		{
 			"name": "ATR 72-600",
@@ -14,11 +14,11 @@
 			"fuel_burn_per_hour": 350,
 			"runway_requirement": 1333,
 			
-		"_economics_comment": "Daily cost ~€3,500 (fuel + crew + mx reserve) - balanced for 60%+ LF profitability. Price reduced to €15M for better pacing (used turboprop value).",
-		"price": 15000000,
-		"lease_rate_monthly": 120000,
-		"daily_cost": 3500,
-		"maintenance_cost_per_hour": 450,
+			"_economics_comment": "Daily cost ~€3,500 (fuel + crew + mx reserve) - balanced for 60%+ LF profitability. Price reduced to €15M for better pacing (used turboprop value).",
+			"price": 15000000,
+			"lease_rate_monthly": 120000,
+			"daily_cost": 3500,
+			"maintenance_cost_per_hour": 450,
 			"turnaround_minutes": 30,
 			
 			"_capacity_comment": "72 seats single class for prototype. No premium classes.",
@@ -32,6 +32,68 @@
 			},
 			
 			"_notes": "Typical route length 300-800 km per prototype-scope.md. Hard to lose money if load factor >50%."
+		},
+		{
+			"name": "Airbus A320neo",
+			"manufacturer": "Airbus",
+			"category": "narrowbody",
+			
+			"_specs_comment": "A320neo - most popular narrowbody. New engine option for fuel efficiency.",
+			"max_seats": 180,
+			"range_km": 6300,
+			"speed_kmh": 840,
+			"fuel_burn_per_hour": 830,
+			"runway_requirement": 2100,
+			
+			"_economics_comment": "Higher capacity = better unit economics on dense routes. Daily cost includes fuel, 4-person crew, maintenance reserve.",
+			"price": 50000000,
+			"lease_rate_monthly": 380000,
+			"daily_cost": 12000,
+			"maintenance_cost_per_hour": 1200,
+			"turnaround_minutes": 45,
+			
+			"_capacity_comment": "180 seats single class. Can support business class.",
+			"min_economy": 120,
+			"max_business": 24,
+			"max_first": 0,
+			"default_config": {
+				"economy": 168,
+				"business": 12,
+				"first": 0
+			},
+			
+			"_notes": "Workhorse narrowbody for medium-haul routes (1000-4000km). Best economics at 70%+ load factor on 2-4 hour flights."
+		},
+		{
+			"name": "Boeing 737-800",
+			"manufacturer": "Boeing",
+			"category": "narrowbody",
+			
+			"_specs_comment": "737-800 - proven workhorse, slightly smaller than A320neo.",
+			"max_seats": 162,
+			"range_km": 5400,
+			"speed_kmh": 850,
+			"fuel_burn_per_hour": 860,
+			"runway_requirement": 2300,
+			
+			"_economics_comment": "Slightly lower capacity than A320neo but similar operating costs. Better for thinner routes.",
+			"price": 45000000,
+			"lease_rate_monthly": 340000,
+			"daily_cost": 11000,
+			"maintenance_cost_per_hour": 1100,
+			"turnaround_minutes": 40,
+			
+			"_capacity_comment": "162 seats single class. Can support business class.",
+			"min_economy": 108,
+			"max_business": 20,
+			"max_first": 0,
+			"default_config": {
+				"economy": 150,
+				"business": 12,
+				"first": 0
+			},
+			
+			"_notes": "Classic narrowbody for short-medium haul (800-3500km). Cheaper than A320neo, good for building network density."
 		}
 	]
 }

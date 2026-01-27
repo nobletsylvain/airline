@@ -964,12 +964,15 @@ func _on_loan_dialog_created(loan: Loan) -> void:
 # Market Panel Handlers
 
 func _on_market_opportunity_selected(opportunity: Dictionary) -> void:
-	"""Handle market opportunity selection"""
+	"""Handle market opportunity selection - opens route creation dialog directly"""
 	var from_airport = opportunity.get("from_airport", null)
 	var to_airport = opportunity.get("to_airport", null)
 	
-	if from_airport and to_airport and route_opportunity_dialog:
-		route_opportunity_dialog.show_for_route(from_airport, to_airport)
+	if from_airport and to_airport and route_config_dialog:
+		# Open route config dialog directly for this opportunity
+		route_config_dialog.setup_route(from_airport, to_airport)
+		route_config_dialog.popup_centered()
+		print("Opening route creation for opportunity: %s → %s" % [from_airport.iata_code, to_airport.iata_code])
 
 # Tutorial System
 

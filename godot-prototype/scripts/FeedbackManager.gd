@@ -55,6 +55,10 @@ func _connect_signals() -> void:
 			print("FeedbackManager: Connected to SimulationEngine signals")
 	else:
 		push_warning("FeedbackManager: Could not find SimulationEngine")
+	
+	# Connect to GameData signals for competitor events
+	if not GameData.competitor_entered_market.is_connected(_on_competitor_entered_market):
+		GameData.competitor_entered_market.connect(_on_competitor_entered_market)
 
 
 func _find_simulation_engine() -> Node:
@@ -405,6 +409,22 @@ func _on_pending_prices_applied(routes_changed: int) -> void:
 		message,
 		Color(1.0, 0.8, 0.2),  # Yellow/gold
 		5.0  # Longer duration for price changes
+	)
+
+
+func _on_competitor_entered_market(airline: Airline) -> void:
+	"""Show notification when AI competitor becomes active after grace period"""
+	if not airline:
+		return
+	
+	var message: String = "%s has entered the market!\nExpect competition on your routes." % airline.name
+	
+	# Show prominent toast with warning color
+	show_toast(
+		"⚠️ New Competitor",
+		message,
+		Color(1.0, 0.5, 0.2),  # Orange warning color
+		8.0  # Longer duration for important event
 	)
 
 

@@ -11,6 +11,7 @@ var scroll_container: ScrollContainer
 var main_vbox: VBoxContainer
 var balance_card: PanelContainer
 var revenue_expenses_card: PanelContainer
+var fleet_costs_card: PanelContainer  # K.3: Fleet-wide cost breakdown
 var loans_card: PanelContainer
 var credit_card: PanelContainer
 
@@ -23,6 +24,14 @@ var total_debt_label: Label
 var weekly_payment_label: Label
 var credit_limit_label: Label
 var interest_rate_label: Label
+
+# K.3: Fleet cost breakdown labels
+var fleet_fuel_label: Label
+var fleet_crew_label: Label
+var fleet_maintenance_label: Label
+var fleet_airport_label: Label
+var fleet_total_label: Label
+var fleet_efficiency_label: Label
 
 func _ready() -> void:
 	build_ui()
@@ -61,6 +70,7 @@ func build_ui() -> void:
 	# Financial cards
 	create_balance_card(main_vbox)
 	create_revenue_expenses_card(main_vbox)
+	create_fleet_costs_card(main_vbox)  # K.3: Fleet-wide cost breakdown
 	create_loans_card(main_vbox)
 	create_credit_card(main_vbox)
 
@@ -155,6 +165,98 @@ func create_revenue_expenses_card(parent: VBoxContainer) -> void:
 	var expenses_spacer = Control.new()
 	expenses_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	expenses_hbox.add_child(expenses_spacer)
+
+
+func create_fleet_costs_card(parent: VBoxContainer) -> void:
+	"""K.3: Create fleet-wide cost breakdown card"""
+	fleet_costs_card = create_finance_card("Fleet Operating Costs", parent)
+	
+	var content_vbox = VBoxContainer.new()
+	content_vbox.add_theme_constant_override("separation", 8)
+	fleet_costs_card.get_node("MarginContainer").add_child(content_vbox)
+	
+	# Cost breakdown rows
+	var cost_types: Array = [
+		["Fuel:", "fleet_fuel"],
+		["Crew:", "fleet_crew"],
+		["Maintenance:", "fleet_maintenance"],
+		["Airport Fees:", "fleet_airport"],
+	]
+	
+	for cost_info in cost_types:
+		var hbox = HBoxContainer.new()
+		hbox.add_theme_constant_override("separation", 12)
+		content_vbox.add_child(hbox)
+		
+		var title = Label.new()
+		title.text = cost_info[0]
+		title.add_theme_font_size_override("font_size", 13)
+		title.add_theme_color_override("font_color", UITheme.get_text_secondary())
+		title.custom_minimum_size = Vector2(120, 0)
+		hbox.add_child(title)
+		
+		var value_label = Label.new()
+		value_label.add_theme_font_size_override("font_size", 13)
+		value_label.add_theme_color_override("font_color", UITheme.get_text_primary())
+		hbox.add_child(value_label)
+		
+		# Store reference
+		match cost_info[1]:
+			"fleet_fuel":
+				fleet_fuel_label = value_label
+			"fleet_crew":
+				fleet_crew_label = value_label
+			"fleet_maintenance":
+				fleet_maintenance_label = value_label
+			"fleet_airport":
+				fleet_airport_label = value_label
+		
+		var spacer = Control.new()
+		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hbox.add_child(spacer)
+	
+	# Separator
+	var sep = HSeparator.new()
+	content_vbox.add_child(sep)
+	
+	# Total row
+	var total_hbox = HBoxContainer.new()
+	total_hbox.add_theme_constant_override("separation", 12)
+	content_vbox.add_child(total_hbox)
+	
+	var total_title = Label.new()
+	total_title.text = "Total Weekly:"
+	total_title.add_theme_font_size_override("font_size", 14)
+	total_title.add_theme_color_override("font_color", UITheme.get_text_primary())
+	total_title.custom_minimum_size = Vector2(120, 0)
+	total_hbox.add_child(total_title)
+	
+	fleet_total_label = Label.new()
+	fleet_total_label.add_theme_font_size_override("font_size", 14)
+	fleet_total_label.add_theme_color_override("font_color", UITheme.LOSS_COLOR)
+	total_hbox.add_child(fleet_total_label)
+	
+	var total_spacer = Control.new()
+	total_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	total_hbox.add_child(total_spacer)
+	
+	# Efficiency metric
+	var efficiency_hbox = HBoxContainer.new()
+	efficiency_hbox.add_theme_constant_override("separation", 12)
+	content_vbox.add_child(efficiency_hbox)
+	
+	var efficiency_title = Label.new()
+	efficiency_title.text = "Cost/Passenger:"
+	efficiency_title.add_theme_font_size_override("font_size", 12)
+	efficiency_title.add_theme_color_override("font_color", UITheme.get_text_secondary())
+	efficiency_title.custom_minimum_size = Vector2(120, 0)
+	efficiency_hbox.add_child(efficiency_title)
+	
+	fleet_efficiency_label = Label.new()
+	fleet_efficiency_label.add_theme_font_size_override("font_size", 12)
+	fleet_efficiency_label.add_theme_color_override("font_color", UITheme.get_text_muted())
+	efficiency_hbox.add_child(fleet_efficiency_label)
+
 
 func create_loans_card(parent: VBoxContainer) -> void:
 	"""Create loans management card"""
@@ -332,9 +434,49 @@ func refresh() -> void:
 	credit_limit_label.text = UITheme.format_money(airline.get_credit_limit())
 	var interest_rate = airline.get_interest_rate()
 	interest_rate_label.text = "%.1f%%" % (interest_rate * 100.0)
+	
+	# K.3: Fleet operating costs breakdown
+	_update_fleet_costs()
 
 	# Update loans list
 	_update_loans_list()
+
+func _update_fleet_costs() -> void:
+	"""K.3: Update fleet-wide cost breakdown"""
+	if not GameData.player_airline or not fleet_fuel_label:
+		return
+	
+	var airline = GameData.player_airline
+	var total_fuel: float = 0.0
+	var total_crew: float = 0.0
+	var total_maintenance: float = 0.0
+	var total_airport: float = 0.0
+	var total_passengers: int = 0
+	
+	# Sum costs from all routes
+	for route in airline.routes:
+		total_fuel += route.fuel_cost
+		total_crew += route.crew_cost
+		total_maintenance += route.maintenance_cost
+		total_airport += route.airport_fees
+		total_passengers += route.passengers_transported
+	
+	var total_costs: float = total_fuel + total_crew + total_maintenance + total_airport
+	
+	# Update labels
+	fleet_fuel_label.text = "€%s/wk" % UITheme.format_money(total_fuel)
+	fleet_crew_label.text = "€%s/wk" % UITheme.format_money(total_crew)
+	fleet_maintenance_label.text = "€%s/wk" % UITheme.format_money(total_maintenance)
+	fleet_airport_label.text = "€%s/wk" % UITheme.format_money(total_airport)
+	fleet_total_label.text = "€%s/wk" % UITheme.format_money(total_costs)
+	
+	# Efficiency metric: cost per passenger
+	if total_passengers > 0:
+		var cost_per_pax: float = total_costs / float(total_passengers)
+		fleet_efficiency_label.text = "€%.2f per pax" % cost_per_pax
+	else:
+		fleet_efficiency_label.text = "N/A"
+
 
 func _update_loans_list() -> void:
 	"""Update the loans list display"""

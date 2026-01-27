@@ -9,10 +9,15 @@ enum AIPersonality {
 	BALANCED      # Mix of both strategies
 }
 
+# Grace period settings - AI stays dormant to let player establish their airline
+const AI_GRACE_PERIOD_WEEKS: int = 52  # 1 year before AI starts competing
+const AI_ACTIVATION_RAMP_WEEKS: int = 12  # Gradual activation over 12 weeks after grace period
+
 var controlled_airline: Airline
 var personality: AIPersonality = AIPersonality.BALANCED
 var decision_cooldown: int = 0  # Weeks until next major decision
 var min_cash_reserve: float = 10000000.0  # Keep $10M minimum
+var has_announced_entry: bool = false  # Track if we've notified player about AI entering market
 
 # Personality-specific parameters
 var expansion_threshold: float = 0.7  # How full routes need to be before expanding
@@ -51,6 +56,23 @@ func make_decisions(week: int) -> void:
 	"""Main AI decision-making function called each week"""
 	if not controlled_airline:
 		return
+	
+	# Grace period: AI stays dormant to let player establish their airline
+	if week < AI_GRACE_PERIOD_WEEKS:
+		return
+	
+	# Gradual activation: AI becomes more active over time after grace period
+	var weeks_since_activation: int = week - AI_GRACE_PERIOD_WEEKS
+	var activation_chance: float = _calculate_activation_chance(weeks_since_activation)
+	
+	# Announce AI entering the market (once)
+	if not has_announced_entry:
+		_announce_market_entry()
+		has_announced_entry = true
+	
+	# Random chance to skip this week based on activation ramp
+	if randf() > activation_chance:
+		return
 
 	# Reduce cooldown
 	if decision_cooldown > 0:
@@ -70,6 +92,30 @@ func make_decisions(week: int) -> void:
 
 	# Set cooldown before next major decision (2-4 weeks)
 	decision_cooldown = randi_range(2, 4)
+
+
+func _calculate_activation_chance(weeks_since_activation: int) -> float:
+	"""Calculate how active the AI should be based on weeks since activation.
+	Returns 0.0-1.0 where 1.0 means fully active."""
+	if weeks_since_activation <= 0:
+		return 0.2  # 20% chance in first week after grace period
+	elif weeks_since_activation >= AI_ACTIVATION_RAMP_WEEKS:
+		return 1.0  # Fully active after ramp period
+	else:
+		# Linear ramp from 20% to 100% over the activation period
+		var progress: float = float(weeks_since_activation) / float(AI_ACTIVATION_RAMP_WEEKS)
+		return 0.2 + (0.8 * progress)
+
+
+func _announce_market_entry() -> void:
+	"""Announce that AI competitor is entering the market"""
+	print("=== COMPETITOR ALERT ===")
+	print("%s (%s) is entering the market!" % [controlled_airline.name, controlled_airline.airline_code])
+	print("Prepare for competition on your routes.")
+	print("========================")
+	
+	# Emit signal for UI notification
+	GameData.competitor_entered_market.emit(controlled_airline)
 
 func consider_loan() -> void:
 	"""Decide whether to take out a loan"""

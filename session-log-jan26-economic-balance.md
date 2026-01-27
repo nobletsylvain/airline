@@ -165,9 +165,218 @@ With €200K/week profit and €15M aircraft:
 
 ---
 
+---
+
+## Task I.1: Added A320neo and 737-800 to Aircraft Catalog
+
+**File:** `godot-prototype/data/prototype-aircraft.json`
+
+### Aircraft Added
+
+| Aircraft | Seats | Range | Speed | Price | Daily Cost | Category |
+|----------|-------|-------|-------|-------|------------|----------|
+| Airbus A320neo | 180 | 6,300 km | 840 km/h | €50M | €12,000 | narrowbody |
+| Boeing 737-800 | 162 | 5,400 km | 850 km/h | €45M | €11,000 | narrowbody |
+
+### Specifications
+
+**Airbus A320neo:**
+- Fuel burn: 830 gal/hr
+- Runway: 2,100m
+- Turnaround: 45 min
+- Lease: €380K/month
+- Default config: 168 economy + 12 business
+
+**Boeing 737-800:**
+- Fuel burn: 860 gal/hr
+- Runway: 2,300m
+- Turnaround: 40 min
+- Lease: €340K/month
+- Default config: 150 economy + 12 business
+
+### Progression Path
+
+| Phase | Aircraft | Routes | Weekly Profit |
+|-------|----------|--------|---------------|
+| Early | ATR 72-600 (€15M) | Regional 300-800km | €50-100K |
+| Growth | 737-800 (€45M) | Medium 800-3500km | €150-250K |
+| Scale | A320neo (€50M) | Dense 1000-4000km | €200-350K |
+
+---
+
+---
+
+## Task J.1: Route Opportunity Panel
+
+**Files Modified:**
+- `godot-prototype/scripts/MarketPanel.gd` — Enhanced opportunity display
+- `godot-prototype/scripts/GameUI.gd` — Fixed opportunity selection handler
+
+### Changes Made
+
+1. **Fixed opportunity selection bug**: `_on_market_opportunity_selected` was calling non-existent `show_for_route()`. Changed to open `RouteConfigDialog` directly.
+
+2. **Enhanced opportunity cards now show:**
+   - Route code (e.g., "LHR → BCN")
+   - City names (e.g., "London to Barcelona")
+   - Distance in km
+   - Recommended aircraft type based on distance
+   - Weekly demand estimate
+   - Competition level with color coding (green/yellow/red)
+   - Profitability score badge
+
+3. **Improved filtering:**
+   - Now shows 15 opportunities (up from 10)
+   - Filters out routes player already operates
+   - Shows helpful messages when no hub or no opportunities
+
+4. **"Create Route" button**: Clicking directly opens route creation dialog for that opportunity.
+
+### Aircraft Recommendations by Distance
+
+| Distance | Recommended Aircraft |
+|----------|---------------------|
+| 0-1,500 km | ATR 72-600 |
+| 1,500-4,000 km | 737-800 / A320neo |
+| 4,000+ km | A320neo |
+
+---
+
+---
+
+## AI Competitor Grace Period
+
+**Files Modified:**
+- `godot-prototype/scripts/AIController.gd` — Added grace period and gradual activation
+- `godot-prototype/scripts/GameData.gd` — Added `competitor_entered_market` signal
+- `godot-prototype/scripts/FeedbackManager.gd` — Added notification when AI enters market
+
+### Configuration Constants
+
+```gdscript
+const AI_GRACE_PERIOD_WEEKS: int = 52  # 1 year before AI starts competing
+const AI_ACTIVATION_RAMP_WEEKS: int = 12  # Gradual activation over 12 weeks
+```
+
+### Behavior
+
+| Week | AI Activity |
+|------|-------------|
+| 0-51 | **Dormant** — AI does nothing, player can establish routes freely |
+| 52 | **Market Entry** — Player receives notification, AI starts at 20% activity |
+| 52-64 | **Ramp Up** — AI activity increases linearly from 20% to 100% |
+| 64+ | **Fully Active** — AI makes decisions every 2-4 weeks |
+
+### Notification
+
+When grace period ends, player sees:
+```
+⚠️ New Competitor
+Euro Express has entered the market!
+Expect competition on your routes.
+```
+
+---
+
+---
+
+## Tasks I.2, J.2, K.1: Range Validation, Demand Preview, Cost Breakdown
+
+### I.2: Enhanced Range Validation (RouteConfigDialog.gd)
+
+Aircraft list now shows:
+- `✓ Range: 1500 km (+300 km margin)` for aircraft that can fly the route
+- `✗ Range: 1500 km (-600 km short)` for aircraft that cannot
+
+Disabled aircraft show detailed tooltip: "Range too short! Aircraft range: X km, Route distance: Y km"
+
+### J.2: Demand Preview on Airport Hover (WorldMap.gd)
+
+New `draw_airport_tooltip()` function shows when hovering over airports:
+- Airport name and IATA code
+- Distance from player's hub
+- Estimated demand (pax/week)
+- Recommended aircraft type
+- Competition status:
+  - "★ No competition!" (green)
+  - "⚠ N competitor(s)" (yellow)
+  - "✓ You operate this route" (blue)
+
+### K.1: Cost Breakdown in Route Details (WorldMap.gd, Route.gd, SimulationEngine.gd)
+
+Route floating panel now shows itemized costs:
+```
+Revenue: €X/wk
+─── Costs ───
+  Fuel: €X
+  Crew: €X
+  Maint: €X
+  Airport: €X
+  Total: €X
+─────────────
+Profit: +/-€X/wk
+```
+
+Added cost fields to Route.gd:
+- `fuel_cost`, `crew_cost`, `maintenance_cost`, `airport_fees`, `total_costs`
+
+SimulationEngine now stores all costs on route during simulation.
+
+---
+
+---
+
+## Tasks K.2, K.3, M.1, M.2: Profit Trends, Fleet Costs, Hub Stats
+
+### K.2: Profit Margin with Trends (Route.gd, WorldMap.gd, SimulationEngine.gd)
+
+Added to route floating panel:
+- Profit margin as percentage of revenue
+- Trend indicator: ↑ (improving), ↓ (declining), → (stable)
+- Compares current vs previous week (5% threshold for change)
+
+New Route.gd functions:
+- `get_profit_margin()` - returns profit as % of revenue
+- `get_profit_trend()` - returns trend arrow
+- `get_profit_trend_color()` - returns color for trend
+
+### K.3: Fleet-Wide Cost Report (FinancesPanel.gd)
+
+New "Fleet Operating Costs" card in Finances tab:
+```
+Fuel:         €X/wk
+Crew:         €X/wk
+Maintenance:  €X/wk
+Airport Fees: €X/wk
+─────────────────
+Total Weekly: €X/wk
+Cost/Passenger: €X.XX per pax
+```
+
+### M.1: Hub Connection Flow Summary (WorldMap.gd)
+
+Hub airport floating panel now shows:
+```
+─── Hub Stats ───
+Routes: 5
+Weekly Pax: 1,234
+Connecting: ~185
+```
+
+Connecting passengers estimated as 15% of overlapping route traffic.
+
+### M.2: Hub Network Highlighting (WorldMap.gd)
+
+When hovering over a player hub airport:
+- Routes connected to that hub are **highlighted** (brighter, thicker)
+- Routes not connected are **dimmed** (25% opacity)
+- Visual feedback showing the hub's network reach
+
+---
+
 ## Next Steps
 
 1. Continue playtesting with new pacing
-2. Monitor loan payoff rates vs expansion speed
-3. Consider adding more aircraft types for variety
+2. Test narrowbody economics on longer routes
+3. Verify range restrictions work correctly
 4. Test if competition creates meaningful pricing pressure

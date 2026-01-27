@@ -428,11 +428,17 @@ func update_aircraft_list() -> void:
 
 	for aircraft in available_aircraft:
 		var can_fly: bool = aircraft.model.can_fly_distance(route_distance)
-		var icon: String = "✓" if can_fly else "✗"
-		var text: String = "%s %s | Range: %d km | Cap: %d" % [
-			icon,
+		var range_status: String
+		if can_fly:
+			var margin: int = int(aircraft.model.range_km - route_distance)
+			range_status = "✓ Range: %d km (+%d km margin)" % [aircraft.model.range_km, margin]
+		else:
+			var shortfall: int = int(route_distance - aircraft.model.range_km)
+			range_status = "✗ Range: %d km (-%d km short)" % [aircraft.model.range_km, shortfall]
+		
+		var text: String = "%s | %s | Cap: %d" % [
 			aircraft.model.get_display_name(),
-			aircraft.model.range_km,
+			range_status,
 			aircraft.get_total_capacity()
 		]
 
@@ -441,7 +447,10 @@ func update_aircraft_list() -> void:
 		# Disable if can't fly distance
 		if not can_fly:
 			aircraft_list.set_item_disabled(aircraft_list.item_count - 1, true)
-			aircraft_list.set_item_tooltip(aircraft_list.item_count - 1, "Range too short for this route")
+			aircraft_list.set_item_tooltip(aircraft_list.item_count - 1, 
+				"Range too short! Aircraft range: %d km, Route distance: %d km" % [
+					aircraft.model.range_km, int(route_distance)
+				])
 
 	# Auto-select first suitable aircraft
 	for i in range(available_aircraft.size()):

@@ -37,8 +37,46 @@ var pending_price_first: Variant = null  # float or null
 # Statistics
 var passengers_transported: int = 0
 var revenue_generated: float = 0.0
-var fuel_cost: float = 0.0
 var weekly_profit: float = 0.0
+var previous_weekly_profit: float = 0.0  # K.2: For trend tracking
+
+# Cost breakdown (K.1: for route details display)
+var fuel_cost: float = 0.0
+var crew_cost: float = 0.0
+var maintenance_cost: float = 0.0
+var airport_fees: float = 0.0
+var total_costs: float = 0.0
+
+
+func get_profit_margin() -> float:
+	"""K.2: Calculate profit margin as percentage of revenue"""
+	if revenue_generated <= 0:
+		return 0.0
+	return (weekly_profit / revenue_generated) * 100.0
+
+
+func get_profit_trend() -> String:
+	"""K.2: Get profit trend indicator (↑ improving, ↓ declining, → stable)"""
+	var diff: float = weekly_profit - previous_weekly_profit
+	var threshold: float = abs(weekly_profit) * 0.05  # 5% change threshold
+	
+	if diff > threshold:
+		return "↑"
+	elif diff < -threshold:
+		return "↓"
+	else:
+		return "→"
+
+
+func get_profit_trend_color() -> Color:
+	"""K.2: Get color for profit trend"""
+	var trend: String = get_profit_trend()
+	if trend == "↑":
+		return Color(0.4, 1.0, 0.4)  # Green
+	elif trend == "↓":
+		return Color(1.0, 0.4, 0.4)  # Red
+	else:
+		return Color(0.8, 0.8, 0.8)  # Gray
 
 # Assigned aircraft
 var assigned_aircraft: Array[AircraftInstance] = []
