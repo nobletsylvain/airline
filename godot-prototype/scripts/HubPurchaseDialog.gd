@@ -213,10 +213,10 @@ func update_cost_display() -> void:
 	var can_afford = GameData.player_airline.balance >= cost
 
 	if can_afford:
-		cost_label.text = "Cost: $%s" % format_money(cost)
+		cost_label.text = "Cost: €%s" % format_money(cost)
 		cost_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3))
 	else:
-		cost_label.text = "Cost: $%s (Cannot afford!)" % format_money(cost)
+		cost_label.text = "Cost: €%s (Cannot afford!)" % format_money(cost)
 		cost_label.add_theme_color_override("font_color", Color(1.0, 0.3, 0.2))
 
 	get_ok_button().disabled = not can_afford

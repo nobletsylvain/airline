@@ -1,9 +1,9 @@
 # Prototype Tasks — Phase 1: Prove the Feedback Loop
 
-**Version:** 0.4  
-**Date:** January 26, 2026  
-**Phase:** 2 of 5 (Phase 1 Complete)  
-**Status:** Phase 2 Ready to Start  
+**Version:** 1.1  
+**Date:** January 27, 2026  
+**Phase:** 4 of 5 (Phases 1-3 Complete)  
+**Status:** ✅ Phase 3 Complete — Ready for Phase 4 (Polish)  
 **Reference:** `prototype-scope.md` §9.1
 
 ---
@@ -319,255 +319,112 @@ See `prototype-scope.md` §10 for full balance log.
 
 ---
 
-## Phase 2: Fleet Variety & Route Intelligence
+## Phase 2: Fleet Variety & Route Intelligence ✅ COMPLETE
 
 **Goal:** Give players more aircraft choices and better information to make route decisions.
 
-**Driven by playtest feedback:**
-- "I want bigger planes" → Fleet expansion
-- "I need to see traffic before creating routes" → Route analytics
-- "What's costing me money?" → Cost breakdown
-- "The hub connections are cool" → Hub visualization
+**Completed:** January 27, 2026
 
 ---
 
-## Phase 2 Task Summary
+## Phase 2 Task Summary (Final)
 
-| Component | Tasks | Est. Hours | Priority |
-|-----------|-------|------------|----------|
-| **I. Fleet Expansion** | 5 | 12-16 | High |
-| **J. Route Analytics** | 4 | 10-14 | High |
-| **K. Cost Breakdown** | 3 | 6-10 | Medium |
-| **L. AI Competitor** | 4 | 8-12 | Medium |
-| **M. Hub Visualization** | 2 | 4-6 | Low |
-| **Total** | **18 tasks** | **40-58 hrs** | |
-
-**Calendar estimate:** 1-1.5 weeks at 40 hrs/week
+| Component | Tasks | ✅ Done |
+|-----------|-------|---------|
+| **I. Fleet Expansion** | 5 | 5 |
+| **J. Route Analytics** | 4 | 4 |
+| **K. Cost Breakdown** | 3 | 3 |
+| **L. AI Competitor** | 4 | 4 |
+| **M. Hub Visualization** | 2 | 2 |
+| **Total** | **18 tasks** | **18** |
 
 ---
 
 ## I. Fleet Expansion
 
-### I.1 Add A320neo and 737-800 to aircraft data ❌ TODO
-**Estimate:** 2-3 hours  
-**Dependencies:** A.4  
-**Priority:** High  
-**Acceptance Criteria:**
-- [ ] Add to `prototype-aircraft.json`:
-  - Airbus A320neo: 180 seats, 6,300km range, ~€5,500/day cost
-  - Boeing 737-800: 189 seats, 5,400km range, ~€5,200/day cost
-- [ ] Price: ~€50M each (allows debt-leveraged purchase)
-- [ ] Lease rate: ~€350K/month
-- [ ] Values balanced against ATR 72-600 economics
+### I.1 Add A320neo and 737-800 to aircraft data ✅ Done
+**Status:** Aircraft added to `prototype-aircraft.json` with balanced economics
 
-### I.2 Update aircraft purchase dialog ❌ TODO
-**Estimate:** 3-4 hours  
-**Dependencies:** I.1  
-**Priority:** High  
-**Acceptance Criteria:**
-- [ ] AircraftPurchaseDialog shows 3 aircraft types (ATR, A320, 737)
-- [ ] Comparison view: seats, range, cost/day, price
-- [ ] "Best for" tooltip: "Regional" vs "Medium-haul"
-- [ ] Purchase and lease options for each type
+### I.2 Update aircraft purchase dialog ✅ Done
+**Status:** Purchase dialog shows all aircraft types with comparison view
 
-### I.3 Add range validation for larger aircraft ❌ TODO
-**Estimate:** 2-3 hours  
-**Dependencies:** I.1  
-**Priority:** High  
-**Acceptance Criteria:**
-- [ ] Route creation checks aircraft range vs route distance
-- [ ] Warning if assigning short-range aircraft to long route
-- [ ] Suggested aircraft type shown when creating route
-- [ ] Prevent assignment if route exceeds aircraft range
+### I.3 Add range validation for larger aircraft ✅ Done
+**Status:** Range validation prevents mismatched aircraft/route assignments
 
-### I.4 Update fleet panel for multiple types ❌ TODO
-**Estimate:** 2-3 hours  
-**Dependencies:** I.1  
-**Priority:** High  
-**Acceptance Criteria:**
-- [ ] Fleet panel groups aircraft by type
-- [ ] Show count per type: "ATR 72-600 (2) | A320neo (1)"
-- [ ] Filter/sort by type, status, utilization
-- [ ] Type icon or silhouette for visual distinction
+### I.4 Update fleet panel for multiple types ✅ Done
+**Status:** Fleet panel groups and displays aircraft by type
 
-### I.5 Balance test: narrowbody economics ❌ TODO
-**Estimate:** 3-4 hours  
-**Dependencies:** I.1, I.2  
-**Priority:** High  
-**Acceptance Criteria:**
-- [ ] A320/737 profitable on 800-2000km routes at 60% load factor
-- [ ] ATR 72 still preferred for routes <600km
-- [ ] Clear economic trade-off between aircraft types
-- [ ] Document results in balance log
+### I.5 Balance test: narrowbody economics ✅ Done
+**Status:** A320/737 profitable on medium-haul; ATR preferred for regional
 
 ---
 
 ## J. Route Analytics
 
-### J.1 Create route opportunity panel ❌ TODO
-**Estimate:** 4-6 hours  
-**Dependencies:** G.1  
-**Priority:** High  
-**Acceptance Criteria:**
-- [ ] New panel: "Route Opportunities" in sidebar
-- [ ] Shows unserved routes with estimated demand
-- [ ] Sorted by potential profit (demand × distance × margin)
-- [ ] Click to highlight airports on map
-- [ ] Filter by: range (ATR/A320), hub connections
+### J.1 Create route opportunity panel ✅ Done
+**Status:** Route opportunities panel shows unserved routes with demand estimates
 
-### J.2 Add demand preview to airport hover ❌ TODO
-**Estimate:** 2-3 hours  
-**Dependencies:** J.1  
-**Priority:** High  
-**Acceptance Criteria:**
-- [ ] When hovering airport, show:
-  - Estimated weekly passengers to/from player hub
-  - Competition level (none/low/medium/high)
-  - Best aircraft type for route
-- [ ] Color-coded demand indicator on airport markers
-- [ ] "Create route" shortcut from hover panel
+### J.2 Add demand preview to airport hover ✅ Done
+**Status:** Airport hover shows demand, competition level, and best aircraft
 
-### J.3 Show passenger flow on route lines ❌ TODO
-**Estimate:** 2-3 hours  
-**Dependencies:** H.1  
-**Priority:** High  
-**Acceptance Criteria:**
-- [ ] Route line thickness = passenger volume
-- [ ] Animated dots/particles showing traffic direction
-- [ ] Tooltip on route shows: pax/week, load factor, profit
-- [ ] Toggle in settings: "Show traffic flow"
+### J.3 Show passenger flow on route lines ✅ Done
+**Status:** Route line thickness reflects passenger volume; tooltips show metrics
 
-### J.4 Add market analysis before route creation ❌ TODO
-**Estimate:** 2-3 hours  
-**Dependencies:** J.1, J.2  
-**Priority:** High  
-**Acceptance Criteria:**
-- [ ] Before confirming new route, show analysis panel:
-  - Estimated demand (weekly passengers)
-  - Recommended price range
-  - Suggested aircraft type
-  - Break-even load factor
-- [ ] "Create anyway" if player ignores recommendation
+### J.4 Add market analysis before route creation ✅ Done
+**Status:** Pre-creation analysis shows demand, pricing, and break-even
 
 ---
 
 ## K. Cost Breakdown
 
-### K.1 Add per-route cost breakdown ❌ TODO
-**Estimate:** 3-4 hours  
-**Dependencies:** G.5  
-**Priority:** Medium  
-**Acceptance Criteria:**
-- [ ] Route detail panel shows cost breakdown:
-  - Fuel: €X (Y% of total)
-  - Crew: €X (Y%)
-  - Maintenance: €X (Y%)
-  - Airport fees: €X (Y%)
-  - Aircraft lease/depreciation: €X (Y%)
-- [ ] Total cost per flight and per week
-- [ ] Cost per available seat km (CASK)
+### K.1 Add per-route cost breakdown ✅ Done
+**Status:** Route detail shows fuel, crew, maintenance, airport fees breakdown
 
-### K.2 Add profit margin indicator ❌ TODO
-**Estimate:** 2-3 hours  
-**Dependencies:** K.1  
-**Priority:** Medium  
-**Acceptance Criteria:**
-- [ ] Route card shows profit margin %
-- [ ] Color scale: red (<0%), yellow (0-15%), green (>15%)
-- [ ] Trend arrow: margin improving/declining
-- [ ] Tooltip: "Margin = (Revenue - Cost) / Revenue"
+### K.2 Add profit margin indicator ✅ Done
+**Status:** Route cards show margin % with color coding and trend arrows
 
-### K.3 Create fleet-wide cost report ❌ TODO
-**Estimate:** 2-3 hours  
-**Dependencies:** K.1  
-**Priority:** Medium  
-**Acceptance Criteria:**
-- [ ] Finances panel tab: "Cost Analysis"
-- [ ] Breakdown by category across all routes
-- [ ] Pie chart: fuel vs crew vs mx vs fees
-- [ ] Week-over-week comparison
+### K.3 Create fleet-wide cost report ✅ Done
+**Status:** Finances panel includes cost analysis tab with category breakdown
 
 ---
 
 ## L. AI Competitor
 
-### L.1 Make AI routes visible on map ❌ TODO
-**Estimate:** 2-3 hours  
-**Dependencies:** S.2  
-**Priority:** Medium  
-**Acceptance Criteria:**
-- [ ] AI airline routes shown in different color (e.g., red)
-- [ ] Toggle: "Show competitor routes" (default on)
-- [ ] Hover AI route shows: airline name, frequency, estimated price
-- [ ] AI airports marked if they have exclusive routes
+### L.1 Make AI routes visible on map ✅ Done
+**Status:** AI routes shown in red; toggle available; hover shows details
 
-### L.2 Implement AI reactive pricing ❌ TODO
-**Estimate:** 3-4 hours  
-**Dependencies:** L.1  
-**Priority:** Medium  
-**Acceptance Criteria:**
-- [ ] AI adjusts prices weekly based on player competition
-- [ ] If player undercuts: AI matches within 10% after 2 weeks
-- [ ] If player premium: AI stays at baseline
-- [ ] Price changes logged in console for debugging
+### L.2 Implement AI reactive pricing ✅ Done
+**Status:** AI adjusts prices based on player competition
 
-### L.3 Show market share on shared routes ❌ TODO
-**Estimate:** 2-3 hours  
-**Dependencies:** L.2  
-**Priority:** Medium  
-**Acceptance Criteria:**
-- [ ] Route detail shows: "Your share: 60% | Competitor: 40%"
-- [ ] Market share pie chart or bar
-- [ ] Share changes based on price differential
-- [ ] "Competitor entered route" notification
+### L.3 Show market share on shared routes ✅ Done
+**Status:** Route detail shows market share split with visual indicator
 
-### L.4 Add competitor action notifications ❌ TODO
-**Estimate:** 2-3 hours  
-**Dependencies:** L.2  
-**Priority:** Medium  
-**Acceptance Criteria:**
-- [ ] Notification when AI: changes price, adds route, removes route
-- [ ] Notification appears briefly, logs to event feed
-- [ ] Player can see recent competitor actions in panel
-- [ ] Optional: disable notifications in settings
+### L.4 Add competitor action notifications ✅ Done
+**Status:** Notifications appear when AI changes prices or routes
 
 ---
 
 ## M. Hub Visualization
 
-### M.1 Show connecting passenger flows ❌ TODO
-**Estimate:** 2-3 hours  
-**Dependencies:** J.3  
-**Priority:** Low  
-**Acceptance Criteria:**
-- [ ] At hub airport, show connecting traffic summary
-- [ ] "X passengers connecting through this hub/week"
-- [ ] Top 3 connection pairs listed
-- [ ] Hub efficiency metric: % of passengers connecting
+### M.1 Show connecting passenger flows ✅ Done
+**Status:** Hub panel shows connecting traffic summary and top connection pairs
 
-### M.2 Highlight hub network on map ❌ TODO
-**Estimate:** 2-3 hours  
-**Dependencies:** M.1  
-**Priority:** Low  
-**Acceptance Criteria:**
-- [ ] When hub selected, highlight all routes from hub
-- [ ] Show "spoke" routes in different shade
-- [ ] Connection lines between spoke destinations (if connecting traffic)
-- [ ] Hub "strength" indicator based on connectivity
+### M.2 Highlight hub network on map ✅ Done
+**Status:** Hub selection highlights spoke routes with connectivity indicator
 
 ---
 
 ## Phase 2 Exit Criteria
 
-Before moving to Phase 3, validate:
+All criteria validated:
 
-- [ ] Player can purchase A320 or 737 and assign to longer routes
-- [ ] Player can see demand estimates before creating routes
-- [ ] Player understands where costs come from (breakdown visible)
-- [ ] AI competitor visibly affects market share on shared routes
-- [ ] Player makes informed decisions based on route analytics
+- [x] Player can purchase A320 or 737 and assign to longer routes
+- [x] Player can see demand estimates before creating routes
+- [x] Player understands where costs come from (breakdown visible)
+- [x] AI competitor visibly affects market share on shared routes
+- [x] Player makes informed decisions based on route analytics
 
-**Validation question:** "Do I have enough information to make smart route decisions?"
+**Playtesting complete:** Phase 2 validated January 27, 2026.
 
 ---
 
@@ -595,135 +452,150 @@ M.1 (Connecting flows) ── M.2 (Hub highlight)
 
 ---
 
-## Phase 3 Backlog: Intelligence & Planning
+## Phase 3: Intelligence & Planning ✅ COMPLETE
 
-**Status:** Backlog — scope TBD after Phase 2 validation
+**Completed:** January 27, 2026
 
 **Goal:** Help players plan strategically with deeper insights into passenger behavior and market opportunities.
 
 ---
 
-### Phase 3 Task Summary
+### Phase 3 Task Summary (Final)
 
-| Component | Tasks | Est. Hours | Priority |
-|-----------|-------|------------|----------|
-| **N. Aircraft Intelligence** | 2 | 6-10 | High |
-| **O. Connection Insights** | 3 | 10-14 | High |
-| **P. Route Deep-Dive** | 2 | 6-8 | Medium |
-| **Q. Market Research** | 2 | 6-10 | Medium |
-| **Total** | **9 tasks** | **28-42 hrs** | |
+| Component | Tasks | ✅ Done |
+|-----------|-------|---------|
+| **N. Aircraft Intelligence** | 2 | 2 |
+| **O. Connection Insights** | 5 | 5 |
+| **P. Route Deep-Dive** | 2 | 2 |
+| **Q. Market Research** | 2 | 2 |
+| **Total** | **11 tasks** | **11** |
+
+**Phase 3 completed:** January 27, 2026
 
 ---
 
 ### N. Aircraft Intelligence
 
-#### N.1 Create aircraft comparison panel ❌ Backlog
-**Estimate:** 4-6 hours  
-**Priority:** High  
-**Acceptance Criteria:**
-- [ ] Dedicated tab: "Fleet Comparison"
-- [ ] Side-by-side stats: seats, range, speed, cost/day, price
-- [ ] Per-aircraft metrics: utilization %, revenue/week, profit/week
-- [ ] Unique characteristics highlighted (e.g., "Best for regional", "Low fuel burn")
-- [ ] Sort by: profitability, utilization, cost efficiency
+#### N.1 Create aircraft comparison panel ✅ Done
+**Status:** Fleet Comparison tab with side-by-side stats, aircraft images, utilization metrics
 
-#### N.2 Add aircraft performance history ❌ Backlog
-**Estimate:** 2-4 hours  
-**Priority:** High  
-**Acceptance Criteria:**
-- [ ] Per-aircraft: revenue trend over last 8 weeks
-- [ ] Show routes flown, total passengers carried
-- [ ] Maintenance cost trend
-- [ ] "Best performer" / "Underperformer" badges
+#### N.2 Add aircraft performance history ✅ Done
+**Status:** Per-aircraft revenue/passengers, routes flown, comparative performance badges
 
 ---
 
 ### O. Connection Insights
 
-#### O.1 Show most-demanded destinations from hub ❌ Backlog
-**Estimate:** 4-6 hours  
-**Priority:** High  
-**Acceptance Criteria:**
-- [ ] Hub panel shows: "Passengers want to fly to: X, Y, Z"
-- [ ] Ranked by unserved demand volume
-- [ ] Indicates if direct route possible with current fleet
-- [ ] Click destination → create route flow
+#### O.1 Show most-demanded destinations from hub ✅ Done
+**Status:** Hub demand panel shows top destinations ranked by passenger demand, clickable to create routes
 
-#### O.2 Display passenger pain points ❌ Backlog
-**Estimate:** 3-4 hours  
-**Priority:** High  
-**Acceptance Criteria:**
-- [ ] Show connections with poor experience:
-  - Long layover times
-  - Capacity-constrained routes (high spill)
-  - Price too high for market
-- [ ] Actionable suggestions: "Add frequency" or "Lower price"
+#### O.2 Display passenger pain points ✅ Done
+**Status:** Pain points panel shows capacity constraints, high spill routes; clickable for route editing
 
-#### O.3 Identify unserved connections ❌ Backlog
-**Estimate:** 3-4 hours  
-**Priority:** High  
-**Acceptance Criteria:**
-- [ ] List city pairs with demand but no service (direct or connecting)
-- [ ] Show: origin, destination, estimated weekly demand
-- [ ] Highlight if hub connection would work
-- [ ] "Requires new hub" indicator for distant markets
+#### O.3 Identify unserved connections ✅ Done
+**Status:** Unserved connections shown in hub demand and passenger flow panels
+
+#### O.4 Connection flow visualization ✅ Done
+**Status:** PassengerFlowPanel shows flows through hub, connection opportunities, underserved connections
+
+#### O.5 Connecting passenger demand boost ✅ Done
+**Status:** Connecting demand calculated and displayed; revenue attribution for both legs
 
 ---
 
 ### P. Route Deep-Dive
 
-#### P.1 Expand route opportunity detail view ❌ Backlog
-**Estimate:** 3-4 hours  
-**Priority:** Medium  
-**Acceptance Criteria:**
-- [ ] Click route opportunity → expanded panel:
-  - Demand breakdown: business vs leisure
-  - Seasonality pattern (if implemented)
-  - Competitor presence and pricing
-  - Historical demand trend
-- [ ] "What-if" pricing calculator
+#### P.1 Expand route opportunity detail view ✅ Done
+**Status:** Route detail panel with demand breakdown, competitor analysis, break-even calculation, what-if pricing
 
-#### P.2 Add competitor pricing intelligence ❌ Backlog
-**Estimate:** 3-4 hours  
-**Priority:** Medium  
-**Acceptance Criteria:**
-- [ ] Show competitor price on shared routes
-- [ ] Price comparison: "You: €85 | Competitor: €92"
-- [ ] Market positioning indicator: premium/discount/matched
-- [ ] Suggested response: "Undercut by 5% to gain share"
+#### P.2 Add competitor pricing intelligence ✅ Done
+**Status:** Competitor pricing comparison with positioning indicator and strategic recommendations
 
 ---
 
 ### Q. Market Research (Fog of War)
 
-#### Q.1 Implement market research service ❌ Backlog
-**Estimate:** 4-6 hours  
-**Priority:** Medium  
-**Acceptance Criteria:**
-- [ ] Purchasable service: "Market Research Report"
-- [ ] Cost: €50K-100K per region
-- [ ] Reveals: exact demand numbers, segment split, growth trends
-- [ ] Without research: show ranges ("500-800 pax/week")
+#### Q.1 Implement market research service ✅ Done
+**Status:** €50K market research reports reveal exact demand numbers and segment details
 
-#### Q.2 Add demand uncertainty visualization ❌ Backlog
-**Estimate:** 2-4 hours  
-**Priority:** Medium  
-**Acceptance Criteria:**
-- [ ] Unresearched routes show demand as range
-- [ ] Confidence indicator: low/medium/high
-- [ ] After operating route: demand becomes known (learned)
-- [ ] Research removes uncertainty immediately
+#### Q.2 Add demand uncertainty visualization ✅ Done
+**Status:** Unresearched routes show ranges with confidence levels; learning after 4 weeks of operation
+
+---
+
+### Phase 3 Bug Fixes Applied
+
+| Fix | Description |
+|-----|-------------|
+| Currency display | Fixed €$ → € throughout UI |
+| Route names | Fixed "Route #0" → actual route names (origin → destination) |
+| Aircraft images | Normalized sizing in comparison panel |
+| Performance badges | Now comparative ("Best performer" vs static) |
+| Active routes | Clickable for editing from fleet panel |
+| Pain points | Clickable to open route config dialog |
+| Yellow text visibility | Fixed contrast in HubDemandPanel, MarketPanel |
+
+### Phase 3 Pending UI Fixes (Phase 4)
+
+| Fix | Status |
+|-----|--------|
+| RouteConfigDialog size increase | ❌ Pending |
+| Finance panel enhancement | ❌ Pending |
+
+---
+
+### Code Review Fixes Applied
+
+| Priority | Issue | Resolution |
+|----------|-------|------------|
+| Critical #1 | O(n³) performance in SimulationEngine | ✅ Added direct routes cache |
+| Critical #2 | FleetComparisonPanel 223-line function | ✅ Refactored into 8 smaller functions |
+| Medium #7 | Debug print statements in PassengerFlowPanel | ✅ Removed |
+
+### Code Review Backlog
+
+| Priority | Issue | Status |
+|----------|-------|--------|
+| Medium #3 | Lambda signal connections (memory leak risk) | ❌ TODO |
+| Medium #4 | Competition counting cache in HubDemandPanel | ❌ TODO |
+| Medium #5 | Route existence check utility function | ❌ TODO |
+| Medium #6 | Route capacity caching | ❌ TODO |
+| Low #8-12 | Documentation, magic numbers, UI consistency | ❌ Backlog |
 
 ---
 
 ### Phase 3 Exit Criteria
 
-- [ ] Player can compare aircraft performance at a glance
-- [ ] Player knows which destinations passengers want
-- [ ] Player can identify underserved connections
-- [ ] Market research provides strategic value worth the cost
+All criteria validated:
 
-**Validation question:** "Can I plan my network 3-5 routes ahead?"
+- [x] Player can compare aircraft performance at a glance
+- [x] Player knows which destinations passengers want
+- [x] Player can identify underserved connections
+- [x] Market research provides strategic value worth the cost
+
+**Playtesting complete:** Phase 3 validated January 27, 2026.
+
+---
+
+## Phase 4 Backlog: Polish & Visualization
+
+**Status:** Backlog — scope TBD after Phase 3
+
+### R. UI/UX Enhancements
+
+#### R.1 Traffic Flow Overlay (Democracy 4 style) ❌ Backlog
+**Estimate:** 8-12 hours  
+**Priority:** Low (polish phase)  
+**Reference:** Democracy 4 policy web visualization  
+**Acceptance Criteria:**
+- [ ] When cursor hovers near airport, show connecting lines to other airports
+- [ ] Line thickness = passenger volume
+- [ ] Color coding = profitability or connection type (local/connecting)
+- [ ] Animated flow direction (dots moving along lines)
+- [ ] Toggle on/off in settings
+- [ ] Performance acceptable with 20+ routes visible
+
+**Design notes:** Creates "living map" feel where player sees traffic flowing through their network. Reinforces hub-and-spoke mental model.
 
 ---
 
@@ -736,3 +608,9 @@ M.1 (Connecting flows) ── M.2 (Hub highlight)
 | 0.3 | January 26, 2026 | **Phase 1 Complete.** All 45 tasks done. Added Playtest Findings and Phase 2 Scope sections. |
 | 0.4 | January 26, 2026 | **Phase 2 Tasks Added.** 18 tasks across 5 components: Fleet Expansion, Route Analytics, Cost Breakdown, AI Competitor, Hub Visualization. Estimated 40-58 hours. |
 | 0.5 | January 26, 2026 | **Phase 3 Backlog Added.** 9 tasks: Aircraft Intelligence, Connection Insights, Route Deep-Dive, Market Research. Estimated 28-42 hours. |
+| 0.6 | January 27, 2026 | **Phase 2 Complete.** All 18 tasks done. Fleet expansion, route analytics, cost breakdown, AI competitor, hub visualization all validated. |
+| 0.7 | January 27, 2026 | **Phase 3 Progress.** N.1, N.2, O.1, O.2 done. O.3 partial. Added O.4 (connection flow). Bug fixes: currency, route names, images, badges, clickable routes. |
+| 0.8 | January 27, 2026 | O.4 done. Added O.5 (connecting passenger demand boost) — core hub mechanic. |
+| 0.9 | January 27, 2026 | Added Phase 4 Polish backlog with R.1 Traffic Flow Overlay (Democracy 4 style). |
+| 1.0 | January 27, 2026 | Code review fixes: O(n³) perf fix, FleetComparisonPanel refactor, debug prints removed. Added code review backlog. |
+| 1.1 | January 27, 2026 | **Phase 3 Complete.** All 11 tasks done: Aircraft Intelligence, Connection Insights, Route Deep-Dive, Market Research. Bug fix: yellow text visibility. Pending: RouteConfigDialog size, Finance panel. Ready for Phase 4 (Polish). |

@@ -354,6 +354,8 @@ func has_route_between(from: Airport, to: Airport) -> bool:
 func create_ai_route(from_airport: Airport, to_airport: Airport, aircraft: AircraftInstance) -> void:
 	"""Create a new route for the AI airline"""
 	var route: Route = Route.new(from_airport, to_airport, controlled_airline.id)
+	route.id = GameData.next_route_id
+	GameData.next_route_id += 1
 
 	# Assign aircraft
 	route.assign_aircraft(aircraft)

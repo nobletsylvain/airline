@@ -20,8 +20,14 @@ var route_config_dialog: RouteConfigDialog = null
 var route_opportunity_dialog: RouteOpportunityDialog = null
 var hub_purchase_dialog: HubPurchaseDialog = null
 var aircraft_purchase_dialog: AircraftPurchaseDialog = null
+var aircraft_details_dialog: AircraftDetailsDialog = null  # N.2: Aircraft performance history
+var passenger_flow_panel: PassengerFlowPanel = null  # Shows passenger flows from connected airports
 var delegate_assignment_dialog: DelegateAssignmentDialog = null
 var loan_dialog: LoanDialog = null
+
+# Pending route creation tracking (for buy aircraft flow)
+var pending_route_from: Airport = null
+var pending_route_to: Airport = null
 
 # First route suggestion tracking
 var first_route_suggestion_shown: bool = false
@@ -188,11 +194,14 @@ func create_fleet_panel() -> Control:
 
 	# Connect purchase button to aircraft dialog
 	panel.purchase_aircraft_pressed.connect(_on_buy_aircraft_button_pressed)
+	
+	# Connect aircraft selection to details dialog (N.2)
+	panel.aircraft_selected.connect(_on_aircraft_selected)
 
 	return panel
 
 func create_routes_panel() -> Control:
-	"""Create routes management panel"""
+	"""Create routes management panel with hub demand insights (O.1)"""
 	var panel = PanelContainer.new()
 	panel.name = "RoutesPanel"
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -202,29 +211,88 @@ func create_routes_panel() -> Control:
 	panel.add_theme_stylebox_override("panel", style)
 
 	var margin = MarginContainer.new()
+	margin.name = "MarginContainer"
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	margin.add_theme_constant_override("margin_left", 24)
 	margin.add_theme_constant_override("margin_right", 24)
 	margin.add_theme_constant_override("margin_top", 24)
 	margin.add_theme_constant_override("margin_bottom", 24)
 	panel.add_child(margin)
-
-	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 16)
-	margin.add_child(vbox)
+	
+	# Use horizontal split for routes list and demand panel
+	var hbox = HBoxContainer.new()
+	hbox.name = "HBoxContainer"
+	hbox.add_theme_constant_override("separation", 24)
+	margin.add_child(hbox)
+	
+	# Left side: Active routes list
+	var left_vbox = VBoxContainer.new()
+	left_vbox.name = "RoutesVBox"
+	left_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	left_vbox.add_theme_constant_override("separation", 12)
+	hbox.add_child(left_vbox)
 
 	# Title
 	var title = Label.new()
 	title.text = "Route Network"
 	title.add_theme_font_size_override("font_size", 24)
 	title.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
-	vbox.add_child(title)
-
-	var content = Label.new()
-	content.name = "RoutesContent"
-	content.text = "Your routes will be displayed here.\n\nClick on the map to create new routes."
-	content.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
-	vbox.add_child(content)
+	left_vbox.add_child(title)
+	
+	# Subtitle with route count
+	var subtitle = Label.new()
+	subtitle.name = "RoutesSubtitle"
+	subtitle.text = "Click a route to edit settings"
+	subtitle.add_theme_font_size_override("font_size", 12)
+	subtitle.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+	left_vbox.add_child(subtitle)
+	
+	# Empty state message (hidden when routes exist)
+	var empty_message = Label.new()
+	empty_message.name = "RoutesEmptyMessage"
+	empty_message.text = "No routes created yet.\n\nClick on your hub airport on the map,\nthen select a destination to create a route."
+	empty_message.add_theme_font_size_override("font_size", 13)
+	empty_message.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
+	empty_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	left_vbox.add_child(empty_message)
+	
+	# Scrollable routes container
+	var routes_scroll = ScrollContainer.new()
+	routes_scroll.name = "RoutesScrollContainer"
+	routes_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	routes_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	left_vbox.add_child(routes_scroll)
+	
+	var routes_list = VBoxContainer.new()
+	routes_list.name = "RoutesList"
+	routes_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	routes_list.add_theme_constant_override("separation", 10)
+	routes_scroll.add_child(routes_list)
+	
+	# Right side: Insights column (O.1, O.2)
+	var right_vbox = VBoxContainer.new()
+	right_vbox.name = "InsightsVBox"
+	right_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right_vbox.custom_minimum_size = Vector2(340, 0)
+	right_vbox.add_theme_constant_override("separation", 16)
+	hbox.add_child(right_vbox)
+	
+	# Hub demand panel (O.1)
+	var hub_demand_panel = HubDemandPanel.new()
+	hub_demand_panel.name = "HubDemandPanel"
+	hub_demand_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	hub_demand_panel.destination_selected.connect(_on_hub_demand_destination_selected)
+	right_vbox.add_child(hub_demand_panel)
+	
+	# Pain points panel (O.2)
+	var pain_points_panel = PainPointsPanel.new()
+	pain_points_panel.name = "PainPointsPanel"
+	pain_points_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	pain_points_panel.action_requested.connect(_on_pain_point_action_requested)
+	pain_points_panel.route_edit_requested.connect(_on_pain_point_route_edit)
+	right_vbox.add_child(pain_points_panel)
 
 	return panel
 
@@ -280,6 +348,7 @@ func create_dialogs() -> void:
 	route_config_dialog = RouteConfigDialog.new()
 	add_child(route_config_dialog)
 	route_config_dialog.route_configured.connect(_on_route_configured)
+	route_config_dialog.buy_aircraft_requested.connect(_on_route_dialog_buy_aircraft)
 
 	# Route opportunity dialog
 	route_opportunity_dialog = RouteOpportunityDialog.new()
@@ -295,6 +364,17 @@ func create_dialogs() -> void:
 	aircraft_purchase_dialog = AircraftPurchaseDialog.new()
 	add_child(aircraft_purchase_dialog)
 	aircraft_purchase_dialog.aircraft_purchased.connect(_on_aircraft_dialog_purchased)
+
+	# Aircraft details dialog (N.2: performance history)
+	aircraft_details_dialog = AircraftDetailsDialog.new()
+	add_child(aircraft_details_dialog)
+	aircraft_details_dialog.hide()  # Ensure hidden on startup
+	
+	# Passenger flow panel (shows flows from connected airports)
+	passenger_flow_panel = PassengerFlowPanel.new()
+	add_child(passenger_flow_panel)
+	passenger_flow_panel.hide()
+	passenger_flow_panel.connection_route_requested.connect(_on_passenger_flow_route_requested)
 
 	# Delegate assignment dialog
 	delegate_assignment_dialog = DelegateAssignmentDialog.new()
@@ -393,27 +473,176 @@ func update_fleet_panel() -> void:
 		fleet_panel.refresh()
 
 func update_routes_panel() -> void:
-	"""Update routes panel content"""
+	"""Update routes panel content with clickable route cards"""
 	if not routes_panel or not GameData.player_airline:
 		return
-
-	var content = routes_panel.get_node_or_null("MarginContainer/VBoxContainer/RoutesContent")
-	if content and content is Label:
-		var routes = GameData.player_airline.routes
+	
+	var routes = GameData.player_airline.routes
+	
+	# Update subtitle
+	var subtitle = routes_panel.get_node_or_null("MarginContainer/HBoxContainer/RoutesVBox/RoutesSubtitle")
+	if subtitle:
 		if routes.is_empty():
-			content.text = "No routes created yet.\n\nClick on your hub airport on the map,\nthen select a destination to create a route."
+			subtitle.text = "No active routes"
 		else:
-			var text = "Active Routes: %d\n\n" % routes.size()
-			for route in routes:
-				var profit_sign = "+" if route.weekly_profit >= 0 else ""
-				text += "%s\n  %d flights/wk | %d pax | %s$%s/wk\n\n" % [
-					route.get_display_name(),
-					route.frequency,
-					route.passengers_transported,
-					profit_sign,
-					format_money(route.weekly_profit)
-				]
-			content.text = text
+			subtitle.text = "%d active routes • Click to edit" % routes.size()
+	
+	# Toggle empty message visibility
+	var empty_message = routes_panel.get_node_or_null("MarginContainer/HBoxContainer/RoutesVBox/RoutesEmptyMessage")
+	var routes_scroll = routes_panel.get_node_or_null("MarginContainer/HBoxContainer/RoutesVBox/RoutesScrollContainer")
+	
+	if empty_message:
+		empty_message.visible = routes.is_empty()
+	if routes_scroll:
+		routes_scroll.visible = not routes.is_empty()
+	
+	# Update routes list
+	var routes_list = routes_panel.get_node_or_null("MarginContainer/HBoxContainer/RoutesVBox/RoutesScrollContainer/RoutesList")
+	if routes_list:
+		# Clear existing cards
+		for child in routes_list.get_children():
+			child.queue_free()
+		
+		# Create clickable card for each route
+		for route in routes:
+			var card = _create_route_card(route)
+			routes_list.add_child(card)
+	
+	# Refresh hub demand panel (O.1)
+	var hub_demand_panel = routes_panel.get_node_or_null("MarginContainer/HBoxContainer/InsightsVBox/HubDemandPanel")
+	if hub_demand_panel and hub_demand_panel is HubDemandPanel:
+		hub_demand_panel.refresh()
+	
+	# Refresh pain points panel (O.2)
+	var pain_points_panel = routes_panel.get_node_or_null("MarginContainer/HBoxContainer/InsightsVBox/PainPointsPanel")
+	if pain_points_panel and pain_points_panel is PainPointsPanel:
+		pain_points_panel.refresh()
+
+
+func _create_route_card(route: Route) -> Control:
+	"""Create a clickable card for a route"""
+	var card = PanelContainer.new()
+	card.custom_minimum_size = Vector2(0, 70)
+	card.set_meta("route_id", route.id)
+	
+	# Card style
+	var card_style = StyleBoxFlat.new()
+	card_style.bg_color = UITheme.get_card_bg()
+	card_style.set_corner_radius_all(10)
+	card_style.set_content_margin_all(12)
+	card_style.border_color = UITheme.get_panel_border()
+	card_style.set_border_width_all(1)
+	card.add_theme_stylebox_override("panel", card_style)
+	
+	# Hover style
+	var hover_style = card_style.duplicate()
+	hover_style.border_color = UITheme.PRIMARY_BLUE
+	hover_style.set_border_width_all(2)
+	
+	# Make clickable
+	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	card.tooltip_text = "Click to edit route settings"
+	
+	card.mouse_entered.connect(func():
+		card.add_theme_stylebox_override("panel", hover_style)
+	)
+	card.mouse_exited.connect(func():
+		card.add_theme_stylebox_override("panel", card_style)
+	)
+	card.gui_input.connect(func(event):
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			_on_route_card_clicked(route)
+	)
+	
+	# Content
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 12)
+	card.add_child(hbox)
+	
+	# Route info (left)
+	var info_vbox = VBoxContainer.new()
+	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info_vbox.add_theme_constant_override("separation", 4)
+	hbox.add_child(info_vbox)
+	
+	# Route name
+	var name_label = Label.new()
+	name_label.text = route.get_display_name()
+	name_label.add_theme_font_size_override("font_size", 15)
+	name_label.add_theme_color_override("font_color", UITheme.get_text_primary())
+	info_vbox.add_child(name_label)
+	
+	# Route stats
+	var stats_hbox = HBoxContainer.new()
+	stats_hbox.add_theme_constant_override("separation", 16)
+	info_vbox.add_child(stats_hbox)
+	
+	var freq_label = Label.new()
+	freq_label.text = "📅 %d/wk" % route.frequency
+	freq_label.add_theme_font_size_override("font_size", 12)
+	freq_label.add_theme_color_override("font_color", UITheme.get_text_secondary())
+	stats_hbox.add_child(freq_label)
+	
+	var pax_label = Label.new()
+	# Show local + connecting breakdown if connecting passengers exist
+	if route.connecting_passengers > 0:
+		pax_label.text = "👥 %d pax (%d+%d)" % [
+			route.passengers_transported, 
+			route.local_passengers, 
+			route.connecting_passengers
+		]
+		pax_label.tooltip_text = "Total: %d (Local: %d + Connecting: %d)" % [
+			route.passengers_transported, route.local_passengers, route.connecting_passengers
+		]
+	else:
+		pax_label.text = "👥 %d pax" % route.passengers_transported
+	pax_label.add_theme_font_size_override("font_size", 12)
+	pax_label.add_theme_color_override("font_color", UITheme.get_text_secondary())
+	stats_hbox.add_child(pax_label)
+	
+	var aircraft_count = route.assigned_aircraft.size()
+	var aircraft_label = Label.new()
+	aircraft_label.text = "✈ %d aircraft" % aircraft_count
+	aircraft_label.add_theme_font_size_override("font_size", 12)
+	aircraft_label.add_theme_color_override("font_color", UITheme.get_text_secondary())
+	stats_hbox.add_child(aircraft_label)
+	
+	# Profit indicator (right)
+	var profit_vbox = VBoxContainer.new()
+	profit_vbox.add_theme_constant_override("separation", 2)
+	hbox.add_child(profit_vbox)
+	
+	var profit_label = Label.new()
+	var profit_color = UITheme.PROFIT_COLOR if route.weekly_profit >= 0 else UITheme.LOSS_COLOR
+	profit_label.text = UITheme.format_money(route.weekly_profit, true)
+	profit_label.add_theme_font_size_override("font_size", 14)
+	profit_label.add_theme_color_override("font_color", profit_color)
+	profit_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	profit_vbox.add_child(profit_label)
+	
+	var per_week_label = Label.new()
+	per_week_label.text = "/week"
+	per_week_label.add_theme_font_size_override("font_size", 10)
+	per_week_label.add_theme_color_override("font_color", UITheme.get_text_muted())
+	per_week_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	profit_vbox.add_child(per_week_label)
+	
+	# Edit icon
+	var edit_icon = Label.new()
+	edit_icon.text = "✎"
+	edit_icon.add_theme_font_size_override("font_size", 16)
+	edit_icon.add_theme_color_override("font_color", UITheme.get_text_muted())
+	hbox.add_child(edit_icon)
+	
+	return card
+
+
+func _on_route_card_clicked(route: Route) -> void:
+	"""Handle route card click - open edit dialog"""
+	if route and route_config_dialog:
+		route_config_dialog.setup_edit_route(route)
+		route_config_dialog.popup_centered()
+		print("Opening route editor for: %s" % route.get_display_name())
 
 func update_finances_panel() -> void:
 	"""Update finances panel content"""
@@ -437,10 +666,20 @@ func update_market_panel() -> void:
 
 func _on_airport_clicked(airport: Airport) -> void:
 	"""Handle airport click"""
+	if not GameData.player_airline:
+		return
+	
 	# Check if clicking on a player hub
-	if GameData.player_airline and GameData.player_airline.has_hub(airport):
+	if GameData.player_airline.has_hub(airport):
 		if route_opportunity_dialog:
 			route_opportunity_dialog.show_for_hub(airport)
+		return
+	
+	# Check if clicking on an airport we're connected to (for passenger flow visualization)
+	var connecting_hub = _get_connecting_hub_for_airport(airport)
+	if connecting_hub and passenger_flow_panel:
+		passenger_flow_panel.show_for_airport(airport, connecting_hub)
+		print("Showing passenger flows from: %s (via hub %s)" % [airport.iata_code, connecting_hub.iata_code])
 		return
 
 	print("Airport clicked: %s" % airport.iata_code)
@@ -566,6 +805,55 @@ func _on_aircraft_dialog_purchased(aircraft: AircraftInstance) -> void:
 	"""Handle aircraft purchased from dialog"""
 	print("Aircraft purchased from dialog: %s" % aircraft.model.get_display_name())
 	update_all()
+	
+	# Check if we have a pending route creation to resume
+	if pending_route_from and pending_route_to and route_config_dialog:
+		# Small delay to let UI update
+		await get_tree().create_timer(0.3).timeout
+		_resume_route_creation_with_aircraft(aircraft)
+
+
+func _on_route_dialog_buy_aircraft() -> void:
+	"""Handle buy aircraft button pressed from route config dialog"""
+	# Store the pending route info from the dialog
+	if route_config_dialog:
+		pending_route_from = route_config_dialog.from_airport
+		pending_route_to = route_config_dialog.to_airport
+		print("Storing pending route: %s → %s" % [
+			pending_route_from.iata_code if pending_route_from else "null",
+			pending_route_to.iata_code if pending_route_to else "null"
+		])
+	
+	# Open aircraft purchase dialog
+	if aircraft_purchase_dialog:
+		aircraft_purchase_dialog.show_dialog()
+
+
+func _resume_route_creation_with_aircraft(new_aircraft: AircraftInstance) -> void:
+	"""Resume route creation flow after aircraft purchase"""
+	if not pending_route_from or not pending_route_to:
+		return
+	
+	print("Resuming route creation: %s → %s with new aircraft %s" % [
+		pending_route_from.iata_code,
+		pending_route_to.iata_code,
+		new_aircraft.model.get_display_name()
+	])
+	
+	# Reopen route config dialog
+	route_config_dialog.setup_route(pending_route_from, pending_route_to)
+	route_config_dialog.popup_centered()
+	
+	# Clear pending route
+	pending_route_from = null
+	pending_route_to = null
+
+
+func _on_aircraft_selected(aircraft: AircraftInstance) -> void:
+	"""Handle aircraft selection from fleet panel - show details dialog (N.2)"""
+	if aircraft and aircraft_details_dialog:
+		aircraft_details_dialog.show_aircraft(aircraft)
+
 
 func _on_create_route_button_pressed() -> void:
 	"""Handle Create Route button press from bottom bar"""
@@ -712,7 +1000,7 @@ func show_first_route_suggestion(from: Airport, to: Airport, opportunity: Dictio
 	message += "Distance: %.0f km\n\n" % distance
 	message += "• Profitability Score: %.0f/100\n" % score
 	message += "• Weekly Demand: %.0f passengers\n" % demand
-	message += "• Estimated Revenue: $%s/week\n\n" % format_money(estimated_weekly_revenue)
+	message += "• Estimated Revenue: €%s/week\n\n" % format_money(estimated_weekly_revenue)
 	message += "This route is perfect for your %s!\n" % aircraft.model.get_display_name()
 	message += "\nWould you like to create this route now?"
 	
@@ -778,7 +1066,7 @@ func show_first_flight_celebration(route: Route) -> void:
 	message += "%s → %s\n" % [route.from_airport.iata_code, route.to_airport.iata_code]
 	message += "Distance: %.0f km\n" % route.distance_km
 	message += "Frequency: %d flights/week\n\n" % route.frequency
-	message += "Estimated Weekly Revenue: $%s\n\n" % format_money(estimated_revenue)
+	message += "Estimated Weekly Revenue: €%s\n\n" % format_money(estimated_revenue)
 	message += "Start the simulation to see your first passengers fly!\n"
 	message += "Your route will generate revenue each week."
 	
@@ -973,6 +1261,106 @@ func _on_market_opportunity_selected(opportunity: Dictionary) -> void:
 		route_config_dialog.setup_route(from_airport, to_airport)
 		route_config_dialog.popup_centered()
 		print("Opening route creation for opportunity: %s → %s" % [from_airport.iata_code, to_airport.iata_code])
+
+
+func _on_hub_demand_destination_selected(hub: Airport, destination: Airport) -> void:
+	"""Handle destination selection from hub demand panel (O.1) - opens route creation dialog"""
+	if hub and destination and route_config_dialog:
+		# Open route config dialog for this hub-destination pair
+		route_config_dialog.setup_route(hub, destination)
+		route_config_dialog.popup_centered()
+		print("Opening route creation from demand panel: %s → %s" % [hub.iata_code, destination.iata_code])
+
+
+func _on_pain_point_action_requested(route: Route, action_type: String) -> void:
+	"""Handle pain point action button clicks (O.2)"""
+	if not route:
+		return
+	
+	print("Pain point action: %s on route %s" % [action_type, route.get_display_name()])
+	
+	match action_type:
+		"add_capacity":
+			# Open aircraft purchase dialog or show a message
+			_on_buy_aircraft_button_pressed()
+			print("Suggestion: Purchase more aircraft to add capacity to %s" % route.get_display_name())
+		
+		"lower_price":
+			# Calculate recommended price and apply it
+			var market_pricing = GameData.get_recommended_pricing_for_route(
+				route.from_airport, route.to_airport
+			)
+			# Set price to market rate
+			route.set_pending_prices(
+				market_pricing.economy,
+				market_pricing.business,
+				market_pricing.first
+			)
+			print("Queued price reduction for %s: Economy €%.0f → €%.0f" % [
+				route.get_display_name(), route.price_economy, market_pricing.economy
+			])
+			update_routes_panel()
+		
+		"add_frequency":
+			# Increase frequency by 1 (if possible)
+			if route.frequency < 14:  # Max 2x daily
+				route.frequency += 1
+				print("Increased frequency on %s to %d flights/week" % [
+					route.get_display_name(), route.frequency
+				])
+				update_routes_panel()
+			else:
+				print("Route %s already at maximum frequency" % route.get_display_name())
+		
+		"review_route":
+			# Open route config dialog for editing
+			if route_config_dialog:
+				route_config_dialog.setup_edit_route(route)
+				route_config_dialog.popup_centered()
+		
+		_:
+			print("Unknown action type: %s" % action_type)
+
+
+func _on_pain_point_route_edit(route: Route) -> void:
+	"""Handle pain point row click - open full route editor (O.2)"""
+	if route and route_config_dialog:
+		route_config_dialog.setup_edit_route(route)
+		route_config_dialog.popup_centered()
+		print("Opening route editor from pain point: %s" % route.get_display_name())
+
+
+func _get_connecting_hub_for_airport(airport: Airport) -> Airport:
+	"""Check if the given airport is connected to any of the player's hubs.
+	Returns the connecting hub if found, null otherwise."""
+	if not GameData.player_airline:
+		return null
+	
+	# Check each player route to see if this airport is a destination from a hub
+	for route in GameData.player_airline.routes:
+		# Check if route connects a hub to this airport
+		if route.from_airport == airport:
+			# Airport is origin - check if destination is a hub
+			if GameData.player_airline.has_hub(route.to_airport):
+				return route.to_airport
+		elif route.to_airport == airport:
+			# Airport is destination - check if origin is a hub
+			if GameData.player_airline.has_hub(route.from_airport):
+				return route.from_airport
+	
+	return null
+
+
+func _on_passenger_flow_route_requested(hub: Airport, destination: Airport) -> void:
+	"""Handle route creation request from passenger flow panel"""
+	if not hub or not destination:
+		return
+	
+	if route_config_dialog:
+		route_config_dialog.setup_route(hub, destination)
+		route_config_dialog.popup_centered()
+		print("Creating route from passenger flow: %s → %s" % [hub.iata_code, destination.iata_code])
+
 
 # Tutorial System
 

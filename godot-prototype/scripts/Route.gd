@@ -36,7 +36,11 @@ var pending_price_first: Variant = null  # float or null
 
 # Statistics
 var passengers_transported: int = 0
+var local_passengers: int = 0       # Direct point-to-point passengers
+var connecting_passengers: int = 0  # Passengers connecting through hub
 var revenue_generated: float = 0.0
+var local_revenue: float = 0.0       # Revenue from local passengers
+var connecting_revenue: float = 0.0  # Revenue from connecting passengers
 var weekly_profit: float = 0.0
 var previous_weekly_profit: float = 0.0  # K.2: For trend tracking
 

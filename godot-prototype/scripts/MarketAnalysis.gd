@@ -585,6 +585,61 @@ static func calculate_connection_quality(first_leg: Route, second_leg: Route, hu
 
 	return clamp(score, 0.0, 100.0)
 
+
+static func calculate_connection_quality_from_distances(
+	leg1_distance: float,
+	leg2_distance: float,
+	direct_distance: float,
+	min_frequency: int = 7,
+	hub_tier: int = 2
+) -> float:
+	"""
+	Calculate connection quality score (0-100) using distances instead of Route objects.
+	Useful for theoretical connections that don't exist yet.
+	
+	Args:
+		leg1_distance: Distance of first leg in km
+		leg2_distance: Distance of second leg in km
+		direct_distance: Direct distance between origin and final destination
+		min_frequency: Assumed minimum frequency on both legs (default: daily)
+		hub_tier: Hub tier (1=mega, 2=major, 3=regional, 4=small)
+	"""
+	var score: float = 50.0  # Start neutral
+	
+	# 1. Frequency score (higher frequency = more connection opportunities)
+	if min_frequency >= 7:  # Daily on both legs
+		score += 20.0
+	elif min_frequency >= 3:  # 3+ times per week
+		score += 10.0
+	elif min_frequency == 1:  # Once per week (risky)
+		score -= 10.0
+	
+	# 2. Hub congestion penalty
+	match hub_tier:
+		1:  # Mega hub
+			score -= 15.0
+		2:  # Major hub
+			score -= 5.0
+		3:  # Regional hub
+			score += 5.0
+		4:  # Small airport
+			score += 10.0
+	
+	# 3. Distance efficiency
+	var total_distance: float = leg1_distance + leg2_distance
+	if direct_distance > 0 and total_distance > 0:
+		var efficiency_ratio: float = direct_distance / total_distance
+		
+		if efficiency_ratio > 0.85:  # Very efficient connection
+			score += 15.0
+		elif efficiency_ratio > 0.70:  # Reasonable detour
+			score += 5.0
+		elif efficiency_ratio < 0.50:  # Very indirect (backtracking)
+			score -= 20.0
+	
+	return clamp(score, 0.0, 100.0)
+
+
 static func calculate_connecting_passenger_demand(
 	origin: Airport,
 	destination: Airport,
@@ -733,3 +788,204 @@ static func analyze_hub_network_effects(airline: Airline, hub: Airport) -> Dicti
 	analysis.connection_details.sort_custom(func(a, b): return a.weekly_pax > b.weekly_pax)
 
 	return analysis
+
+
+## ============================================================================
+## P.2: COMPETITOR PRICING INTELLIGENCE
+## Analyzes competitor pricing and provides strategic recommendations
+## ============================================================================
+
+static func get_competitor_pricing_intelligence(player_route: Route, player_airline: Airline) -> Dictionary:
+	"""
+	P.2: Get comprehensive competitor pricing intelligence for a player's route.
+	
+	Returns: {
+		has_competitors: bool,
+		competitors: Array of {
+			airline_name: String,
+			price_economy: float,
+			price_business: float,
+			frequency: int,
+			market_share: float (estimated)
+		},
+		player_price: float,
+		avg_competitor_price: float,
+		min_competitor_price: float,
+		max_competitor_price: float,
+		price_difference_pct: float,  # vs avg competitor
+		positioning: String,  # "premium", "discount", "matched"
+		recommendation: String,  # Strategic advice
+		recommendation_type: String  # "undercut", "maintain", "differentiate"
+	}
+	"""
+	var result: Dictionary = {
+		"has_competitors": false,
+		"competitors": [],
+		"player_price": player_route.price_economy,
+		"avg_competitor_price": 0.0,
+		"min_competitor_price": 0.0,
+		"max_competitor_price": 0.0,
+		"price_difference_pct": 0.0,
+		"positioning": "monopoly",
+		"recommendation": "No competitors - you control pricing.",
+		"recommendation_type": "maintain"
+	}
+	
+	# Find competitor routes
+	var from_airport: Airport = player_route.from_airport
+	var to_airport: Airport = player_route.to_airport
+	
+	var competitor_prices: Array[float] = []
+	
+	for airline in GameData.airlines:
+		if airline == player_airline:
+			continue
+		
+		for route in airline.routes:
+			# Check if this route serves the same city pair
+			if (route.from_airport == from_airport and route.to_airport == to_airport) or \
+			   (route.from_airport == to_airport and route.to_airport == from_airport):
+				
+				# Estimate market share (rough approximation)
+				var total_capacity: float = player_route.get_total_capacity() * player_route.frequency
+				var comp_capacity: float = route.get_total_capacity() * route.frequency
+				var market_share: float = comp_capacity / (total_capacity + comp_capacity) if (total_capacity + comp_capacity) > 0 else 0.5
+				
+				result.competitors.append({
+					"airline_name": airline.name,
+					"price_economy": route.price_economy,
+					"price_business": route.price_business,
+					"frequency": route.frequency,
+					"capacity": route.get_total_capacity(),
+					"market_share": market_share
+				})
+				
+				competitor_prices.append(route.price_economy)
+	
+	# No competitors found
+	if competitor_prices.is_empty():
+		return result
+	
+	result.has_competitors = true
+	
+	# Calculate competitor price stats
+	result.min_competitor_price = competitor_prices.min()
+	result.max_competitor_price = competitor_prices.max()
+	
+	var total_price: float = 0.0
+	for price in competitor_prices:
+		total_price += price
+	result.avg_competitor_price = total_price / competitor_prices.size()
+	
+	# Calculate price difference percentage
+	var player_price: float = player_route.price_economy
+	result.price_difference_pct = ((player_price - result.avg_competitor_price) / result.avg_competitor_price) * 100.0 if result.avg_competitor_price > 0 else 0.0
+	
+	# Determine market positioning
+	if result.price_difference_pct > 8.0:
+		result.positioning = "premium"
+	elif result.price_difference_pct < -8.0:
+		result.positioning = "discount"
+	else:
+		result.positioning = "matched"
+	
+	# Generate strategic recommendation
+	_generate_pricing_recommendation(result, player_route)
+	
+	return result
+
+
+static func _generate_pricing_recommendation(intel: Dictionary, player_route: Route) -> void:
+	"""P.2: Generate strategic pricing recommendation based on market conditions."""
+	
+	var load_factor: float = 0.0
+	var capacity: int = player_route.get_total_capacity() * player_route.frequency
+	if capacity > 0:
+		load_factor = float(player_route.passengers_transported) / capacity * 100.0
+	
+	var positioning: String = intel.positioning
+	var price_diff: float = intel.price_difference_pct
+	
+	# Analyze market share trends (simplified)
+	var is_losing_share: bool = load_factor < 60.0 and positioning == "premium"
+	var is_gaining_share: bool = load_factor > 85.0
+	var is_matched: bool = positioning == "matched"
+	
+	# Generate recommendation
+	if is_losing_share:
+		intel.recommendation_type = "undercut"
+		if price_diff > 20.0:
+			intel.recommendation = "Consider undercutting by 10-15%. Load factor is low with premium pricing."
+		else:
+			intel.recommendation = "Consider undercutting by 5%. You're priced above competitors with low demand."
+	elif is_gaining_share:
+		intel.recommendation_type = "maintain"
+		if positioning == "discount":
+			intel.recommendation = "Premium pricing may be sustainable. High demand indicates room to raise prices."
+		else:
+			intel.recommendation = "Current pricing is working well. Maintain premium position."
+	elif is_matched:
+		intel.recommendation_type = "differentiate"
+		intel.recommendation = "Prices matched. Differentiate on frequency, service quality, or loyalty."
+	elif positioning == "discount":
+		intel.recommendation_type = "maintain"
+		intel.recommendation = "Discount positioning is capturing market share. Monitor margins."
+	else:
+		intel.recommendation_type = "maintain"
+		intel.recommendation = "Monitor competitor response to your premium pricing."
+
+
+static func format_competitor_intelligence_text(intel: Dictionary) -> String:
+	"""P.2: Format competitor intelligence as display text for UI."""
+	if not intel.has_competitors:
+		return "[color=#66FF66]✓ No competitors[/color] - You control this route"
+	
+	var text: String = ""
+	
+	# Price comparison header
+	text += "[b]You:[/b] €%.0f | [b]Competitors:[/b] €%.0f avg\n" % [
+		intel.player_price, intel.avg_competitor_price
+	]
+	
+	# Market positioning with color
+	var pos_color: String
+	var pos_icon: String
+	match intel.positioning:
+		"premium":
+			pos_color = "#66AAFF"
+			pos_icon = "▲"
+		"discount":
+			pos_color = "#66FF66"
+			pos_icon = "▼"
+		_:  # matched
+			pos_color = "#4ECDC4"  # Light cyan
+			pos_icon = "●"
+	
+	text += "[color=%s]%s %s[/color] " % [pos_color, pos_icon, intel.positioning.capitalize()]
+	
+	# Price difference
+	if intel.price_difference_pct > 0:
+		text += "(+%.0f%% above)" % intel.price_difference_pct
+	elif intel.price_difference_pct < 0:
+		text += "(%.0f%% below)" % intel.price_difference_pct
+	else:
+		text += "(matched)"
+	
+	return text
+
+
+static func format_competitor_recommendation_text(intel: Dictionary) -> String:
+	"""P.2: Format pricing recommendation as display text."""
+	if not intel.has_competitors:
+		return "[color=#AAAAAA]Monopoly - price freely based on demand[/color]"
+	
+	var rec_color: String
+	match intel.recommendation_type:
+		"undercut":
+			rec_color = "#FF6B6B"  # Soft red - action needed
+		"differentiate":
+			rec_color = "#4ECDC4"  # Light cyan - consider options
+		_:
+			rec_color = "#66FF66"  # Green - maintain
+	
+	return "[color=%s]💡 %s[/color]" % [rec_color, intel.recommendation]

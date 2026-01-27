@@ -3,19 +3,32 @@ class_name FleetManagementPanel
 
 ## Fleet Management Panel - Shows aircraft grouped by status
 ## Displays In Flight, Boarding, Maintenance, Idle, Delivery sections
+## Includes Fleet Comparison tab for side-by-side aircraft analysis (N.1)
 
 signal purchase_aircraft_pressed()
 signal aircraft_selected(aircraft: AircraftInstance)
 
+## Tab indices
+const TAB_FLEET_STATUS := 0
+const TAB_FLEET_COMPARISON := 1
+
 # UI Elements
+var tab_buttons: Dictionary = {}  # TAB_* -> Button
+var content_container: Control
 var scroll_container: ScrollContainer
 var main_vbox: VBoxContainer
 var header_hbox: HBoxContainer
 var purchase_button: Button
 var search_field: LineEdit
 
+# Fleet Comparison panel (N.1)
+var comparison_panel: FleetComparisonPanel
+
 # Status sections (collapsible)
 var status_sections: Dictionary = {}  # Status -> VBoxContainer
+
+# Track current tab
+var current_tab: int = TAB_FLEET_STATUS
 
 func _ready() -> void:
 	build_ui()
@@ -37,17 +50,33 @@ func build_ui() -> void:
 	outer_vbox.add_theme_constant_override("separation", 16)
 	margin.add_child(outer_vbox)
 
+	# Tab bar for Fleet Status / Fleet Comparison (N.1)
+	create_tab_bar(outer_vbox)
+	
+	# Content container (holds both views)
+	content_container = Control.new()
+	content_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	outer_vbox.add_child(content_container)
+	
+	# Fleet Status content (the original content)
+	var status_content = VBoxContainer.new()
+	status_content.name = "FleetStatusContent"
+	status_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	status_content.add_theme_constant_override("separation", 16)
+	content_container.add_child(status_content)
+
 	# Header row with title and purchase button
-	create_header(outer_vbox)
+	create_header(status_content)
 
 	# Search/filter row (future enhancement)
-	create_search_bar(outer_vbox)
+	create_search_bar(status_content)
 
 	# Scrollable content
 	scroll_container = ScrollContainer.new()
 	scroll_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll_container.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	outer_vbox.add_child(scroll_container)
+	status_content.add_child(scroll_container)
 
 	main_vbox = VBoxContainer.new()
 	main_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -56,6 +85,119 @@ func build_ui() -> void:
 
 	# Create status sections
 	create_status_sections()
+	
+	# Fleet Comparison content (N.1)
+	comparison_panel = FleetComparisonPanel.new()
+	comparison_panel.name = "FleetComparisonContent"
+	comparison_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	comparison_panel.visible = false
+	content_container.add_child(comparison_panel)
+
+
+func create_tab_bar(parent: VBoxContainer) -> void:
+	"""Create prominent tab buttons for switching between Fleet Status and Fleet Comparison"""
+	var tab_container = HBoxContainer.new()
+	tab_container.add_theme_constant_override("separation", 12)
+	parent.add_child(tab_container)
+	
+	# Fleet Status button
+	var status_btn = _create_tab_button("✈  Fleet Status", TAB_FLEET_STATUS, true)
+	tab_buttons[TAB_FLEET_STATUS] = status_btn
+	tab_container.add_child(status_btn)
+	
+	# Fleet Comparison button - more prominent with accent color
+	var comparison_btn = _create_tab_button("📊  Compare Aircraft", TAB_FLEET_COMPARISON, false)
+	tab_buttons[TAB_FLEET_COMPARISON] = comparison_btn
+	tab_container.add_child(comparison_btn)
+	
+	# Spacer
+	var spacer = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tab_container.add_child(spacer)
+
+
+func _create_tab_button(text: String, tab_id: int, is_active: bool) -> Button:
+	"""Create a styled tab button"""
+	var btn = Button.new()
+	btn.text = text
+	btn.custom_minimum_size = Vector2(180, 44)
+	btn.add_theme_font_size_override("font_size", 15)
+	btn.toggle_mode = true
+	btn.button_pressed = is_active
+	btn.pressed.connect(_on_tab_button_pressed.bind(tab_id))
+	
+	_style_tab_button(btn, tab_id, is_active)
+	return btn
+
+
+func _style_tab_button(btn: Button, tab_id: int, is_active: bool) -> void:
+	"""Style a tab button based on active state and tab type"""
+	var style = StyleBoxFlat.new()
+	
+	if is_active:
+		# Active tab - solid background
+		if tab_id == TAB_FLEET_COMPARISON:
+			style.bg_color = UITheme.PRIMARY_BLUE
+		else:
+			style.bg_color = UITheme.get_card_bg()
+		style.border_color = UITheme.PRIMARY_BLUE if tab_id == TAB_FLEET_COMPARISON else UITheme.get_panel_border()
+		style.set_border_width_all(2)
+	else:
+		# Inactive tab
+		if tab_id == TAB_FLEET_COMPARISON:
+			# Comparison button stands out even when inactive
+			style.bg_color = Color(UITheme.PRIMARY_BLUE.r, UITheme.PRIMARY_BLUE.g, UITheme.PRIMARY_BLUE.b, 0.15)
+			style.border_color = UITheme.PRIMARY_BLUE
+			style.set_border_width_all(2)
+		else:
+			style.bg_color = UITheme.get_panel_bg()
+			style.border_color = UITheme.get_panel_border()
+			style.set_border_width_all(1)
+	
+	style.set_corner_radius_all(10)
+	style.set_content_margin_all(12)
+	btn.add_theme_stylebox_override("normal", style)
+	btn.add_theme_stylebox_override("pressed", style)
+	
+	# Hover style
+	var hover_style = style.duplicate()
+	hover_style.bg_color = hover_style.bg_color.lightened(0.1)
+	btn.add_theme_stylebox_override("hover", hover_style)
+	
+	# Text color
+	if is_active:
+		btn.add_theme_color_override("font_color", UITheme.TEXT_WHITE if tab_id == TAB_FLEET_COMPARISON else UITheme.get_text_primary())
+	else:
+		btn.add_theme_color_override("font_color", UITheme.PRIMARY_BLUE if tab_id == TAB_FLEET_COMPARISON else UITheme.get_text_secondary())
+	
+	btn.add_theme_color_override("font_hover_color", btn.get_theme_color("font_color"))
+
+
+func _on_tab_button_pressed(tab_id: int) -> void:
+	"""Handle tab button press"""
+	current_tab = tab_id
+	
+	# Update all button styles
+	for tid in tab_buttons:
+		var btn: Button = tab_buttons[tid]
+		btn.button_pressed = (tid == current_tab)
+		_style_tab_button(btn, tid, tid == current_tab)
+	
+	# Show/hide content
+	_update_tab_visibility()
+
+
+func _update_tab_visibility() -> void:
+	"""Update content visibility based on current tab"""
+	var status_content = content_container.get_node_or_null("FleetStatusContent")
+	var comparison_content = content_container.get_node_or_null("FleetComparisonContent")
+	
+	if status_content:
+		status_content.visible = (current_tab == TAB_FLEET_STATUS)
+	if comparison_content:
+		comparison_content.visible = (current_tab == TAB_FLEET_COMPARISON)
+		if current_tab == TAB_FLEET_COMPARISON and comparison_panel:
+			comparison_panel.refresh()
 
 func create_header(parent: VBoxContainer) -> void:
 	"""Create header with title and purchase button"""
@@ -273,17 +415,54 @@ func create_aircraft_card(aircraft: AircraftInstance) -> PanelContainer:
 	# Assigned route (if any)
 	if aircraft.is_assigned and aircraft.assigned_route_id >= 0:
 		var route_label = Label.new()
-		route_label.text = "Route #%d" % aircraft.assigned_route_id
+		var route_name = _get_route_display_name(aircraft.assigned_route_id)
+		route_label.text = "✈ %s" % route_name
 		route_label.add_theme_font_size_override("font_size", 11)
 		route_label.add_theme_color_override("font_color", UITheme.PRIMARY_BLUE)
 		vbox.add_child(route_label)
+	
+	# Performance badge (N.2) - only show if aircraft has history
+	if not aircraft.revenue_history.is_empty():
+		var perf_hbox = HBoxContainer.new()
+		perf_hbox.add_theme_constant_override("separation", 6)
+		vbox.add_child(perf_hbox)
+		
+		var perf_badge = Label.new()
+		# Use comparative badge against entire fleet
+		var all_aircraft = GameData.player_airline.aircraft if GameData.player_airline else []
+		var badge_text = aircraft.get_comparative_badge(all_aircraft)
+		perf_badge.text = badge_text
+		perf_badge.add_theme_font_size_override("font_size", 10)
+		var badge_color = aircraft.get_comparative_badge_color(badge_text)
+		perf_badge.add_theme_color_override("font_color", badge_color)
+		
+		var badge_style = StyleBoxFlat.new()
+		badge_style.bg_color = Color(badge_color.r, badge_color.g, badge_color.b, 0.15)
+		badge_style.set_corner_radius_all(4)
+		badge_style.set_content_margin_all(4)
+		perf_badge.add_theme_stylebox_override("normal", badge_style)
+		perf_hbox.add_child(perf_badge)
 
-	# Make card clickable
+	# Make card clickable with hover effect (N.2: click for performance details)
+	card.tooltip_text = "Click to view performance details"
+	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	
+	# Store original style for hover effect
+	var hover_style = card_style.duplicate()
+	hover_style.border_color = UITheme.PRIMARY_BLUE
+	hover_style.set_border_width_all(2)
+	
+	card.mouse_entered.connect(func():
+		card.add_theme_stylebox_override("panel", hover_style)
+	)
+	card.mouse_exited.connect(func():
+		card.add_theme_stylebox_override("panel", card_style)
+	)
+	
 	card.gui_input.connect(func(event):
 		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 			aircraft_selected.emit(aircraft)
 	)
-	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 	return card
 
@@ -336,6 +515,10 @@ func refresh() -> void:
 	"""Refresh the fleet display with current data"""
 	if not GameData.player_airline:
 		return
+	
+	# Refresh comparison panel if it's visible
+	if current_tab == TAB_FLEET_COMPARISON and comparison_panel:
+		comparison_panel.refresh()
 
 	var aircraft_list = GameData.player_airline.aircraft
 
@@ -408,3 +591,12 @@ func _on_search_changed(new_text: String) -> void:
 	"""Handle search text change - filter aircraft"""
 	# TODO: Implement search filtering
 	pass
+
+
+func _get_route_display_name(route_id: int) -> String:
+	"""Get the display name for a route by ID"""
+	if GameData.player_airline:
+		for route in GameData.player_airline.routes:
+			if route.id == route_id:
+				return route.get_display_name()
+	return "Unknown Route"

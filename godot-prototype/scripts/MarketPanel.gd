@@ -9,6 +9,9 @@ class_name MarketPanel
 ## @param opportunity: Dictionary containing origin, destination, demand, score
 signal route_opportunity_selected(opportunity: Dictionary)
 
+## Emitted when user wants to purchase market research
+signal research_requested(from_airport: Airport, to_airport: Airport)
+
 ## Maximum route opportunities to display in the panel
 const MAX_OPPORTUNITIES := 15
 
@@ -27,9 +30,17 @@ const SCORE_GOOD := 50.0
 # UI Elements
 var scroll_container: ScrollContainer
 var main_vbox: VBoxContainer
+var research_card: PanelContainer  # Q.1: Market Research card
 var competitors_card: PanelContainer
 var opportunities_card: PanelContainer
 var competition_card: PanelContainer
+
+# Q.1: Market Research UI
+var research_list: VBoxContainer
+var research_airport_dropdown: OptionButton
+var research_destination_dropdown: OptionButton
+var research_buy_button: Button
+var research_preview_label: RichTextLabel
 
 # Competitors list
 var competitors_list: VBoxContainer
@@ -72,6 +83,7 @@ func build_ui() -> void:
 	scroll_container.add_child(main_vbox)
 
 	# Market cards
+	create_research_card(main_vbox)  # Q.1: Market Research
 	create_competitors_card(main_vbox)
 	create_opportunities_card(main_vbox)
 	create_competition_card(main_vbox)
@@ -101,6 +113,118 @@ func create_header(parent: VBoxContainer) -> void:
 	var spacer = Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header_hbox.add_child(spacer)
+
+
+func create_research_card(parent: VBoxContainer) -> void:
+	"""Q.1: Create market research purchase card"""
+	research_card = create_market_card("🔍 Market Research", parent)
+	
+	var card_vbox = research_card.get_node("MarginContainer/VBoxContainer")
+	
+	var description = Label.new()
+	description.text = "Purchase detailed market analysis for better route planning (€50K per report)"
+	description.add_theme_font_size_override("font_size", 12)
+	description.add_theme_color_override("font_color", UITheme.get_text_secondary())
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	card_vbox.add_child(description)
+	
+	# Selection row - dropdowns
+	var dropdowns_hbox = HBoxContainer.new()
+	dropdowns_hbox.add_theme_constant_override("separation", 16)
+	card_vbox.add_child(dropdowns_hbox)
+	
+	# From airport dropdown
+	var from_vbox = VBoxContainer.new()
+	from_vbox.add_theme_constant_override("separation", 4)
+	dropdowns_hbox.add_child(from_vbox)
+	
+	var from_label = Label.new()
+	from_label.text = "From:"
+	from_label.add_theme_font_size_override("font_size", 12)
+	from_vbox.add_child(from_label)
+	
+	research_airport_dropdown = OptionButton.new()
+	research_airport_dropdown.custom_minimum_size = Vector2(200, 35)
+	research_airport_dropdown.item_selected.connect(_on_research_from_selected)
+	from_vbox.add_child(research_airport_dropdown)
+	
+	# To airport dropdown
+	var to_vbox = VBoxContainer.new()
+	to_vbox.add_theme_constant_override("separation", 4)
+	dropdowns_hbox.add_child(to_vbox)
+	
+	var to_label = Label.new()
+	to_label.text = "To:"
+	to_label.add_theme_font_size_override("font_size", 12)
+	to_vbox.add_child(to_label)
+	
+	research_destination_dropdown = OptionButton.new()
+	research_destination_dropdown.custom_minimum_size = Vector2(200, 35)
+	research_destination_dropdown.item_selected.connect(_on_research_to_selected)
+	to_vbox.add_child(research_destination_dropdown)
+	
+	# Spacer to push button right
+	var spacer = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	dropdowns_hbox.add_child(spacer)
+	
+	# Buy button in its own container for vertical alignment
+	var btn_vbox = VBoxContainer.new()
+	btn_vbox.add_theme_constant_override("separation", 4)
+	dropdowns_hbox.add_child(btn_vbox)
+	
+	# Empty label for alignment with "From:" and "To:" labels
+	var btn_spacer = Label.new()
+	btn_spacer.text = " "
+	btn_spacer.add_theme_font_size_override("font_size", 12)
+	btn_vbox.add_child(btn_spacer)
+	
+	research_buy_button = Button.new()
+	research_buy_button.text = "Buy Research (€50K)"
+	research_buy_button.custom_minimum_size = Vector2(180, 35)
+	research_buy_button.pressed.connect(_on_buy_research_pressed)
+	
+	var btn_style = StyleBoxFlat.new()
+	btn_style.bg_color = UITheme.PRIMARY_BLUE
+	btn_style.set_corner_radius_all(6)
+	btn_style.set_content_margin_all(8)
+	research_buy_button.add_theme_stylebox_override("normal", btn_style)
+	
+	var btn_hover = btn_style.duplicate()
+	btn_hover.bg_color = UITheme.PRIMARY_BLUE.lightened(0.1)
+	research_buy_button.add_theme_stylebox_override("hover", btn_hover)
+	
+	research_buy_button.add_theme_color_override("font_color", UITheme.TEXT_WHITE)
+	btn_vbox.add_child(research_buy_button)
+	
+	# Preview panel
+	var preview_panel = PanelContainer.new()
+	var preview_style = StyleBoxFlat.new()
+	preview_style.bg_color = Color(0.1, 0.12, 0.15)
+	preview_style.set_corner_radius_all(6)
+	preview_style.set_content_margin_all(10)
+	preview_panel.add_theme_stylebox_override("panel", preview_style)
+	card_vbox.add_child(preview_panel)
+	
+	research_preview_label = RichTextLabel.new()
+	research_preview_label.bbcode_enabled = true
+	research_preview_label.fit_content = true
+	research_preview_label.custom_minimum_size = Vector2(0, 60)
+	research_preview_label.add_theme_font_size_override("normal_font_size", 12)
+	research_preview_label.text = "[i]Select a route to preview research value[/i]"
+	preview_panel.add_child(research_preview_label)
+	
+	# Purchased research list
+	var purchased_header = Label.new()
+	purchased_header.text = "Purchased Research:"
+	purchased_header.add_theme_font_size_override("font_size", 13)
+	purchased_header.add_theme_color_override("font_color", UITheme.get_text_primary())
+	card_vbox.add_child(purchased_header)
+	
+	research_list = VBoxContainer.new()
+	research_list.add_theme_constant_override("separation", 6)
+	card_vbox.add_child(research_list)
+
 
 func create_competitors_card(parent: VBoxContainer) -> void:
 	"""Create competitors overview card"""
@@ -194,6 +318,7 @@ func create_market_card(title: String, parent: VBoxContainer) -> PanelContainer:
 
 func refresh() -> void:
 	"""Refresh all market data"""
+	_update_research()  # Q.1: Update research card
 	_update_competitors()
 	_update_opportunities()
 	_update_competition()
@@ -320,16 +445,7 @@ func _update_opportunities() -> void:
 
 func _player_has_route(from_airport: Airport, to_airport: Airport) -> bool:
 	"""Check if player already has a route between these airports"""
-	if not GameData.player_airline:
-		return false
-	
-	for route in GameData.player_airline.routes:
-		# Check both directions
-		if (route.from_airport == from_airport and route.to_airport == to_airport) or \
-		   (route.from_airport == to_airport and route.to_airport == from_airport):
-			return true
-	
-	return false
+	return GameData.has_route_between(from_airport, to_airport, GameData.player_airline)
 
 func _sort_opportunities_by_score(a: Dictionary, b: Dictionary) -> bool:
 	"""Sort opportunities by profitability score (highest first)"""
@@ -415,10 +531,20 @@ func create_opportunity_item(opportunity: Dictionary) -> Control:
 	details_row2.add_theme_constant_override("separation", 8)
 	info_vbox.add_child(details_row2)
 	
+	# Q.2: Show demand with uncertainty (range vs exact based on knowledge)
 	var demand_label = Label.new()
-	demand_label.text = "~%.0f pax/wk" % demand
+	if from_airport and to_airport:
+		var demand_info = GameData.get_demand_display(from_airport, to_airport, demand)
+		# Add confidence indicator icon
+		var conf_icon = "●" if demand_info.is_exact else ("◐" if demand_info.confidence == "medium" else "○")
+		demand_label.text = "%s %s" % [conf_icon, demand_info.display_text]
+		# Use readable white text instead of confidence colors
+		demand_label.add_theme_color_override("font_color", UITheme.TEXT_WHITE)
+		demand_label.tooltip_text = "Confidence: %s" % demand_info.confidence.capitalize()
+	else:
+		demand_label.text = "~%.0f pax/wk" % demand
+		demand_label.add_theme_color_override("font_color", UITheme.get_text_secondary())
 	demand_label.add_theme_font_size_override("font_size", 12)
-	demand_label.add_theme_color_override("font_color", UITheme.get_text_secondary())
 	details_row2.add_child(demand_label)
 	
 	var comp_label = Label.new()
@@ -552,3 +678,346 @@ func create_competition_item(comp_data: Dictionary) -> Control:
 func _on_opportunity_selected(opportunity: Dictionary) -> void:
 	"""Handle opportunity selection"""
 	route_opportunity_selected.emit(opportunity)
+
+
+## ============================================================================
+## Q.1: MARKET RESEARCH FUNCTIONS
+## ============================================================================
+
+func _update_research() -> void:
+	"""Q.1: Update research card content"""
+	if not research_airport_dropdown or not research_destination_dropdown:
+		return
+	
+	# Populate airport dropdowns
+	_populate_research_dropdowns()
+	
+	# Update purchased research list
+	_update_purchased_research_list()
+	
+	# Update buy button state
+	_update_research_button_state()
+
+
+func _populate_research_dropdowns() -> void:
+	"""Populate airport dropdowns for research selection"""
+	research_airport_dropdown.clear()
+	research_destination_dropdown.clear()
+	
+	if not GameData.player_airline or GameData.player_airline.hubs.is_empty():
+		research_airport_dropdown.add_item("No hubs available")
+		research_destination_dropdown.add_item("Select hub first")
+		return
+	
+	# From dropdown: Player's hubs
+	for hub in GameData.player_airline.hubs:
+		research_airport_dropdown.add_item("%s (%s)" % [hub.city, hub.iata_code])
+	
+	# To dropdown: All airports (excluding selected hub)
+	_update_destination_dropdown()
+
+
+func _update_destination_dropdown() -> void:
+	"""Update destination dropdown based on selected hub"""
+	research_destination_dropdown.clear()
+	
+	var from_idx = research_airport_dropdown.selected
+	if from_idx < 0 or not GameData.player_airline or from_idx >= GameData.player_airline.hubs.size():
+		return
+	
+	var from_airport = GameData.player_airline.hubs[from_idx]
+	
+	# Add all airports except the selected hub
+	for airport in GameData.airports:
+		if airport == from_airport:
+			continue
+		
+		# Show research status indicator
+		var status = ""
+		if GameData.is_route_researched(from_airport, airport):
+			status = " ✓"
+		elif GameData.is_route_learned(from_airport, airport):
+			status = " 📖"
+		
+		research_destination_dropdown.add_item("%s (%s)%s" % [airport.city, airport.iata_code, status])
+
+
+func _on_research_from_selected(_index: int) -> void:
+	"""Handle from airport selection change"""
+	_update_destination_dropdown()
+	_update_research_preview()
+	_update_research_button_state()
+
+
+func _on_research_to_selected(_index: int) -> void:
+	"""Handle to airport selection change"""
+	_update_research_preview()
+	_update_research_button_state()
+
+
+func _get_selected_research_airports() -> Dictionary:
+	"""Get currently selected airports for research"""
+	var result = {"from": null, "to": null}
+	
+	if not GameData.player_airline or GameData.player_airline.hubs.is_empty():
+		return result
+	
+	var from_idx = research_airport_dropdown.selected
+	var to_idx = research_destination_dropdown.selected
+	
+	if from_idx < 0 or from_idx >= GameData.player_airline.hubs.size():
+		return result
+	
+	result.from = GameData.player_airline.hubs[from_idx]
+	
+	# Find the to airport
+	if to_idx >= 0:
+		var airport_idx = 0
+		for airport in GameData.airports:
+			if airport == result.from:
+				continue
+			if airport_idx == to_idx:
+				result.to = airport
+				break
+			airport_idx += 1
+	
+	return result
+
+
+func _update_research_preview() -> void:
+	"""Q.1: Update research preview based on selected route"""
+	if not research_preview_label:
+		return
+	
+	var airports = _get_selected_research_airports()
+	if not airports.from or not airports.to:
+		research_preview_label.text = "[i]Select a route to preview research value[/i]"
+		return
+	
+	var from_airport: Airport = airports.from
+	var to_airport: Airport = airports.to
+	
+	# Calculate actual demand data
+	var distance = MarketAnalysis.calculate_great_circle_distance(from_airport, to_airport)
+	var demand = MarketAnalysis.calculate_potential_demand(from_airport, to_airport, distance)
+	
+	# Check current knowledge status
+	var is_researched = GameData.is_route_researched(from_airport, to_airport)
+	var is_learned = GameData.is_route_learned(from_airport, to_airport)
+	
+	if is_researched:
+		# Show purchased research data
+		var data = GameData.get_research_data(from_airport, to_airport)
+		research_preview_label.text = "[color=#66FF66]✓ Research Purchased[/color] [color=#888888](Week %d)[/color]\n\n" % data.week_purchased
+		research_preview_label.text += "[b]Known Market Data:[/b]\n"
+		research_preview_label.text += "• Demand: [b]%.0f pax/week[/b]\n" % data.exact_demand
+		research_preview_label.text += "• Business travelers: [b]%.0f%%[/b]\n" % (data.business_ratio * 100)
+		research_preview_label.text += "• Leisure travelers: [b]%.0f%%[/b]\n" % (data.leisure_ratio * 100)
+		research_preview_label.text += "• Market trend: [b]%s[/b]" % data.growth_trend.capitalize()
+		return
+	
+	if is_learned:
+		# Calculate business/leisure split and trend for learned routes
+		var business_ratio = _estimate_business_ratio(distance, from_airport, to_airport)
+		var growth_trend = _estimate_growth_trend(from_airport, to_airport)
+		
+		# Find when route was started to calculate learning time
+		var weeks_operated = _get_route_weeks_operated(from_airport, to_airport)
+		
+		research_preview_label.text = "[color=#66AAFF]📖 Learned Through Operation[/color]\n"
+		if weeks_operated > 0:
+			research_preview_label.text += "[color=#888888](After %d weeks of service)[/color]\n\n" % weeks_operated
+		else:
+			research_preview_label.text += "\n"
+		
+		research_preview_label.text += "[b]Known Market Data:[/b]\n"
+		research_preview_label.text += "• Demand: [b]~%.0f pax/week[/b]\n" % demand
+		research_preview_label.text += "• Business travelers: [b]~%.0f%%[/b]\n" % (business_ratio * 100)
+		research_preview_label.text += "• Leisure travelers: [b]~%.0f%%[/b]\n" % ((1.0 - business_ratio) * 100)
+		research_preview_label.text += "• Market trend: [b]%s[/b]\n\n" % growth_trend.capitalize()
+		research_preview_label.text += "[color=#888888][i]Data from operational experience[/i][/color]"
+		return
+	
+	# Show what research would reveal (route not yet known)
+	var demand_info = GameData.get_demand_display(from_airport, to_airport, demand)
+	
+	research_preview_label.text = "[b]Current Knowledge:[/b]\n"
+	research_preview_label.text += "Demand: [color=%s]%s[/color] (Confidence: %s)\n\n" % [
+		demand_info.confidence_color, demand_info.display_text, demand_info.confidence.capitalize()
+	]
+	research_preview_label.text += "[b]Research would reveal:[/b]\n"
+	research_preview_label.text += "• Exact weekly passenger demand\n"
+	research_preview_label.text += "• Business vs leisure split\n"
+	research_preview_label.text += "• Market growth trend"
+
+
+func _estimate_business_ratio(distance: float, from_airport: Airport, to_airport: Airport) -> float:
+	"""Estimate business/leisure ratio for learned routes (mirrors GameData calculation)"""
+	var base_ratio: float
+	
+	if distance < 1500:
+		base_ratio = 0.30  # Short-haul
+	elif distance < 4000:
+		base_ratio = 0.40  # Medium-haul
+	else:
+		base_ratio = 0.50  # Long-haul
+	
+	var avg_gdp = (from_airport.gdp_per_capita + to_airport.gdp_per_capita) / 2.0
+	if avg_gdp > 40000:
+		base_ratio += 0.10
+	elif avg_gdp < 20000:
+		base_ratio -= 0.10
+	
+	return clamp(base_ratio, 0.15, 0.70)
+
+
+func _estimate_growth_trend(from_airport: Airport, to_airport: Airport) -> String:
+	"""Estimate market growth trend for learned routes"""
+	var avg_gdp = (from_airport.gdp_per_capita + to_airport.gdp_per_capita) / 2.0
+	var avg_pax = (from_airport.annual_passengers + to_airport.annual_passengers) / 2.0
+	
+	if avg_gdp > 35000 and avg_pax < 50:
+		return "growing"
+	elif avg_gdp < 25000:
+		return "stable"
+	elif avg_pax > 80:
+		return "mature"
+	else:
+		return "stable"
+
+
+func _get_route_weeks_operated(from_airport: Airport, to_airport: Airport) -> int:
+	"""Get how many weeks a route has been operated"""
+	if not GameData.player_airline:
+		return 0
+	
+	for route in GameData.player_airline.routes:
+		if (route.from_airport == from_airport and route.to_airport == to_airport) or \
+		   (route.from_airport == to_airport and route.to_airport == from_airport):
+			if GameData.route_start_weeks.has(route.id):
+				return GameData.current_week - GameData.route_start_weeks[route.id]
+	
+	return 0
+
+
+func _update_research_button_state() -> void:
+	"""Update buy button enabled/disabled state"""
+	if not research_buy_button:
+		return
+	
+	var airports = _get_selected_research_airports()
+	
+	# Disable if no valid selection
+	if not airports.from or not airports.to:
+		research_buy_button.disabled = true
+		research_buy_button.text = "Select Route"
+		return
+	
+	# Check if already researched (purchased)
+	if GameData.is_route_researched(airports.from, airports.to):
+		research_buy_button.disabled = true
+		research_buy_button.text = "✓ Researched"
+		return
+	
+	# Check if learned through operation
+	if GameData.is_route_learned(airports.from, airports.to):
+		research_buy_button.disabled = true
+		research_buy_button.text = "📖 Learned"
+		return
+	
+	# Disable if can't afford
+	if not GameData.player_airline or GameData.player_airline.balance < GameData.MARKET_RESEARCH_COST:
+		research_buy_button.disabled = true
+		research_buy_button.text = "Can't Afford (€50K)"
+		return
+	
+	# Enable purchase
+	research_buy_button.disabled = false
+	research_buy_button.text = "Buy Research (€50K)"
+
+
+func _on_buy_research_pressed() -> void:
+	"""Q.1: Handle buy research button press"""
+	var airports = _get_selected_research_airports()
+	
+	if not airports.from or not airports.to:
+		return
+	
+	if GameData.purchase_market_research(airports.from, airports.to):
+		# Refresh the panel
+		refresh()
+		
+		# Show success feedback
+		if research_preview_label:
+			research_preview_label.text = "[color=#66FF66]✓ Research purchased![/color]\n"
+			var data = GameData.get_research_data(airports.from, airports.to)
+			research_preview_label.text += "Exact demand: [b]%.0f pax/week[/b]\n" % data.exact_demand
+			research_preview_label.text += "Business: %.0f%% | Leisure: %.0f%% | Trend: %s" % [
+				data.business_ratio * 100, data.leisure_ratio * 100, data.growth_trend.capitalize()
+			]
+
+
+func _update_purchased_research_list() -> void:
+	"""Update list of purchased research reports"""
+	if not research_list:
+		return
+	
+	# Clear existing items
+	for child in research_list.get_children():
+		child.queue_free()
+	
+	if GameData.researched_routes.is_empty():
+		var empty_label = Label.new()
+		empty_label.text = "No research purchased yet"
+		empty_label.add_theme_font_size_override("font_size", 12)
+		empty_label.add_theme_color_override("font_color", UITheme.get_text_muted())
+		research_list.add_child(empty_label)
+		return
+	
+	# Add items for each researched route
+	for key in GameData.researched_routes:
+		var data = GameData.researched_routes[key]
+		var item = _create_research_item(data)
+		research_list.add_child(item)
+
+
+func _create_research_item(data: Dictionary) -> Control:
+	"""Create a research report item"""
+	var item = HBoxContainer.new()
+	item.add_theme_constant_override("separation", 12)
+	
+	var route_label = Label.new()
+	route_label.text = "%s ↔ %s" % [data.from_iata, data.to_iata]
+	route_label.add_theme_font_size_override("font_size", 12)
+	route_label.add_theme_color_override("font_color", UITheme.get_text_primary())
+	route_label.custom_minimum_size = Vector2(100, 0)
+	item.add_child(route_label)
+	
+	var demand_label = Label.new()
+	demand_label.text = "%.0f pax/wk" % data.exact_demand
+	demand_label.add_theme_font_size_override("font_size", 12)
+	demand_label.add_theme_color_override("font_color", UITheme.PRIMARY_BLUE)
+	demand_label.custom_minimum_size = Vector2(80, 0)
+	item.add_child(demand_label)
+	
+	var split_label = Label.new()
+	split_label.text = "%.0f%% biz" % (data.business_ratio * 100)
+	split_label.add_theme_font_size_override("font_size", 12)
+	split_label.add_theme_color_override("font_color", UITheme.get_text_secondary())
+	item.add_child(split_label)
+	
+	var trend_label = Label.new()
+	var trend_color: Color
+	match data.growth_trend:
+		"growing":
+			trend_color = UITheme.PROFIT_COLOR
+		"mature":
+			trend_color = UITheme.WARNING_COLOR
+		_:
+			trend_color = UITheme.get_text_muted()
+	trend_label.text = data.growth_trend.capitalize()
+	trend_label.add_theme_font_size_override("font_size", 12)
+	trend_label.add_theme_color_override("font_color", trend_color)
+	item.add_child(trend_label)
+	
+	return item

@@ -495,13 +495,13 @@ static func format_money(amount: float, show_sign: bool = false) -> String:
 		amount = abs(amount)
 
 	if amount >= 1_000_000_000:
-		return "%s$%.1fB" % [sign_str, amount / 1_000_000_000.0]
+		return "%s€%.1fB" % [sign_str, amount / 1_000_000_000.0]
 	elif amount >= 1_000_000:
-		return "%s$%.1fM" % [sign_str, amount / 1_000_000.0]
+		return "%s€%.1fM" % [sign_str, amount / 1_000_000.0]
 	elif amount >= 1_000:
-		return "%s$%.1fK" % [sign_str, amount / 1_000.0]
+		return "%s€%.1fK" % [sign_str, amount / 1_000.0]
 	else:
-		return "%s$%.0f" % [sign_str, amount]
+		return "%s€%.0f" % [sign_str, amount]
 
 static func format_number(value: int) -> String:
 	if value >= 1_000_000:
@@ -516,7 +516,7 @@ static func format_number(value: int) -> String:
 # ============================================================================
 
 const ICON_PLANE = "✈"
-const ICON_MONEY = "$"
+const ICON_MONEY = "€"
 const ICON_UP = "▲"
 const ICON_DOWN = "▼"
 const ICON_NEUTRAL = "─"

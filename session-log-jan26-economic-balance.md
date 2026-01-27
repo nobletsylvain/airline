@@ -374,6 +374,27 @@ When hovering over a player hub airport:
 
 ---
 
+## Task N.1: Fleet Comparison Panel
+
+### FleetComparisonPanel.gd (NEW FILE)
+
+New panel for side-by-side aircraft comparison:
+- **Sort options**: Profitability, Utilization, Cost Efficiency, Seats, Range, Price
+- **Per-aircraft specs**: Seats, Range, Speed, Cost/Day, Price, Lease Rate
+- **Fleet metrics** (if player owns aircraft type): Utilization %, Revenue/Week, Profit/Week
+- **"Best for" labels**: Regional routes, Medium-haul dense routes, Network building
+- **Cost efficiency**: Cost/Seat/Day metric for comparison
+
+### FleetManagementPanel.gd Changes
+
+Added TabBar with two tabs:
+- **Fleet Status** (original content)
+- **Fleet Comparison** (new comparison panel)
+
+Tab switching automatically refreshes the comparison data.
+
+---
+
 ## Next Steps
 
 1. Continue playtesting with new pacing

@@ -63,6 +63,10 @@ var seconds_per_hour: float = 2.0  # Current speed setting
 # Week has 7 days, each day = 24 hours
 var current_day_in_week: int = 0  # 0-6 (Monday=0, Sunday=6)
 
+# Performance cache: Pre-computed direct routes lookup
+# Key: "IATA1-IATA2" -> true if direct route exists
+var _direct_routes_cache: Dictionary = {}
+
 signal simulation_started()
 signal simulation_paused()
 signal speed_changed(speed_level: SpeedLevel, speed_name: String)
@@ -158,6 +162,9 @@ func simulate_week() -> void:
 	# Reset weekly stats for all airlines
 	for airline in GameData.airlines:
 		airline.reset_weekly_stats()
+	
+	# Build direct routes cache for O(1) lookup (performance optimization)
+	_build_direct_routes_cache()
 
 	# Simulate each route
 	for airline in GameData.airlines:
@@ -167,6 +174,10 @@ func simulate_week() -> void:
 	# Calculate airline financials
 	for airline in GameData.airlines:
 		calculate_airline_finances(airline)
+	
+	# Record weekly history for all airlines (for finance panel charts)
+	for airline in GameData.airlines:
+		airline.record_weekly_history()
 
 	# Process AI decisions
 	process_ai_decisions()
@@ -182,6 +193,27 @@ func simulate_week() -> void:
 
 	week_completed.emit(GameData.current_week)
 	print("=== Week %d Complete ===" % GameData.current_week)
+
+
+func _build_direct_routes_cache() -> void:
+	"""Build O(1) lookup cache for direct routes across all airlines.
+	This optimizes the connecting passenger calculation from O(n³) to O(n²).
+	Key format: "IATA1-IATA2" -> true if direct route exists (bidirectional)."""
+	_direct_routes_cache.clear()
+	
+	for airline in GameData.airlines:
+		for route in airline.routes:
+			# Store both directions for bidirectional lookup
+			var key1 = "%s-%s" % [route.from_airport.iata_code, route.to_airport.iata_code]
+			var key2 = "%s-%s" % [route.to_airport.iata_code, route.from_airport.iata_code]
+			_direct_routes_cache[key1] = true
+			_direct_routes_cache[key2] = true
+
+
+func _has_direct_route_cached(from_iata: String, to_iata: String) -> bool:
+	"""Check if direct route exists using pre-computed cache (O(1) lookup)."""
+	var key = "%s-%s" % [from_iata, to_iata]
+	return _direct_routes_cache.has(key)
 
 
 ## ============================================================================
@@ -284,8 +316,18 @@ func simulate_route(route: Route, airline: Airline) -> void:
 	route.set_meta("price_deviation_pct", elasticity_data.price_deviation_pct)
 
 	# === HUB NETWORK EFFECTS: Add connecting passengers ===
-	var connecting_passengers: float = calculate_connecting_passengers_for_route(route, airline)
-	route_demand += connecting_passengers
+	var local_demand: float = route_demand  # Store local demand before adding connections
+	var connecting_demand: float = calculate_connecting_passengers_for_route(route, airline)
+	route_demand += connecting_demand
+	
+	# Store connecting passenger info for display
+	route.set_meta("local_demand", local_demand)
+	route.set_meta("connecting_demand", connecting_demand)
+	
+	if connecting_demand > 0:
+		print("    [Connecting] %s: local=%.0f, connecting=%.0f, total=%.0f" % [
+			route.get_display_name(), local_demand, connecting_demand, route_demand
+		])
 
 	# Apply quality multiplier
 	var quality_multiplier: float = route.get_quality_score() / 100.0
@@ -330,9 +372,31 @@ func simulate_route(route: Route, airline: Airline) -> void:
 	route.previous_weekly_profit = route.weekly_profit
 	
 	# Update route stats
-	route.passengers_transported = economy_passengers + business_passengers + first_passengers
+	var total_passengers: int = economy_passengers + business_passengers + first_passengers
+	route.passengers_transported = total_passengers
 	route.revenue_generated = total_revenue
 	route.weekly_profit = total_revenue - total_costs
+	
+	# Calculate local vs connecting passenger split
+	# Based on the ratio of local_demand to total demand
+	var total_demand_with_connections: float = local_demand + connecting_demand
+	if total_demand_with_connections > 0 and total_passengers > 0:
+		var connecting_ratio: float = connecting_demand / total_demand_with_connections
+		route.connecting_passengers = int(total_passengers * connecting_ratio)
+		route.local_passengers = total_passengers - route.connecting_passengers
+		
+		# Connecting passengers pay slightly less (10% connection discount on average)
+		var connecting_discount: float = 0.90
+		route.local_revenue = total_revenue * (1.0 - connecting_ratio)
+		route.connecting_revenue = total_revenue * connecting_ratio * connecting_discount
+		# Adjust total revenue for connection discount
+		route.revenue_generated = route.local_revenue + route.connecting_revenue
+		route.weekly_profit = route.revenue_generated - total_costs
+	else:
+		route.local_passengers = total_passengers
+		route.connecting_passengers = 0
+		route.local_revenue = total_revenue
+		route.connecting_revenue = 0.0
 	
 	# Store cost breakdown (K.1: for route details display)
 	route.fuel_cost = fuel_cost
@@ -347,21 +411,34 @@ func simulate_route(route: Route, airline: Airline) -> void:
 		route.passengers_transported,
 		total_capacity,
 		load_factor,
-		total_revenue,
+		route.revenue_generated,
 		route.weekly_profit
 	])
 
-	# Update airline stats
-	airline.weekly_revenue += total_revenue
+	# Update airline stats - use route.revenue_generated to include connection discounts
+	airline.weekly_revenue += route.revenue_generated
 	airline.weekly_expenses += total_costs
-	airline.total_revenue += total_revenue
+	airline.total_revenue += route.revenue_generated
 	airline.total_expenses += total_costs
 
-	# Degrade aircraft condition
-	for aircraft in route.assigned_aircraft:
-		aircraft.degrade_condition(0.5 * route.frequency)  # Small degradation per flight
+	# Degrade aircraft condition and record per-aircraft performance (N.2)
+	var aircraft_count: int = route.assigned_aircraft.size()
+	if aircraft_count > 0:
+		var revenue_per_aircraft: float = route.revenue_generated / aircraft_count
+		var maintenance_per_aircraft: float = maintenance_cost / aircraft_count
+		var passengers_per_aircraft: int = int(route.passengers_transported / aircraft_count)
+		
+		for aircraft in route.assigned_aircraft:
+			aircraft.degrade_condition(0.5 * route.frequency)  # Small degradation per flight
+			# Record performance history for this aircraft
+			aircraft.record_weekly_performance(
+				revenue_per_aircraft,
+				maintenance_per_aircraft,
+				passengers_per_aircraft,
+				route.id
+			)
 
-	route_simulated.emit(route, route.passengers_transported, total_revenue)
+	route_simulated.emit(route, route.passengers_transported, route.revenue_generated)
 
 	# Debug output with elasticity info
 	var price_status: String = "fair"
@@ -590,14 +667,29 @@ func calculate_airport_fees(route: Route, passengers: int) -> float:
 
 func calculate_airline_finances(airline: Airline) -> void:
 	"""Update airline balance based on weekly performance"""
+	
+	# Aggregate expense categories from all routes
+	airline.weekly_fuel_cost = 0.0
+	airline.weekly_crew_cost = 0.0
+	airline.weekly_maintenance_cost = 0.0
+	airline.weekly_airport_fees = 0.0
+	
+	for route in airline.routes:
+		airline.weekly_fuel_cost += route.fuel_cost
+		airline.weekly_crew_cost += route.crew_cost
+		airline.weekly_maintenance_cost += route.maintenance_cost
+		airline.weekly_airport_fees += route.airport_fees
+	
 	var weekly_profit: float = airline.calculate_weekly_profit()
 	airline.add_balance(weekly_profit)
 
-	# Process loan payments
+	# Process loan payments (includes principal + interest)
 	var loan_payments: float = airline.process_loan_payments()
 	if loan_payments > 0:
 		airline.deduct_balance(loan_payments)
 		airline.weekly_expenses += loan_payments
+		# Estimate interest portion (roughly 10% of payment for typical amortization)
+		airline.weekly_loan_interest = loan_payments * 0.1
 		print("  Loan payments: $%.0f" % loan_payments)
 
 	# Update reputation based on performance
@@ -688,97 +780,94 @@ func calculate_route_competitiveness(route: Route, airline: Airline) -> float:
 
 func calculate_connecting_passengers_for_route(route: Route, airline: Airline) -> float:
 	"""
-	Calculate connecting passengers that use this route as part of a connection
-	This route can be either:
-	1. First leg (origin→hub): Passengers connecting FROM this route TO other routes
-	2. Second leg (hub→destination): Passengers connecting TO this route FROM other routes
-
-	Returns total weekly connecting passengers
+	Calculate connecting passengers that use this route as part of a connection.
+	Routes are bidirectional for passenger flow - a hub→spoke route carries passengers both ways.
+	
+	For a hub-and-spoke network where routes are stored as hub→spoke:
+	- Passengers can connect spoke1 → hub → spoke2
+	- This route (hub→spoke) can be the "outbound" leg for connections
+	
+	Returns total weekly connecting passengers for this route.
 	"""
 	var total_connecting_pax: float = 0.0
-
-	# Case 1: This route is the FIRST LEG (origin→hub)
-	# Look for routes from destination (hub) to other places
-	if airline.has_hub(route.to_airport):
-		# Route ends at a hub - check for onward connections
-		var hub: Airport = route.to_airport
-
-		for second_leg in airline.routes:
-			# Must start from same hub
-			if second_leg.from_airport != hub:
-				continue
-
-			# Must go somewhere different than where we came from
-			if second_leg.to_airport == route.from_airport:
-				continue
-
-			# Calculate connecting passengers for origin→hub→destination
-			var connection: Dictionary = {
-				"first_leg": route,
-				"second_leg": second_leg,
-				"hub": hub,
-				"total_distance": route.distance_km + second_leg.distance_km,
-				"connection_quality": MarketAnalysis.calculate_connection_quality(route, second_leg, hub)
-			}
-
-			# Check if direct competition exists
-			var direct_demand: float = 0.0
-			for other_airline in GameData.airlines:
-				for other_route in other_airline.routes:
-					if (other_route.from_airport == route.from_airport and other_route.to_airport == second_leg.to_airport):
-						# Direct route exists
-						direct_demand = calculate_demand(other_route)
-						break
-
-			var connecting_pax: float = MarketAnalysis.calculate_connecting_passenger_demand(
-				route.from_airport,
-				second_leg.to_airport,
-				connection,
-				direct_demand
-			)
-
-			total_connecting_pax += connecting_pax
-
-	# Case 2: This route is the SECOND LEG (hub→destination)
-	# Look for routes to origin (hub) from other places
+	
+	# Identify the hub endpoint of this route (routes go hub → spoke)
+	var hub: Airport = null
+	var spoke: Airport = null
+	
 	if airline.has_hub(route.from_airport):
-		# Route starts from a hub - check for inbound connections
-		var hub: Airport = route.from_airport
-
-		for first_leg in airline.routes:
-			# Must end at same hub
-			if first_leg.to_airport != hub:
-				continue
-
-			# Must come from somewhere different than where we're going
-			if first_leg.from_airport == route.to_airport:
-				continue
-
-			# Calculate connecting passengers for origin→hub→destination
-			var connection: Dictionary = {
-				"first_leg": first_leg,
-				"second_leg": route,
-				"hub": hub,
-				"total_distance": first_leg.distance_km + route.distance_km,
-				"connection_quality": MarketAnalysis.calculate_connection_quality(first_leg, route, hub)
-			}
-
-			# Check if direct competition exists
-			var direct_demand: float = 0.0
-			for other_airline in GameData.airlines:
-				for other_route in other_airline.routes:
-					if (other_route.from_airport == first_leg.from_airport and other_route.to_airport == route.to_airport):
-						# Direct route exists
-						direct_demand = calculate_demand(other_route)
-						break
-
-			var connecting_pax: float = MarketAnalysis.calculate_connecting_passenger_demand(
-				first_leg.from_airport,
-				route.to_airport,
-				connection,
-				direct_demand
-			)
-
-			total_connecting_pax += connecting_pax
-
+		hub = route.from_airport
+		spoke = route.to_airport
+	elif airline.has_hub(route.to_airport):
+		hub = route.to_airport
+		spoke = route.from_airport
+	else:
+		# Route doesn't connect to any hub - no connecting passengers
+		return 0.0
+	
+	# Find all other spoke airports connected to this hub
+	var other_spokes: Array[Airport] = []
+	for other_route in airline.routes:
+		if other_route == route:
+			continue
+		
+		# Check if other_route connects to the same hub
+		var other_spoke: Airport = null
+		if other_route.from_airport == hub:
+			other_spoke = other_route.to_airport
+		elif other_route.to_airport == hub:
+			other_spoke = other_route.from_airport
+		
+		if other_spoke and other_spoke != spoke:
+			other_spokes.append(other_spoke)
+	
+	# Calculate connecting passengers: spoke ↔ hub ↔ other_spoke
+	# Passengers wanting to travel between spoke airports will connect through hub
+	for other_spoke in other_spokes:
+		# Calculate demand between this spoke and other spoke
+		var connection: Dictionary = {
+			"hub": hub,
+			"total_distance": route.distance_km + _get_route_distance(airline, hub, other_spoke),
+			"connection_quality": _calculate_hub_connection_quality(spoke, hub, other_spoke)
+		}
+		
+		# Check if direct route exists between the two spokes
+		var direct_demand: float = 0.0
+		if _has_direct_route_cached(spoke.iata_code, other_spoke.iata_code):
+			var direct_distance = MarketAnalysis.calculate_great_circle_distance(spoke, other_spoke)
+			direct_demand = MarketAnalysis.calculate_potential_demand(spoke, other_spoke, direct_distance)
+		
+		# Calculate connecting passenger demand
+		var connecting_pax: float = MarketAnalysis.calculate_connecting_passenger_demand(
+			spoke,
+			other_spoke,
+			connection,
+			direct_demand
+		)
+		
+		# Split connecting passengers between the two legs (this route gets half)
+		# This prevents double-counting when we calculate for both routes
+		total_connecting_pax += connecting_pax * 0.5
+	
 	return total_connecting_pax
+
+
+func _get_route_distance(airline: Airline, from: Airport, to: Airport) -> float:
+	"""Get the distance of a route between two airports, or calculate it if not found."""
+	for route in airline.routes:
+		if (route.from_airport == from and route.to_airport == to) or \
+		   (route.from_airport == to and route.to_airport == from):
+			return route.distance_km
+	# Fallback to great circle distance
+	return MarketAnalysis.calculate_great_circle_distance(from, to)
+
+
+func _calculate_hub_connection_quality(spoke1: Airport, hub: Airport, spoke2: Airport) -> float:
+	"""Calculate connection quality for a spoke-hub-spoke connection."""
+	var leg1_distance = MarketAnalysis.calculate_great_circle_distance(spoke1, hub)
+	var leg2_distance = MarketAnalysis.calculate_great_circle_distance(hub, spoke2)
+	var direct_distance = MarketAnalysis.calculate_great_circle_distance(spoke1, spoke2)
+	
+	return MarketAnalysis.calculate_connection_quality_from_distances(
+		leg1_distance, leg2_distance, direct_distance
+	)

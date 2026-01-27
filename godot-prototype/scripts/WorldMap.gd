@@ -511,13 +511,18 @@ func draw_route_label(route: Route, position: Vector2, color: Color) -> void:
 	# Create label text
 	var label_text: String = ""
 
-	# Show passengers transported
+	# Show passengers transported (with connecting breakdown if significant)
 	if route.passengers_transported > 0:
-		label_text = "%d pax" % route.passengers_transported
+		if route.connecting_passengers > 10:  # Only show breakdown if meaningful
+			label_text = "%d pax (%d+%d)" % [
+				route.passengers_transported, route.local_passengers, route.connecting_passengers
+			]
+		else:
+			label_text = "%d pax" % route.passengers_transported
 
 	# Show profit if significant
 	if abs(route.weekly_profit) > 10000:
-		var profit_str: String = "$%.0fK" % (route.weekly_profit / 1000.0)
+		var profit_str: String = "€%.0fK" % (route.weekly_profit / 1000.0)
 		if route.weekly_profit > 0:
 			profit_str = "+" + profit_str
 		if label_text != "":
@@ -1231,7 +1236,6 @@ func show_floating_panel_for_route(route: Route, screen_pos: Vector2) -> void:
 	# Set stats with profit coloring
 	var profit = route.weekly_profit
 	var profit_color = UITheme.get_profit_color(profit)
-	var profit_sign = "+" if profit >= 0 else ""
 
 	# Calculate load factor
 	var load_factor: float = 0.0
@@ -1241,24 +1245,39 @@ func show_floating_panel_for_route(route: Route, screen_pos: Vector2) -> void:
 	var load_color = UITheme.get_load_factor_color(load_factor)
 
 	# Build stats with cost breakdown (K.1) and profit trends (K.2)
-	var stats_text: String = "Load: %.0f%% | Pax: %d\n" % [load_factor, route.passengers_transported]
-	stats_text += "Revenue: €%s/wk\n" % UITheme.format_money(route.revenue_generated)
+	var pax_text: String
+	if route.connecting_passengers > 0:
+		pax_text = "%d (%d local + %d connecting)" % [
+			route.passengers_transported, route.local_passengers, route.connecting_passengers
+		]
+	else:
+		pax_text = "%d" % route.passengers_transported
+	
+	var stats_text: String = "Load: %.0f%% | Pax: %s\n" % [load_factor, pax_text]
+	stats_text += "Revenue: %s/wk\n" % UITheme.format_money(route.revenue_generated)
 	
 	# Cost breakdown
 	if route.total_costs > 0:
 		stats_text += "─── Costs ───\n"
-		stats_text += "  Fuel: €%s\n" % UITheme.format_money(route.fuel_cost)
-		stats_text += "  Crew: €%s\n" % UITheme.format_money(route.crew_cost)
-		stats_text += "  Maint: €%s\n" % UITheme.format_money(route.maintenance_cost)
-		stats_text += "  Airport: €%s\n" % UITheme.format_money(route.airport_fees)
-		stats_text += "  Total: €%s\n" % UITheme.format_money(route.total_costs)
+		stats_text += "  Fuel: %s\n" % UITheme.format_money(route.fuel_cost)
+		stats_text += "  Crew: %s\n" % UITheme.format_money(route.crew_cost)
+		stats_text += "  Maint: %s\n" % UITheme.format_money(route.maintenance_cost)
+		stats_text += "  Airport: %s\n" % UITheme.format_money(route.airport_fees)
+		stats_text += "  Total: %s\n" % UITheme.format_money(route.total_costs)
 		stats_text += "─────────────\n"
 	
 	# K.2: Profit with margin and trend
 	var profit_margin: float = route.get_profit_margin()
 	var trend: String = route.get_profit_trend()
-	stats_text += "Profit: %s€%s/wk %s\n" % [profit_sign, UITheme.format_money(abs(profit)), trend]
+	stats_text += "Profit: %s/wk %s\n" % [UITheme.format_money(profit, true), trend]
 	stats_text += "Margin: %.0f%%" % profit_margin
+	
+	# P.2: Competitor pricing intelligence (for player routes)
+	if is_player_route and GameData.player_airline:
+		var intel: Dictionary = MarketAnalysis.get_competitor_pricing_intelligence(route, GameData.player_airline)
+		if intel.has_competitors:
+			stats_text += "\n─── Pricing ───\n"
+			stats_text += _format_competitor_intel_for_popup(intel)
 	
 	stats_label.text = stats_text
 	stats_label.add_theme_color_override("font_color", profit_color)
@@ -1431,3 +1450,39 @@ func delete_route(route: Route) -> void:
 	refresh_routes()
 	
 	print("Route deleted: %s" % route.get_display_name())
+
+
+func _format_competitor_intel_for_popup(intel: Dictionary) -> String:
+	"""P.2: Format competitor pricing intelligence for the route popup (plain text)."""
+	var text: String = ""
+	
+	# Price comparison
+	text += "You: €%.0f | Comp: €%.0f\n" % [intel.player_price, intel.avg_competitor_price]
+	
+	# Market positioning
+	var pos_text: String
+	match intel.positioning:
+		"premium":
+			pos_text = "▲ Premium"
+		"discount":
+			pos_text = "▼ Discount"
+		_:
+			pos_text = "● Matched"
+	
+	if intel.price_difference_pct > 0:
+		text += "%s (+%.0f%%)\n" % [pos_text, intel.price_difference_pct]
+	elif intel.price_difference_pct < 0:
+		text += "%s (%.0f%%)\n" % [pos_text, intel.price_difference_pct]
+	else:
+		text += "%s\n" % pos_text
+	
+	# Short recommendation
+	match intel.recommendation_type:
+		"undercut":
+			text += "💡 Consider lowering price"
+		"differentiate":
+			text += "💡 Differentiate on service"
+		_:
+			text += "✓ Pricing sustainable"
+	
+	return text

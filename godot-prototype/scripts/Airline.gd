@@ -33,6 +33,21 @@ var weekly_expenses: float = 0.0
 var total_debt: float = 0.0  # Total remaining loan balances
 var weekly_loan_payment: float = 0.0
 
+# Expense tracking by category (current week)
+var weekly_fuel_cost: float = 0.0
+var weekly_crew_cost: float = 0.0
+var weekly_maintenance_cost: float = 0.0
+var weekly_airport_fees: float = 0.0
+var weekly_market_research_cost: float = 0.0
+var weekly_loan_interest: float = 0.0
+
+# Financial history (last 8 weeks)
+const MAX_HISTORY_WEEKS := 8
+var revenue_history: Array[float] = []
+var expenses_history: Array[float] = []
+var profit_history: Array[float] = []
+var balance_history: Array[float] = []
+
 signal balance_changed(new_balance: float)
 signal route_added(route: Route)
 signal route_removed(route: Route)
@@ -109,6 +124,67 @@ func calculate_weekly_profit() -> float:
 func reset_weekly_stats() -> void:
 	weekly_revenue = 0.0
 	weekly_expenses = 0.0
+	weekly_fuel_cost = 0.0
+	weekly_crew_cost = 0.0
+	weekly_maintenance_cost = 0.0
+	weekly_airport_fees = 0.0
+	weekly_market_research_cost = 0.0
+	weekly_loan_interest = 0.0
+
+
+func record_weekly_history() -> void:
+	"""Record current week's financial data to history arrays"""
+	revenue_history.append(weekly_revenue)
+	if revenue_history.size() > MAX_HISTORY_WEEKS:
+		revenue_history.pop_front()
+	
+	expenses_history.append(weekly_expenses)
+	if expenses_history.size() > MAX_HISTORY_WEEKS:
+		expenses_history.pop_front()
+	
+	var profit = weekly_revenue - weekly_expenses
+	profit_history.append(profit)
+	if profit_history.size() > MAX_HISTORY_WEEKS:
+		profit_history.pop_front()
+	
+	balance_history.append(balance)
+	if balance_history.size() > MAX_HISTORY_WEEKS:
+		balance_history.pop_front()
+
+
+func get_profit_margin() -> float:
+	"""Calculate profit margin as percentage"""
+	if weekly_revenue <= 0:
+		return 0.0
+	return ((weekly_revenue - weekly_expenses) / weekly_revenue) * 100.0
+
+
+func get_balance_trend() -> float:
+	"""Get balance change vs last week (absolute difference)"""
+	if balance_history.size() < 2:
+		return 0.0
+	return balance - balance_history[balance_history.size() - 1]
+
+
+func get_revenue_by_route() -> Array[Dictionary]:
+	"""Get revenue breakdown by route"""
+	var breakdown: Array[Dictionary] = []
+	for route in routes:
+		breakdown.append({
+			"route": route,
+			"name": route.get_display_name(),
+			"revenue": route.revenue_generated,
+			"passengers": route.passengers_transported
+		})
+	# Sort by revenue descending
+	breakdown.sort_custom(func(a, b): return a.revenue > b.revenue)
+	return breakdown
+
+
+func add_market_research_expense(amount: float) -> void:
+	"""Track market research expense"""
+	weekly_market_research_cost += amount
+	weekly_expenses += amount
 
 func get_grade() -> String:
 	"""Determine airline grade based on reputation"""

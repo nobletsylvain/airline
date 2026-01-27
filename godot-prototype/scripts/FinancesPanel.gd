@@ -1,6 +1,6 @@
 ## FinancesPanel.gd
 ## Displays airline financial overview including balance, revenue/expenses,
-## fleet operating costs, active loans, and credit information.
+## detailed breakdowns by route and category, historical trends, and loan management.
 ## Part of the main dashboard UI.
 extends Control
 class_name FinancesPanel
@@ -13,34 +13,51 @@ signal loan_requested
 signal loan_payoff_requested(loan: Loan)
 
 ## Standard width for label columns in financial displays
-const LABEL_COLUMN_WIDTH := 120.0
+const LABEL_COLUMN_WIDTH := 140.0
+const VALUE_COLUMN_WIDTH := 100.0
 
 # UI Elements
 var scroll_container: ScrollContainer
 var main_vbox: VBoxContainer
-var balance_card: PanelContainer
-var revenue_expenses_card: PanelContainer
-var fleet_costs_card: PanelContainer  # K.3: Fleet-wide cost breakdown
+
+# Cards
+var summary_card: PanelContainer
+var revenue_detail_card: PanelContainer
+var expense_detail_card: PanelContainer
+var history_card: PanelContainer
 var loans_card: PanelContainer
 var credit_card: PanelContainer
 
-# Labels
+# Summary labels
 var balance_label: Label
-var weekly_profit_label: Label
-var weekly_revenue_label: Label
-var weekly_expenses_label: Label
+var balance_trend_label: Label
+var total_revenue_label: Label
+var total_expenses_label: Label
+var net_profit_label: Label
+var profit_margin_label: Label
+
+# Revenue detail container
+var revenue_routes_container: VBoxContainer
+
+# Expense detail labels
+var expense_fuel_label: Label
+var expense_crew_label: Label
+var expense_maintenance_label: Label
+var expense_airport_label: Label
+var expense_research_label: Label
+var expense_loan_interest_label: Label
+var expense_total_label: Label
+
+# History labels (simple table)
+var history_container: VBoxContainer
+
+# Loans labels
 var total_debt_label: Label
 var weekly_payment_label: Label
+
+# Credit labels
 var credit_limit_label: Label
 var interest_rate_label: Label
-
-# K.3: Fleet cost breakdown labels
-var fleet_fuel_label: Label
-var fleet_crew_label: Label
-var fleet_maintenance_label: Label
-var fleet_airport_label: Label
-var fleet_total_label: Label
-var fleet_efficiency_label: Label
 
 func _ready() -> void:
 	build_ui()
@@ -76,12 +93,14 @@ func build_ui() -> void:
 	main_vbox.add_theme_constant_override("separation", 16)
 	scroll_container.add_child(main_vbox)
 
-	# Financial cards
-	create_balance_card(main_vbox)
-	create_revenue_expenses_card(main_vbox)
-	create_fleet_costs_card(main_vbox)  # K.3: Fleet-wide cost breakdown
+	# Financial cards in order
+	create_summary_card(main_vbox)
+	create_revenue_detail_card(main_vbox)
+	create_expense_detail_card(main_vbox)
+	create_history_card(main_vbox)
 	create_loans_card(main_vbox)
 	create_credit_card(main_vbox)
+
 
 func create_header(parent: VBoxContainer) -> void:
 	"""Create header section"""
@@ -94,13 +113,13 @@ func create_header(parent: VBoxContainer) -> void:
 	header_hbox.add_child(title_vbox)
 
 	var title = Label.new()
-	title.text = "Financial Overview"
+	title.text = "💰 Financial Overview"
 	title.add_theme_font_size_override("font_size", 28)
 	title.add_theme_color_override("font_color", UITheme.get_text_primary())
 	title_vbox.add_child(title)
 
 	var subtitle = Label.new()
-	subtitle.text = "Monitor your airline's financial health and manage debt"
+	subtitle.text = "Monitor revenue, expenses, and financial health"
 	subtitle.add_theme_font_size_override("font_size", 13)
 	subtitle.add_theme_color_override("font_color", UITheme.get_text_secondary())
 	title_vbox.add_child(subtitle)
@@ -109,93 +128,191 @@ func create_header(parent: VBoxContainer) -> void:
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header_hbox.add_child(spacer)
 
-func create_balance_card(parent: VBoxContainer) -> void:
-	"""Create balance overview card"""
-	balance_card = create_finance_card("Current Balance", parent)
-	
-	# Add content to the VBoxContainer inside the card (not to MarginContainer)
-	var card_vbox = balance_card.get_node("MarginContainer/VBoxContainer")
 
+func create_summary_card(parent: VBoxContainer) -> void:
+	"""Create top summary card with key metrics"""
+	summary_card = create_finance_card("📊 Weekly Summary", parent)
+	var card_vbox = summary_card.get_node("MarginContainer/VBoxContainer")
+	
+	# Main metrics grid (2 columns)
+	var grid = GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 40)
+	grid.add_theme_constant_override("v_separation", 12)
+	card_vbox.add_child(grid)
+	
+	# Balance (large, prominent)
+	var balance_vbox = VBoxContainer.new()
+	balance_vbox.add_theme_constant_override("separation", 4)
+	grid.add_child(balance_vbox)
+	
+	var balance_title = Label.new()
+	balance_title.text = "Cash on Hand"
+	balance_title.add_theme_font_size_override("font_size", 12)
+	balance_title.add_theme_color_override("font_color", UITheme.get_text_secondary())
+	balance_vbox.add_child(balance_title)
+	
 	balance_label = Label.new()
-	balance_label.add_theme_font_size_override("font_size", 32)
-	card_vbox.add_child(balance_label)
-
-	weekly_profit_label = Label.new()
-	weekly_profit_label.add_theme_font_size_override("font_size", 14)
-	card_vbox.add_child(weekly_profit_label)
-
-func create_revenue_expenses_card(parent: VBoxContainer) -> void:
-	"""Create revenue and expenses card"""
-	revenue_expenses_card = create_finance_card("Weekly Performance", parent)
+	balance_label.add_theme_font_size_override("font_size", 28)
+	balance_label.add_theme_color_override("font_color", UITheme.get_text_primary())
+	balance_vbox.add_child(balance_label)
 	
-	# Add content to the VBoxContainer inside the card
-	var card_vbox = revenue_expenses_card.get_node("MarginContainer/VBoxContainer")
-
-	# Revenue
-	var revenue_hbox = HBoxContainer.new()
-	revenue_hbox.add_theme_constant_override("separation", 12)
-	card_vbox.add_child(revenue_hbox)
-
-	var revenue_title = Label.new()
-	revenue_title.text = "Revenue:"
-	revenue_title.add_theme_font_size_override("font_size", 14)
-	revenue_title.add_theme_color_override("font_color", UITheme.get_text_secondary())
-	revenue_title.custom_minimum_size = Vector2(LABEL_COLUMN_WIDTH, 0)
-	revenue_hbox.add_child(revenue_title)
-
-	weekly_revenue_label = Label.new()
-	weekly_revenue_label.add_theme_font_size_override("font_size", 14)
-	weekly_revenue_label.add_theme_color_override("font_color", UITheme.PROFIT_COLOR)
-	revenue_hbox.add_child(weekly_revenue_label)
-
-	var revenue_spacer = Control.new()
-	revenue_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	revenue_hbox.add_child(revenue_spacer)
-
-	# Expenses
-	var expenses_hbox = HBoxContainer.new()
-	expenses_hbox.add_theme_constant_override("separation", 12)
-	card_vbox.add_child(expenses_hbox)
-
-	var expenses_title = Label.new()
-	expenses_title.text = "Expenses:"
-	expenses_title.add_theme_font_size_override("font_size", 14)
-	expenses_title.add_theme_color_override("font_color", UITheme.get_text_secondary())
-	expenses_title.custom_minimum_size = Vector2(LABEL_COLUMN_WIDTH, 0)
-	expenses_hbox.add_child(expenses_title)
-
-	weekly_expenses_label = Label.new()
-	weekly_expenses_label.add_theme_font_size_override("font_size", 14)
-	weekly_expenses_label.add_theme_color_override("font_color", UITheme.LOSS_COLOR)
-	expenses_hbox.add_child(weekly_expenses_label)
-
-	var expenses_spacer = Control.new()
-	expenses_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	expenses_hbox.add_child(expenses_spacer)
-
-
-func create_fleet_costs_card(parent: VBoxContainer) -> void:
-	"""K.3: Create fleet-wide cost breakdown card"""
-	fleet_costs_card = create_finance_card("Fleet Operating Costs", parent)
+	balance_trend_label = Label.new()
+	balance_trend_label.add_theme_font_size_override("font_size", 12)
+	balance_vbox.add_child(balance_trend_label)
 	
-	# Add content to the VBoxContainer inside the card
-	var card_vbox = fleet_costs_card.get_node("MarginContainer/VBoxContainer")
+	# Profit margin
+	var margin_vbox = VBoxContainer.new()
+	margin_vbox.add_theme_constant_override("separation", 4)
+	grid.add_child(margin_vbox)
 	
-	# Cost breakdown rows
-	var cost_types: Array = [
-		["Fuel:", "fleet_fuel"],
-		["Crew:", "fleet_crew"],
-		["Maintenance:", "fleet_maintenance"],
-		["Airport Fees:", "fleet_airport"],
+	var margin_title = Label.new()
+	margin_title.text = "Profit Margin"
+	margin_title.add_theme_font_size_override("font_size", 12)
+	margin_title.add_theme_color_override("font_color", UITheme.get_text_secondary())
+	margin_vbox.add_child(margin_title)
+	
+	profit_margin_label = Label.new()
+	profit_margin_label.add_theme_font_size_override("font_size", 28)
+	margin_vbox.add_child(profit_margin_label)
+	
+	# Separator
+	var sep = HSeparator.new()
+	card_vbox.add_child(sep)
+	
+	# Revenue / Expenses / Net Profit row
+	var metrics_hbox = HBoxContainer.new()
+	metrics_hbox.add_theme_constant_override("separation", 30)
+	card_vbox.add_child(metrics_hbox)
+	
+	# Total Revenue
+	var rev_vbox = VBoxContainer.new()
+	rev_vbox.add_theme_constant_override("separation", 2)
+	metrics_hbox.add_child(rev_vbox)
+	
+	var rev_title = Label.new()
+	rev_title.text = "Total Revenue"
+	rev_title.add_theme_font_size_override("font_size", 11)
+	rev_title.add_theme_color_override("font_color", UITheme.get_text_secondary())
+	rev_vbox.add_child(rev_title)
+	
+	total_revenue_label = Label.new()
+	total_revenue_label.add_theme_font_size_override("font_size", 18)
+	total_revenue_label.add_theme_color_override("font_color", UITheme.PROFIT_COLOR)
+	rev_vbox.add_child(total_revenue_label)
+	
+	# Total Expenses
+	var exp_vbox = VBoxContainer.new()
+	exp_vbox.add_theme_constant_override("separation", 2)
+	metrics_hbox.add_child(exp_vbox)
+	
+	var exp_title = Label.new()
+	exp_title.text = "Total Expenses"
+	exp_title.add_theme_font_size_override("font_size", 11)
+	exp_title.add_theme_color_override("font_color", UITheme.get_text_secondary())
+	exp_vbox.add_child(exp_title)
+	
+	total_expenses_label = Label.new()
+	total_expenses_label.add_theme_font_size_override("font_size", 18)
+	total_expenses_label.add_theme_color_override("font_color", UITheme.LOSS_COLOR)
+	exp_vbox.add_child(total_expenses_label)
+	
+	# Net Profit
+	var profit_vbox = VBoxContainer.new()
+	profit_vbox.add_theme_constant_override("separation", 2)
+	metrics_hbox.add_child(profit_vbox)
+	
+	var profit_title = Label.new()
+	profit_title.text = "Net Profit/Loss"
+	profit_title.add_theme_font_size_override("font_size", 11)
+	profit_title.add_theme_color_override("font_color", UITheme.get_text_secondary())
+	profit_vbox.add_child(profit_title)
+	
+	net_profit_label = Label.new()
+	net_profit_label.add_theme_font_size_override("font_size", 18)
+	profit_vbox.add_child(net_profit_label)
+
+
+func create_revenue_detail_card(parent: VBoxContainer) -> void:
+	"""Create revenue breakdown by route card"""
+	revenue_detail_card = create_finance_card("📈 Revenue by Route", parent)
+	var card_vbox = revenue_detail_card.get_node("MarginContainer/VBoxContainer")
+	
+	var description = Label.new()
+	description.text = "Weekly revenue contribution from each route"
+	description.add_theme_font_size_override("font_size", 11)
+	description.add_theme_color_override("font_color", UITheme.get_text_muted())
+	card_vbox.add_child(description)
+	
+	# Header row
+	var header = HBoxContainer.new()
+	header.add_theme_constant_override("separation", 12)
+	card_vbox.add_child(header)
+	
+	var route_header = Label.new()
+	route_header.text = "Route"
+	route_header.custom_minimum_size = Vector2(120, 0)
+	route_header.add_theme_font_size_override("font_size", 11)
+	route_header.add_theme_color_override("font_color", UITheme.get_text_muted())
+	header.add_child(route_header)
+	
+	var pax_header = Label.new()
+	pax_header.text = "Passengers"
+	pax_header.custom_minimum_size = Vector2(80, 0)
+	pax_header.add_theme_font_size_override("font_size", 11)
+	pax_header.add_theme_color_override("font_color", UITheme.get_text_muted())
+	header.add_child(pax_header)
+	
+	var rev_header = Label.new()
+	rev_header.text = "Revenue"
+	rev_header.custom_minimum_size = Vector2(100, 0)
+	rev_header.add_theme_font_size_override("font_size", 11)
+	rev_header.add_theme_color_override("font_color", UITheme.get_text_muted())
+	rev_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	header.add_child(rev_header)
+	
+	var pct_header = Label.new()
+	pct_header.text = "% of Total"
+	pct_header.custom_minimum_size = Vector2(70, 0)
+	pct_header.add_theme_font_size_override("font_size", 11)
+	pct_header.add_theme_color_override("font_color", UITheme.get_text_muted())
+	pct_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	header.add_child(pct_header)
+	
+	# Routes container
+	revenue_routes_container = VBoxContainer.new()
+	revenue_routes_container.add_theme_constant_override("separation", 6)
+	card_vbox.add_child(revenue_routes_container)
+
+
+func create_expense_detail_card(parent: VBoxContainer) -> void:
+	"""Create expense breakdown by category card"""
+	expense_detail_card = create_finance_card("📉 Expenses by Category", parent)
+	var card_vbox = expense_detail_card.get_node("MarginContainer/VBoxContainer")
+	
+	var description = Label.new()
+	description.text = "Weekly operating costs breakdown"
+	description.add_theme_font_size_override("font_size", 11)
+	description.add_theme_color_override("font_color", UITheme.get_text_muted())
+	card_vbox.add_child(description)
+	
+	# Expense rows
+	var expense_types: Array = [
+		["⛽ Fuel", "expense_fuel"],
+		["👥 Crew", "expense_crew"],
+		["🔧 Maintenance", "expense_maintenance"],
+		["🛫 Airport Fees", "expense_airport"],
+		["🔍 Market Research", "expense_research"],
+		["💳 Loan Interest", "expense_loan_interest"],
 	]
 	
-	for cost_info in cost_types:
+	for expense_info in expense_types:
 		var hbox = HBoxContainer.new()
 		hbox.add_theme_constant_override("separation", 12)
 		card_vbox.add_child(hbox)
 		
 		var title = Label.new()
-		title.text = cost_info[0]
+		title.text = expense_info[0]
 		title.add_theme_font_size_override("font_size", 13)
 		title.add_theme_color_override("font_color", UITheme.get_text_secondary())
 		title.custom_minimum_size = Vector2(LABEL_COLUMN_WIDTH, 0)
@@ -207,15 +324,19 @@ func create_fleet_costs_card(parent: VBoxContainer) -> void:
 		hbox.add_child(value_label)
 		
 		# Store reference
-		match cost_info[1]:
-			"fleet_fuel":
-				fleet_fuel_label = value_label
-			"fleet_crew":
-				fleet_crew_label = value_label
-			"fleet_maintenance":
-				fleet_maintenance_label = value_label
-			"fleet_airport":
-				fleet_airport_label = value_label
+		match expense_info[1]:
+			"expense_fuel":
+				expense_fuel_label = value_label
+			"expense_crew":
+				expense_crew_label = value_label
+			"expense_maintenance":
+				expense_maintenance_label = value_label
+			"expense_airport":
+				expense_airport_label = value_label
+			"expense_research":
+				expense_research_label = value_label
+			"expense_loan_interest":
+				expense_loan_interest_label = value_label
 		
 		var spacer = Control.new()
 		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -231,44 +352,82 @@ func create_fleet_costs_card(parent: VBoxContainer) -> void:
 	card_vbox.add_child(total_hbox)
 	
 	var total_title = Label.new()
-	total_title.text = "Total Weekly:"
+	total_title.text = "📊 Total Weekly Expenses"
 	total_title.add_theme_font_size_override("font_size", 14)
 	total_title.add_theme_color_override("font_color", UITheme.get_text_primary())
 	total_title.custom_minimum_size = Vector2(LABEL_COLUMN_WIDTH, 0)
 	total_hbox.add_child(total_title)
 	
-	fleet_total_label = Label.new()
-	fleet_total_label.add_theme_font_size_override("font_size", 14)
-	fleet_total_label.add_theme_color_override("font_color", UITheme.LOSS_COLOR)
-	total_hbox.add_child(fleet_total_label)
+	expense_total_label = Label.new()
+	expense_total_label.add_theme_font_size_override("font_size", 14)
+	expense_total_label.add_theme_color_override("font_color", UITheme.LOSS_COLOR)
+	total_hbox.add_child(expense_total_label)
+
+
+func create_history_card(parent: VBoxContainer) -> void:
+	"""Create historical performance card"""
+	history_card = create_finance_card("📅 Performance History (Last 8 Weeks)", parent)
+	var card_vbox = history_card.get_node("MarginContainer/VBoxContainer")
 	
-	var total_spacer = Control.new()
-	total_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	total_hbox.add_child(total_spacer)
+	var description = Label.new()
+	description.text = "Weekly financial trends"
+	description.add_theme_font_size_override("font_size", 11)
+	description.add_theme_color_override("font_color", UITheme.get_text_muted())
+	card_vbox.add_child(description)
 	
-	# Efficiency metric
-	var efficiency_hbox = HBoxContainer.new()
-	efficiency_hbox.add_theme_constant_override("separation", 12)
-	card_vbox.add_child(efficiency_hbox)
+	# Header row
+	var header = HBoxContainer.new()
+	header.add_theme_constant_override("separation", 8)
+	card_vbox.add_child(header)
 	
-	var efficiency_title = Label.new()
-	efficiency_title.text = "Cost/Passenger:"
-	efficiency_title.add_theme_font_size_override("font_size", 12)
-	efficiency_title.add_theme_color_override("font_color", UITheme.get_text_secondary())
-	efficiency_title.custom_minimum_size = Vector2(LABEL_COLUMN_WIDTH, 0)
-	efficiency_hbox.add_child(efficiency_title)
+	var week_header = Label.new()
+	week_header.text = "Week"
+	week_header.custom_minimum_size = Vector2(60, 0)
+	week_header.add_theme_font_size_override("font_size", 11)
+	week_header.add_theme_color_override("font_color", UITheme.get_text_muted())
+	header.add_child(week_header)
 	
-	fleet_efficiency_label = Label.new()
-	fleet_efficiency_label.add_theme_font_size_override("font_size", 12)
-	fleet_efficiency_label.add_theme_color_override("font_color", UITheme.get_text_muted())
-	efficiency_hbox.add_child(fleet_efficiency_label)
+	var rev_header = Label.new()
+	rev_header.text = "Revenue"
+	rev_header.custom_minimum_size = Vector2(90, 0)
+	rev_header.add_theme_font_size_override("font_size", 11)
+	rev_header.add_theme_color_override("font_color", UITheme.get_text_muted())
+	rev_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	header.add_child(rev_header)
+	
+	var exp_header = Label.new()
+	exp_header.text = "Expenses"
+	exp_header.custom_minimum_size = Vector2(90, 0)
+	exp_header.add_theme_font_size_override("font_size", 11)
+	exp_header.add_theme_color_override("font_color", UITheme.get_text_muted())
+	exp_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	header.add_child(exp_header)
+	
+	var profit_header = Label.new()
+	profit_header.text = "Profit"
+	profit_header.custom_minimum_size = Vector2(90, 0)
+	profit_header.add_theme_font_size_override("font_size", 11)
+	profit_header.add_theme_color_override("font_color", UITheme.get_text_muted())
+	profit_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	header.add_child(profit_header)
+	
+	var bal_header = Label.new()
+	bal_header.text = "Balance"
+	bal_header.custom_minimum_size = Vector2(100, 0)
+	bal_header.add_theme_font_size_override("font_size", 11)
+	bal_header.add_theme_color_override("font_color", UITheme.get_text_muted())
+	bal_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	header.add_child(bal_header)
+	
+	# History rows container
+	history_container = VBoxContainer.new()
+	history_container.add_theme_constant_override("separation", 4)
+	card_vbox.add_child(history_container)
 
 
 func create_loans_card(parent: VBoxContainer) -> void:
 	"""Create loans management card"""
-	loans_card = create_finance_card("Active Loans", parent)
-	
-	# Add content to the VBoxContainer inside the card
+	loans_card = create_finance_card("🏦 Active Loans", parent)
 	var card_vbox = loans_card.get_node("MarginContainer/VBoxContainer")
 
 	# Total debt summary
@@ -321,7 +480,7 @@ func create_loans_card(parent: VBoxContainer) -> void:
 
 	# Take loan button
 	var take_loan_btn = Button.new()
-	take_loan_btn.text = "Take Loan"
+	take_loan_btn.text = "💳 Take Loan"
 	take_loan_btn.custom_minimum_size = Vector2(0, 40)
 	take_loan_btn.add_theme_font_size_override("font_size", 14)
 	var btn_style = UITheme.create_primary_button_style()
@@ -329,11 +488,10 @@ func create_loans_card(parent: VBoxContainer) -> void:
 	take_loan_btn.pressed.connect(_on_take_loan_pressed)
 	card_vbox.add_child(take_loan_btn)
 
+
 func create_credit_card(parent: VBoxContainer) -> void:
 	"""Create credit information card"""
-	credit_card = create_finance_card("Credit Information", parent)
-	
-	# Add content to the VBoxContainer inside the card
+	credit_card = create_finance_card("💳 Credit Information", parent)
 	var card_vbox = credit_card.get_node("MarginContainer/VBoxContainer")
 
 	# Credit limit
@@ -378,6 +536,7 @@ func create_credit_card(parent: VBoxContainer) -> void:
 	rate_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rate_hbox.add_child(rate_spacer)
 
+
 func create_finance_card(title: String, parent: VBoxContainer) -> PanelContainer:
 	"""Create a styled finance card"""
 	var card = PanelContainer.new()
@@ -399,7 +558,7 @@ func create_finance_card(title: String, parent: VBoxContainer) -> PanelContainer
 	card.add_child(margin)
 
 	var vbox = VBoxContainer.new()
-	vbox.name = "VBoxContainer"  # Name it so we can find it
+	vbox.name = "VBoxContainer"
 	vbox.add_theme_constant_override("separation", 12)
 	margin.add_child(vbox)
 
@@ -412,6 +571,7 @@ func create_finance_card(title: String, parent: VBoxContainer) -> PanelContainer
 	parent.add_child(card)
 	return card
 
+
 func refresh() -> void:
 	"""Refresh all financial data"""
 	if not GameData.player_airline:
@@ -419,17 +579,17 @@ func refresh() -> void:
 
 	var airline = GameData.player_airline
 
-	# Balance
-	balance_label.text = UITheme.format_money(airline.balance)
-	var profit = airline.calculate_weekly_profit()
-	var profit_color = UITheme.get_profit_color(profit)
-	var profit_sign = "+" if profit >= 0 else ""
-	weekly_profit_label.text = "Weekly Profit: %s%s" % [profit_sign, UITheme.format_money(profit)]
-	weekly_profit_label.add_theme_color_override("font_color", profit_color)
-
-	# Revenue and expenses
-	weekly_revenue_label.text = UITheme.format_money(airline.weekly_revenue)
-	weekly_expenses_label.text = UITheme.format_money(airline.weekly_expenses)
+	# Summary card
+	_update_summary(airline)
+	
+	# Revenue by route
+	_update_revenue_breakdown(airline)
+	
+	# Expense breakdown
+	_update_expense_breakdown(airline)
+	
+	# History
+	_update_history(airline)
 
 	# Loans
 	total_debt_label.text = UITheme.format_money(airline.total_debt)
@@ -439,48 +599,192 @@ func refresh() -> void:
 	credit_limit_label.text = UITheme.format_money(airline.get_credit_limit())
 	var interest_rate = airline.get_interest_rate()
 	interest_rate_label.text = "%.1f%%" % (interest_rate * 100.0)
-	
-	# K.3: Fleet operating costs breakdown
-	_update_fleet_costs()
 
 	# Update loans list
 	_update_loans_list()
 
-func _update_fleet_costs() -> void:
-	"""K.3: Update fleet-wide cost breakdown"""
-	if not GameData.player_airline or not fleet_fuel_label:
+
+func _update_summary(airline: Airline) -> void:
+	"""Update the summary card"""
+	# Balance
+	balance_label.text = UITheme.format_money(airline.balance)
+	
+	# Balance trend
+	var trend = airline.get_balance_trend()
+	if trend > 0:
+		balance_trend_label.text = "↑ +%s vs last week" % UITheme.format_money(trend)
+		balance_trend_label.add_theme_color_override("font_color", UITheme.PROFIT_COLOR)
+	elif trend < 0:
+		balance_trend_label.text = "↓ %s vs last week" % UITheme.format_money(trend)
+		balance_trend_label.add_theme_color_override("font_color", UITheme.LOSS_COLOR)
+	else:
+		balance_trend_label.text = "→ No change vs last week"
+		balance_trend_label.add_theme_color_override("font_color", UITheme.get_text_muted())
+	
+	# Revenue / Expenses / Profit
+	total_revenue_label.text = UITheme.format_money(airline.weekly_revenue)
+	total_expenses_label.text = UITheme.format_money(airline.weekly_expenses)
+	
+	var profit = airline.calculate_weekly_profit()
+	var profit_sign = "+" if profit >= 0 else ""
+	net_profit_label.text = "%s%s" % [profit_sign, UITheme.format_money(profit)]
+	net_profit_label.add_theme_color_override("font_color", UITheme.get_profit_color(profit))
+	
+	# Profit margin
+	var margin = airline.get_profit_margin()
+	profit_margin_label.text = "%.1f%%" % margin
+	if margin >= 20:
+		profit_margin_label.add_theme_color_override("font_color", UITheme.PROFIT_COLOR)
+	elif margin >= 0:
+		profit_margin_label.add_theme_color_override("font_color", Color("#4ECDC4"))
+	else:
+		profit_margin_label.add_theme_color_override("font_color", UITheme.LOSS_COLOR)
+
+
+func _update_revenue_breakdown(airline: Airline) -> void:
+	"""Update revenue by route breakdown"""
+	# Clear existing rows
+	for child in revenue_routes_container.get_children():
+		child.queue_free()
+	
+	var route_data = airline.get_revenue_by_route()
+	var total_revenue = airline.weekly_revenue
+	
+	if route_data.is_empty():
+		var empty_label = Label.new()
+		empty_label.text = "No routes operating"
+		empty_label.add_theme_font_size_override("font_size", 12)
+		empty_label.add_theme_color_override("font_color", UITheme.get_text_muted())
+		revenue_routes_container.add_child(empty_label)
 		return
 	
-	var airline = GameData.player_airline
-	var total_fuel: float = 0.0
-	var total_crew: float = 0.0
-	var total_maintenance: float = 0.0
-	var total_airport: float = 0.0
-	var total_passengers: int = 0
+	for data in route_data:
+		var row = HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		revenue_routes_container.add_child(row)
+		
+		var route_label = Label.new()
+		route_label.text = data.name
+		route_label.custom_minimum_size = Vector2(120, 0)
+		route_label.add_theme_font_size_override("font_size", 12)
+		route_label.add_theme_color_override("font_color", UITheme.get_text_primary())
+		row.add_child(route_label)
+		
+		var pax_label = Label.new()
+		pax_label.text = "%d pax" % data.passengers
+		pax_label.custom_minimum_size = Vector2(80, 0)
+		pax_label.add_theme_font_size_override("font_size", 12)
+		pax_label.add_theme_color_override("font_color", UITheme.get_text_secondary())
+		row.add_child(pax_label)
+		
+		var rev_label = Label.new()
+		rev_label.text = UITheme.format_money(data.revenue)
+		rev_label.custom_minimum_size = Vector2(100, 0)
+		rev_label.add_theme_font_size_override("font_size", 12)
+		rev_label.add_theme_color_override("font_color", UITheme.PROFIT_COLOR)
+		rev_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(rev_label)
+		
+		var pct_label = Label.new()
+		var pct = (data.revenue / total_revenue * 100.0) if total_revenue > 0 else 0.0
+		pct_label.text = "%.1f%%" % pct
+		pct_label.custom_minimum_size = Vector2(70, 0)
+		pct_label.add_theme_font_size_override("font_size", 12)
+		pct_label.add_theme_color_override("font_color", UITheme.get_text_muted())
+		pct_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(pct_label)
+
+
+func _update_expense_breakdown(airline: Airline) -> void:
+	"""Update expense breakdown by category"""
+	if not expense_fuel_label:
+		return
 	
-	# Sum costs from all routes
-	for route in airline.routes:
-		total_fuel += route.fuel_cost
-		total_crew += route.crew_cost
-		total_maintenance += route.maintenance_cost
-		total_airport += route.airport_fees
-		total_passengers += route.passengers_transported
+	expense_fuel_label.text = "%s/wk" % UITheme.format_money(airline.weekly_fuel_cost)
+	expense_crew_label.text = "%s/wk" % UITheme.format_money(airline.weekly_crew_cost)
+	expense_maintenance_label.text = "%s/wk" % UITheme.format_money(airline.weekly_maintenance_cost)
+	expense_airport_label.text = "%s/wk" % UITheme.format_money(airline.weekly_airport_fees)
+	expense_research_label.text = "%s/wk" % UITheme.format_money(airline.weekly_market_research_cost)
+	expense_loan_interest_label.text = "%s/wk" % UITheme.format_money(airline.weekly_loan_interest)
+	expense_total_label.text = "%s/wk" % UITheme.format_money(airline.weekly_expenses)
+
+
+func _update_history(airline: Airline) -> void:
+	"""Update historical performance table"""
+	# Clear existing rows
+	for child in history_container.get_children():
+		child.queue_free()
 	
-	var total_costs: float = total_fuel + total_crew + total_maintenance + total_airport
+	if airline.revenue_history.is_empty():
+		var empty_label = Label.new()
+		empty_label.text = "No historical data yet - complete a week to see trends"
+		empty_label.add_theme_font_size_override("font_size", 12)
+		empty_label.add_theme_color_override("font_color", UITheme.get_text_muted())
+		history_container.add_child(empty_label)
+		return
 	
-	# Update labels
-	fleet_fuel_label.text = "€%s/wk" % UITheme.format_money(total_fuel)
-	fleet_crew_label.text = "€%s/wk" % UITheme.format_money(total_crew)
-	fleet_maintenance_label.text = "€%s/wk" % UITheme.format_money(total_maintenance)
-	fleet_airport_label.text = "€%s/wk" % UITheme.format_money(total_airport)
-	fleet_total_label.text = "€%s/wk" % UITheme.format_money(total_costs)
+	# Show history in reverse order (most recent first)
+	var current_week = GameData.current_week
+	var history_size = airline.revenue_history.size()
 	
-	# Efficiency metric: cost per passenger
-	if total_passengers > 0:
-		var cost_per_pax: float = total_costs / float(total_passengers)
-		fleet_efficiency_label.text = "€%.2f per pax" % cost_per_pax
-	else:
-		fleet_efficiency_label.text = "N/A"
+	for i in range(history_size - 1, -1, -1):
+		var week_num = current_week - (history_size - 1 - i)
+		var revenue = airline.revenue_history[i]
+		var expenses = airline.expenses_history[i] if i < airline.expenses_history.size() else 0.0
+		var profit = airline.profit_history[i] if i < airline.profit_history.size() else 0.0
+		var balance = airline.balance_history[i] if i < airline.balance_history.size() else 0.0
+		
+		var row = HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		history_container.add_child(row)
+		
+		# Alternate row colors
+		if i % 2 == 0:
+			var bg = ColorRect.new()
+			bg.color = Color(0.1, 0.1, 0.12, 0.5)
+			bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			row.add_child(bg)
+			row.move_child(bg, 0)
+		
+		var week_label = Label.new()
+		week_label.text = "W%d" % week_num
+		week_label.custom_minimum_size = Vector2(60, 0)
+		week_label.add_theme_font_size_override("font_size", 11)
+		week_label.add_theme_color_override("font_color", UITheme.get_text_secondary())
+		row.add_child(week_label)
+		
+		var rev_label = Label.new()
+		rev_label.text = UITheme.format_money(revenue)
+		rev_label.custom_minimum_size = Vector2(90, 0)
+		rev_label.add_theme_font_size_override("font_size", 11)
+		rev_label.add_theme_color_override("font_color", UITheme.PROFIT_COLOR)
+		rev_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(rev_label)
+		
+		var exp_label = Label.new()
+		exp_label.text = UITheme.format_money(expenses)
+		exp_label.custom_minimum_size = Vector2(90, 0)
+		exp_label.add_theme_font_size_override("font_size", 11)
+		exp_label.add_theme_color_override("font_color", UITheme.LOSS_COLOR)
+		exp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(exp_label)
+		
+		var profit_label = Label.new()
+		var profit_sign = "+" if profit >= 0 else ""
+		profit_label.text = "%s%s" % [profit_sign, UITheme.format_money(profit)]
+		profit_label.custom_minimum_size = Vector2(90, 0)
+		profit_label.add_theme_font_size_override("font_size", 11)
+		profit_label.add_theme_color_override("font_color", UITheme.get_profit_color(profit))
+		profit_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(profit_label)
+		
+		var bal_label = Label.new()
+		bal_label.text = UITheme.format_money(balance)
+		bal_label.custom_minimum_size = Vector2(100, 0)
+		bal_label.add_theme_font_size_override("font_size", 11)
+		bal_label.add_theme_color_override("font_color", UITheme.get_text_primary())
+		bal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(bal_label)
 
 
 func _update_loans_list() -> void:
@@ -503,6 +807,7 @@ func _update_loans_list() -> void:
 
 		var loan_item = create_loan_item(loan)
 		loans_list.add_child(loan_item)
+
 
 func create_loan_item(loan: Loan) -> Control:
 	"""Create a loan item card"""
@@ -559,9 +864,11 @@ func create_loan_item(loan: Loan) -> Control:
 
 	return item
 
+
 func _on_take_loan_pressed() -> void:
 	"""Handle take loan button press"""
 	loan_requested.emit()
+
 
 func _on_payoff_loan_pressed(loan: Loan) -> void:
 	"""Handle pay off loan button press"""

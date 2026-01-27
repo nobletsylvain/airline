@@ -9,8 +9,15 @@ var current_cycle: int = 0
 var is_simulating: bool = false
 var next_aircraft_id: int = 1
 var next_loan_id: int = 1
+var next_route_id: int = 1
 var next_delegate_id: int = 1
 var next_delegate_task_id: int = 1
+
+# Q.1/Q.2: Market Research System
+const MARKET_RESEARCH_COST := 50000.0  # €50K per research report
+const WEEKS_TO_LEARN_ROUTE := 4  # Weeks of operation before demand is "learned"
+var researched_routes: Dictionary = {}  # Key: "IATA1-IATA2" -> Dictionary with research data
+var route_start_weeks: Dictionary = {}  # Key: route_id -> week when route started (for learning)
 
 # Collections
 var airports: Array[Airport] = []
@@ -663,8 +670,10 @@ func create_route_for_airline(airline: Airline, from: Airport, to: Airport, airc
 		print("Available hubs: %s" % airline.get_hub_names())
 		return null
 
-	# Create route
+	# Create route with unique ID
 	var route: Route = Route.new(from, to, airline.id)
+	route.id = next_route_id
+	next_route_id += 1
 
 	# Get recommended pricing
 	var pricing: Dictionary = get_recommended_pricing_for_route(from, to)
@@ -681,6 +690,10 @@ func create_route_for_airline(airline: Airline, from: Airport, to: Airport, airc
 
 	# Check if this is the player's first route
 	var is_first_route: bool = (airline == player_airline and airline.routes.size() == 1)
+	
+	# Q.2: Register route start for learning system
+	if airline == player_airline:
+		register_route_start(route)
 
 	# Emit signals
 	route_created.emit(route, airline)
@@ -705,6 +718,58 @@ func create_route_for_airline(airline: Airline, from: Airport, to: Airport, airc
 	])
 
 	return route
+
+
+## ============================================================================
+## Route Utilities (centralized for performance and consistency)
+## ============================================================================
+
+func has_route_between(from_airport: Airport, to_airport: Airport, airline: Airline = null) -> bool:
+	"""Check if a route exists between two airports.
+	If airline is null, checks all airlines.
+	If airline is provided, only checks that airline's routes."""
+	var airlines_to_check: Array[Airline] = []
+	
+	if airline:
+		airlines_to_check.append(airline)
+	else:
+		airlines_to_check = airlines.duplicate()
+		if player_airline and player_airline not in airlines_to_check:
+			airlines_to_check.append(player_airline)
+	
+	for a in airlines_to_check:
+		for route in a.routes:
+			if (route.from_airport == from_airport and route.to_airport == to_airport) or \
+			   (route.from_airport == to_airport and route.to_airport == from_airport):
+				return true
+	
+	return false
+
+
+func count_competitors_on_route(from_airport: Airport, to_airport: Airport, exclude: Airline = null) -> int:
+	"""Count how many airlines operate on a route (excluding the specified airline).
+	Returns number of competing airlines."""
+	var count: int = 0
+	
+	for airline in airlines:
+		if airline == exclude:
+			continue
+		for route in airline.routes:
+			if (route.from_airport == from_airport and route.to_airport == to_airport) or \
+			   (route.from_airport == to_airport and route.to_airport == from_airport):
+				count += 1
+				break  # Count each airline once, even if multiple routes
+	
+	# Also check player airline if not excluded
+	if player_airline and player_airline != exclude and player_airline not in airlines:
+		for route in player_airline.routes:
+			if (route.from_airport == from_airport and route.to_airport == to_airport) or \
+			   (route.from_airport == to_airport and route.to_airport == from_airport):
+				count += 1
+				break
+	
+	return count
+
 
 ## Hub Management
 
@@ -805,3 +870,215 @@ static func format_number(num: float) -> String:
 		return "%.1fK" % (num / 1000.0)
 	else:
 		return str(int(num))
+
+
+## ============================================================================
+## Q.1/Q.2: MARKET RESEARCH SYSTEM
+## Provides demand uncertainty and research purchasing
+## ============================================================================
+
+func get_route_research_key(from_airport: Airport, to_airport: Airport) -> String:
+	"""Get unique key for a route (order-independent)"""
+	if from_airport.iata_code < to_airport.iata_code:
+		return "%s-%s" % [from_airport.iata_code, to_airport.iata_code]
+	else:
+		return "%s-%s" % [to_airport.iata_code, from_airport.iata_code]
+
+
+func is_route_researched(from_airport: Airport, to_airport: Airport) -> bool:
+	"""Q.1: Check if a route has been researched"""
+	var key = get_route_research_key(from_airport, to_airport)
+	return researched_routes.has(key)
+
+
+func is_route_learned(from_airport: Airport, to_airport: Airport) -> bool:
+	"""Q.2: Check if route demand is 'learned' from operating it 4+ weeks"""
+	if not player_airline:
+		return false
+	
+	# Check all player routes for this city pair
+	for route in player_airline.routes:
+		if (route.from_airport == from_airport and route.to_airport == to_airport) or \
+		   (route.from_airport == to_airport and route.to_airport == from_airport):
+			# Check how long we've operated this route
+			if route_start_weeks.has(route.id):
+				var weeks_operated = current_week - route_start_weeks[route.id]
+				if weeks_operated >= WEEKS_TO_LEARN_ROUTE:
+					return true
+	
+	return false
+
+
+func has_demand_knowledge(from_airport: Airport, to_airport: Airport) -> bool:
+	"""Q.2: Check if we have exact demand knowledge (researched OR learned)"""
+	return is_route_researched(from_airport, to_airport) or is_route_learned(from_airport, to_airport)
+
+
+func get_demand_confidence(from_airport: Airport, to_airport: Airport) -> String:
+	"""Q.2: Get confidence level for demand estimates"""
+	if has_demand_knowledge(from_airport, to_airport):
+		return "high"  # Researched or learned
+	
+	# Check if we have partial knowledge from nearby routes or operating in region
+	var has_regional_knowledge = _has_regional_knowledge(from_airport, to_airport)
+	if has_regional_knowledge:
+		return "medium"
+	
+	return "low"
+
+
+func _has_regional_knowledge(from_airport: Airport, to_airport: Airport) -> bool:
+	"""Check if player has knowledge from operating in the region"""
+	if not player_airline:
+		return false
+	
+	# If player has a hub at either airport, medium confidence
+	if player_airline.has_hub(from_airport) or player_airline.has_hub(to_airport):
+		return true
+	
+	# If player operates any route to/from either airport, medium confidence
+	for route in player_airline.routes:
+		if route.from_airport == from_airport or route.to_airport == from_airport:
+			return true
+		if route.from_airport == to_airport or route.to_airport == to_airport:
+			return true
+	
+	return false
+
+
+func purchase_market_research(from_airport: Airport, to_airport: Airport) -> bool:
+	"""Q.1: Purchase market research for a route. Returns true if successful."""
+	if not player_airline:
+		return false
+	
+	# Check if already researched
+	if is_route_researched(from_airport, to_airport):
+		return true  # Already have research
+	
+	# Check if can afford
+	if player_airline.balance < MARKET_RESEARCH_COST:
+		return false
+	
+	# Deduct cost and track as expense
+	player_airline.balance -= MARKET_RESEARCH_COST
+	player_airline.add_market_research_expense(MARKET_RESEARCH_COST)
+	
+	# Calculate and store research data
+	var key = get_route_research_key(from_airport, to_airport)
+	var distance = MarketAnalysis.calculate_great_circle_distance(from_airport, to_airport)
+	var demand = MarketAnalysis.calculate_potential_demand(from_airport, to_airport, distance)
+	
+	# Calculate segment split
+	var business_ratio = _calculate_business_ratio(distance, from_airport, to_airport)
+	
+	# Calculate growth trend
+	var growth_trend = _calculate_growth_trend(from_airport, to_airport)
+	
+	researched_routes[key] = {
+		"from_iata": from_airport.iata_code,
+		"to_iata": to_airport.iata_code,
+		"exact_demand": demand,
+		"business_ratio": business_ratio,
+		"leisure_ratio": 1.0 - business_ratio,
+		"growth_trend": growth_trend,
+		"week_purchased": current_week
+	}
+	
+	return true
+
+
+func _calculate_business_ratio(distance: float, from_airport: Airport, to_airport: Airport) -> float:
+	"""Calculate business traveler ratio based on route characteristics"""
+	var base_ratio: float
+	
+	# Distance-based baseline
+	if distance < 1500:
+		base_ratio = 0.30  # Short-haul: 30% business
+	elif distance < 4000:
+		base_ratio = 0.40  # Medium-haul: 40% business
+	else:
+		base_ratio = 0.50  # Long-haul: 50% business
+	
+	# GDP adjustment
+	var avg_gdp = (from_airport.gdp_per_capita + to_airport.gdp_per_capita) / 2.0
+	if avg_gdp > 40000:
+		base_ratio += 0.10
+	elif avg_gdp < 20000:
+		base_ratio -= 0.10
+	
+	return clamp(base_ratio, 0.15, 0.70)
+
+
+func _calculate_growth_trend(from_airport: Airport, to_airport: Airport) -> String:
+	"""Calculate market growth trend"""
+	# Simplified growth trend based on airport characteristics
+	var avg_gdp = (from_airport.gdp_per_capita + to_airport.gdp_per_capita) / 2.0
+	var avg_pax = (from_airport.annual_passengers + to_airport.annual_passengers) / 2.0
+	
+	# High GDP + moderate traffic = growth potential
+	if avg_gdp > 35000 and avg_pax < 50:
+		return "growing"
+	elif avg_gdp < 25000:
+		return "stable"
+	elif avg_pax > 80:
+		return "mature"
+	else:
+		return "stable"
+
+
+func get_research_data(from_airport: Airport, to_airport: Airport) -> Dictionary:
+	"""Q.1: Get research data for a route (returns empty if not researched)"""
+	var key = get_route_research_key(from_airport, to_airport)
+	if researched_routes.has(key):
+		return researched_routes[key]
+	return {}
+
+
+func get_demand_display(from_airport: Airport, to_airport: Airport, exact_demand: float) -> Dictionary:
+	"""Q.2: Get demand display info based on knowledge level.
+	
+	Returns: {
+		display_text: String,  # "~750 pax/week" or "500-800 pax/week"
+		exact_value: float,    # The true demand value (for internal use)
+		is_exact: bool,        # Whether we're showing exact vs range
+		confidence: String,    # "low", "medium", "high"
+		confidence_color: String  # Color code for confidence
+	}
+	"""
+	var confidence = get_demand_confidence(from_airport, to_airport)
+	var is_exact = has_demand_knowledge(from_airport, to_airport)
+	
+	var display_text: String
+	var confidence_color: String
+	
+	if is_exact:
+		# Show exact number
+		display_text = "~%.0f pax/week" % exact_demand
+		confidence_color = "#FFFFFF"  # White - known data
+	else:
+		# Show range based on confidence
+		var range_factor: float
+		match confidence:
+			"medium":
+				range_factor = 0.20  # ±20%
+				confidence_color = "#4ECDC4"  # Light cyan - medium confidence
+			_:  # low
+				range_factor = 0.35  # ±35%
+				confidence_color = "#A0A0A0"  # Light gray - low confidence
+		
+		var min_demand = int(exact_demand * (1.0 - range_factor))
+		var max_demand = int(exact_demand * (1.0 + range_factor))
+		display_text = "%d-%d pax/week" % [min_demand, max_demand]
+	
+	return {
+		"display_text": display_text,
+		"exact_value": exact_demand,
+		"is_exact": is_exact,
+		"confidence": confidence,
+		"confidence_color": confidence_color
+	}
+
+
+func register_route_start(route: Route) -> void:
+	"""Q.2: Register when a route starts operating (for learning system)"""
+	route_start_weeks[route.id] = current_week

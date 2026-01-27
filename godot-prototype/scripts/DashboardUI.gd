@@ -103,7 +103,7 @@ func create_header() -> void:
 func create_header_stats(parent: HBoxContainer) -> void:
 	"""Create KPI stats in header"""
 	# Money
-	var money_container = create_stat_pill("$", "$10.0M", UITheme.PROFIT_COLOR)
+	var money_container = create_stat_pill(UITheme.ICON_MONEY, "€10.0M", UITheme.PROFIT_COLOR)
 	money_label = money_container.get_node("Value")
 	parent.add_child(money_container)
 
@@ -174,30 +174,47 @@ func create_sidebar() -> void:
 	sidebar.offset_top = HEADER_HEIGHT
 	sidebar.offset_right = SIDEBAR_WIDTH
 	sidebar.offset_bottom = -BOTTOM_HEIGHT
+	sidebar.z_index = 10  # Ensure sidebar is above content
 
 	var sidebar_style = StyleBoxFlat.new()
 	sidebar_style.bg_color = UITheme.SIDEBAR_BG
 	sidebar_style.border_color = UITheme.SIDEBAR_HOVER
 	sidebar_style.border_width_right = 1
+	sidebar_style.set_content_margin_all(0)  # Ensure no extra margins clip content
 	sidebar.add_theme_stylebox_override("panel", sidebar_style)
 
 	var sidebar_vbox = VBoxContainer.new()
-	sidebar_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	sidebar_vbox.name = "SidebarVBox"
+	sidebar_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sidebar_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	sidebar_vbox.add_theme_constant_override("separation", 0)
 	sidebar.add_child(sidebar_vbox)
+	
+	print("[DashboardUI] Creating sidebar. Size: %s" % sidebar.size)
 
 	# Logo
 	create_sidebar_logo(sidebar_vbox)
+	print("[DashboardUI] Sidebar logo created")
 
 	# Navigation
 	create_sidebar_nav(sidebar_vbox)
+	print("[DashboardUI] Sidebar nav created with %d buttons" % nav_buttons.size())
+	for btn_id in nav_buttons:
+		var btn = nav_buttons[btn_id]
+		print("  - Button '%s': text='%s', visible=%s" % [btn_id, btn.text, btn.visible])
 
 	# Bottom settings
 	create_sidebar_bottom(sidebar_vbox)
+	print("[DashboardUI] Sidebar complete. VBox children: %d" % sidebar_vbox.get_child_count())
+	for i in range(sidebar_vbox.get_child_count()):
+		var child = sidebar_vbox.get_child(i)
+		print("  - Child %d: %s (type: %s, visible: %s)" % [i, child.name, child.get_class(), child.visible])
 
 func create_sidebar_logo(parent: VBoxContainer) -> void:
 	"""Create sidebar logo section"""
 	var logo_panel = PanelContainer.new()
+	logo_panel.name = "LogoPanel"
+	logo_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var logo_style = StyleBoxFlat.new()
 	logo_style.bg_color = Color(0, 0, 0, 0)
 	logo_style.border_color = UITheme.SIDEBAR_HOVER
@@ -207,7 +224,9 @@ func create_sidebar_logo(parent: VBoxContainer) -> void:
 	parent.add_child(logo_panel)
 
 	var logo_hbox = HBoxContainer.new()
+	logo_hbox.name = "LogoHBox"
 	logo_hbox.add_theme_constant_override("separation", 12)
+	logo_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	logo_panel.add_child(logo_hbox)
 
 	# Icon
@@ -247,15 +266,19 @@ func create_sidebar_logo(parent: VBoxContainer) -> void:
 func create_sidebar_nav(parent: VBoxContainer) -> void:
 	"""Create sidebar navigation buttons"""
 	var nav_margin = MarginContainer.new()
+	nav_margin.name = "NavMargin"
 	nav_margin.add_theme_constant_override("margin_left", 12)
 	nav_margin.add_theme_constant_override("margin_right", 12)
 	nav_margin.add_theme_constant_override("margin_top", 16)
 	nav_margin.add_theme_constant_override("margin_bottom", 16)
 	nav_margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	nav_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	parent.add_child(nav_margin)
 
 	var nav_vbox = VBoxContainer.new()
+	nav_vbox.name = "NavVBox"
 	nav_vbox.add_theme_constant_override("separation", 4)
+	nav_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	nav_margin.add_child(nav_vbox)
 
 	# PROTOTYPE SIMPLIFICATION (S.3, S.4): Delegates and Diplomacy tabs hidden
@@ -284,10 +307,12 @@ func create_nav_button(id: String, label: String, icon: String) -> Button:
 	var btn = Button.new()
 	btn.name = id
 	btn.text = "  %s  %s" % [icon, label]
-	btn.custom_minimum_size = Vector2(0, 44)
+	btn.custom_minimum_size = Vector2(200, 44)  # Ensure button has minimum width
 	btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	btn.add_theme_font_size_override("font_size", 13)
 	btn.add_theme_color_override("font_color", UITheme.SIDEBAR_TEXT)
+	btn.visible = true  # Explicitly visible
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var normal_style = StyleBoxFlat.new()
 	normal_style.bg_color = Color(0, 0, 0, 0)
