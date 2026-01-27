@@ -87,60 +87,57 @@ func create_competitors_card(parent: VBoxContainer) -> void:
 	"""Create competitors overview card"""
 	competitors_card = create_market_card("Competitors", parent)
 	
-	var content_vbox = VBoxContainer.new()
-	content_vbox.add_theme_constant_override("separation", 12)
-	competitors_card.get_node("MarginContainer").add_child(content_vbox)
+	# Add content to the VBoxContainer inside the card
+	var card_vbox = competitors_card.get_node("MarginContainer/VBoxContainer")
 
 	var description = Label.new()
 	description.text = "Other airlines operating in the market"
 	description.add_theme_font_size_override("font_size", 12)
 	description.add_theme_color_override("font_color", UITheme.get_text_secondary())
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	content_vbox.add_child(description)
+	card_vbox.add_child(description)
 
 	competitors_list = VBoxContainer.new()
 	competitors_list.add_theme_constant_override("separation", 8)
-	content_vbox.add_child(competitors_list)
+	card_vbox.add_child(competitors_list)
 
 func create_opportunities_card(parent: VBoxContainer) -> void:
 	"""Create market opportunities card"""
 	opportunities_card = create_market_card("Route Opportunities", parent)
 	
-	var content_vbox = VBoxContainer.new()
-	content_vbox.add_theme_constant_override("separation", 12)
-	opportunities_card.get_node("MarginContainer").add_child(content_vbox)
+	# Add content to the VBoxContainer inside the card
+	var card_vbox = opportunities_card.get_node("MarginContainer/VBoxContainer")
 
 	var description = Label.new()
 	description.text = "High-potential routes with strong profitability scores"
 	description.add_theme_font_size_override("font_size", 12)
 	description.add_theme_color_override("font_color", UITheme.get_text_secondary())
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	content_vbox.add_child(description)
+	card_vbox.add_child(description)
 
 	opportunities_list = VBoxContainer.new()
 	opportunities_list.add_theme_constant_override("separation", 8)
-	content_vbox.add_child(opportunities_list)
+	card_vbox.add_child(opportunities_list)
 
 func create_competition_card(parent: VBoxContainer) -> void:
 	"""Create route competition card"""
 	competition_card = create_market_card("Route Competition", parent)
 	
-	var content_vbox = VBoxContainer.new()
-	content_vbox.add_theme_constant_override("separation", 12)
-	competition_card.get_node("MarginContainer").add_child(content_vbox)
+	# Add content to the VBoxContainer inside the card
+	var card_vbox = competition_card.get_node("MarginContainer/VBoxContainer")
 
 	var description = Label.new()
 	description.text = "Routes with multiple airlines competing for passengers"
 	description.add_theme_font_size_override("font_size", 12)
 	description.add_theme_color_override("font_color", UITheme.get_text_secondary())
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	content_vbox.add_child(description)
+	card_vbox.add_child(description)
 
 	# Competition list will be populated dynamically
 	var competition_list = VBoxContainer.new()
 	competition_list.name = "CompetitionList"
 	competition_list.add_theme_constant_override("separation", 8)
-	content_vbox.add_child(competition_list)
+	card_vbox.add_child(competition_list)
 
 func create_market_card(title: String, parent: VBoxContainer) -> PanelContainer:
 	"""Create a styled market card"""
@@ -163,6 +160,7 @@ func create_market_card(title: String, parent: VBoxContainer) -> PanelContainer:
 	card.add_child(margin)
 
 	var vbox = VBoxContainer.new()
+	vbox.name = "VBoxContainer"  # Name it so we can find it
 	vbox.add_theme_constant_override("separation", 12)
 	margin.add_child(vbox)
 

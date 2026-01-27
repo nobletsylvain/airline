@@ -104,30 +104,28 @@ func create_balance_card(parent: VBoxContainer) -> void:
 	"""Create balance overview card"""
 	balance_card = create_finance_card("Current Balance", parent)
 	
-	var content_vbox = VBoxContainer.new()
-	content_vbox.add_theme_constant_override("separation", 8)
-	balance_card.get_node("MarginContainer").add_child(content_vbox)
+	# Add content to the VBoxContainer inside the card (not to MarginContainer)
+	var card_vbox = balance_card.get_node("MarginContainer/VBoxContainer")
 
 	balance_label = Label.new()
 	balance_label.add_theme_font_size_override("font_size", 32)
-	content_vbox.add_child(balance_label)
+	card_vbox.add_child(balance_label)
 
 	weekly_profit_label = Label.new()
 	weekly_profit_label.add_theme_font_size_override("font_size", 14)
-	content_vbox.add_child(weekly_profit_label)
+	card_vbox.add_child(weekly_profit_label)
 
 func create_revenue_expenses_card(parent: VBoxContainer) -> void:
 	"""Create revenue and expenses card"""
 	revenue_expenses_card = create_finance_card("Weekly Performance", parent)
 	
-	var content_vbox = VBoxContainer.new()
-	content_vbox.add_theme_constant_override("separation", 12)
-	revenue_expenses_card.get_node("MarginContainer").add_child(content_vbox)
+	# Add content to the VBoxContainer inside the card
+	var card_vbox = revenue_expenses_card.get_node("MarginContainer/VBoxContainer")
 
 	# Revenue
 	var revenue_hbox = HBoxContainer.new()
 	revenue_hbox.add_theme_constant_override("separation", 12)
-	content_vbox.add_child(revenue_hbox)
+	card_vbox.add_child(revenue_hbox)
 
 	var revenue_title = Label.new()
 	revenue_title.text = "Revenue:"
@@ -148,7 +146,7 @@ func create_revenue_expenses_card(parent: VBoxContainer) -> void:
 	# Expenses
 	var expenses_hbox = HBoxContainer.new()
 	expenses_hbox.add_theme_constant_override("separation", 12)
-	content_vbox.add_child(expenses_hbox)
+	card_vbox.add_child(expenses_hbox)
 
 	var expenses_title = Label.new()
 	expenses_title.text = "Expenses:"
@@ -171,9 +169,8 @@ func create_fleet_costs_card(parent: VBoxContainer) -> void:
 	"""K.3: Create fleet-wide cost breakdown card"""
 	fleet_costs_card = create_finance_card("Fleet Operating Costs", parent)
 	
-	var content_vbox = VBoxContainer.new()
-	content_vbox.add_theme_constant_override("separation", 8)
-	fleet_costs_card.get_node("MarginContainer").add_child(content_vbox)
+	# Add content to the VBoxContainer inside the card
+	var card_vbox = fleet_costs_card.get_node("MarginContainer/VBoxContainer")
 	
 	# Cost breakdown rows
 	var cost_types: Array = [
@@ -186,7 +183,7 @@ func create_fleet_costs_card(parent: VBoxContainer) -> void:
 	for cost_info in cost_types:
 		var hbox = HBoxContainer.new()
 		hbox.add_theme_constant_override("separation", 12)
-		content_vbox.add_child(hbox)
+		card_vbox.add_child(hbox)
 		
 		var title = Label.new()
 		title.text = cost_info[0]
@@ -217,12 +214,12 @@ func create_fleet_costs_card(parent: VBoxContainer) -> void:
 	
 	# Separator
 	var sep = HSeparator.new()
-	content_vbox.add_child(sep)
+	card_vbox.add_child(sep)
 	
 	# Total row
 	var total_hbox = HBoxContainer.new()
 	total_hbox.add_theme_constant_override("separation", 12)
-	content_vbox.add_child(total_hbox)
+	card_vbox.add_child(total_hbox)
 	
 	var total_title = Label.new()
 	total_title.text = "Total Weekly:"
@@ -243,7 +240,7 @@ func create_fleet_costs_card(parent: VBoxContainer) -> void:
 	# Efficiency metric
 	var efficiency_hbox = HBoxContainer.new()
 	efficiency_hbox.add_theme_constant_override("separation", 12)
-	content_vbox.add_child(efficiency_hbox)
+	card_vbox.add_child(efficiency_hbox)
 	
 	var efficiency_title = Label.new()
 	efficiency_title.text = "Cost/Passenger:"
@@ -262,14 +259,13 @@ func create_loans_card(parent: VBoxContainer) -> void:
 	"""Create loans management card"""
 	loans_card = create_finance_card("Active Loans", parent)
 	
-	var content_vbox = VBoxContainer.new()
-	content_vbox.add_theme_constant_override("separation", 12)
-	loans_card.get_node("MarginContainer").add_child(content_vbox)
+	# Add content to the VBoxContainer inside the card
+	var card_vbox = loans_card.get_node("MarginContainer/VBoxContainer")
 
 	# Total debt summary
 	var debt_hbox = HBoxContainer.new()
 	debt_hbox.add_theme_constant_override("separation", 12)
-	content_vbox.add_child(debt_hbox)
+	card_vbox.add_child(debt_hbox)
 
 	var debt_title = Label.new()
 	debt_title.text = "Total Debt:"
@@ -290,7 +286,7 @@ func create_loans_card(parent: VBoxContainer) -> void:
 	# Weekly payment
 	var payment_hbox = HBoxContainer.new()
 	payment_hbox.add_theme_constant_override("separation", 12)
-	content_vbox.add_child(payment_hbox)
+	card_vbox.add_child(payment_hbox)
 
 	var payment_title = Label.new()
 	payment_title.text = "Weekly Payment:"
@@ -312,7 +308,7 @@ func create_loans_card(parent: VBoxContainer) -> void:
 	var loans_list = VBoxContainer.new()
 	loans_list.name = "LoansList"
 	loans_list.add_theme_constant_override("separation", 8)
-	content_vbox.add_child(loans_list)
+	card_vbox.add_child(loans_list)
 
 	# Take loan button
 	var take_loan_btn = Button.new()
@@ -322,20 +318,19 @@ func create_loans_card(parent: VBoxContainer) -> void:
 	var btn_style = UITheme.create_primary_button_style()
 	take_loan_btn.add_theme_stylebox_override("normal", btn_style)
 	take_loan_btn.pressed.connect(_on_take_loan_pressed)
-	content_vbox.add_child(take_loan_btn)
+	card_vbox.add_child(take_loan_btn)
 
 func create_credit_card(parent: VBoxContainer) -> void:
 	"""Create credit information card"""
 	credit_card = create_finance_card("Credit Information", parent)
 	
-	var content_vbox = VBoxContainer.new()
-	content_vbox.add_theme_constant_override("separation", 12)
-	credit_card.get_node("MarginContainer").add_child(content_vbox)
+	# Add content to the VBoxContainer inside the card
+	var card_vbox = credit_card.get_node("MarginContainer/VBoxContainer")
 
 	# Credit limit
 	var credit_hbox = HBoxContainer.new()
 	credit_hbox.add_theme_constant_override("separation", 12)
-	content_vbox.add_child(credit_hbox)
+	card_vbox.add_child(credit_hbox)
 
 	var credit_title = Label.new()
 	credit_title.text = "Credit Limit:"
@@ -356,7 +351,7 @@ func create_credit_card(parent: VBoxContainer) -> void:
 	# Interest rate
 	var rate_hbox = HBoxContainer.new()
 	rate_hbox.add_theme_constant_override("separation", 12)
-	content_vbox.add_child(rate_hbox)
+	card_vbox.add_child(rate_hbox)
 
 	var rate_title = Label.new()
 	rate_title.text = "Interest Rate:"
@@ -395,6 +390,7 @@ func create_finance_card(title: String, parent: VBoxContainer) -> PanelContainer
 	card.add_child(margin)
 
 	var vbox = VBoxContainer.new()
+	vbox.name = "VBoxContainer"  # Name it so we can find it
 	vbox.add_theme_constant_override("separation", 12)
 	margin.add_child(vbox)
 
