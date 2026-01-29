@@ -36,8 +36,28 @@ func _ready() -> void:
 	build_ui()
 	hide()  # Start hidden, only show when hub is selected
 
-	# Allow ESC key and close button to close dialog
-	close_requested.connect(hide)
+	# Allow ESC key and close button to close dialog with animation
+	close_requested.connect(_on_close_requested)
+	about_to_popup.connect(_on_about_to_popup)
+
+
+func _on_about_to_popup() -> void:
+	"""Animate dialog when it's about to show"""
+	call_deferred("_animate_open")
+
+
+func _animate_open() -> void:
+	"""Trigger open animation"""
+	if UIAnimations:
+		UIAnimations.dialog_open(self)
+
+
+func _on_close_requested() -> void:
+	"""Handle close button with animation"""
+	if UIAnimations:
+		UIAnimations.dialog_close(self)
+	else:
+		hide()
 
 func _input(event: InputEvent) -> void:
 	"""Handle ESC key to close dialog"""

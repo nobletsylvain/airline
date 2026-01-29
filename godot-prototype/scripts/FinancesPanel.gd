@@ -867,9 +867,13 @@ func create_loan_item(loan: Loan) -> Control:
 
 func _on_take_loan_pressed() -> void:
 	"""Handle take loan button press"""
+	if UISoundManager:
+		UISoundManager.play_click()
 	loan_requested.emit()
 
 
 func _on_payoff_loan_pressed(loan: Loan) -> void:
 	"""Handle pay off loan button press"""
+	if UISoundManager:
+		UISoundManager.play_click()
 	loan_payoff_requested.emit(loan)

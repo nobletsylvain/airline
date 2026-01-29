@@ -24,18 +24,44 @@ func _ready() -> void:
 	get_cancel_button().text = "Cancel"
 	build_ui()
 	confirmed.connect(_on_confirmed)
+	canceled.connect(_on_canceled)
+	close_requested.connect(_on_close_requested)
+	about_to_popup.connect(_on_about_to_popup)
 	hide()  # Start hidden, only show when explicitly opened
 
-	# Allow ESC key and close button to close dialog
-	close_requested.connect(hide)
+
+func _on_about_to_popup() -> void:
+	"""Animate dialog when it's about to show"""
+	call_deferred("_animate_open")
+
+
+func _animate_open() -> void:
+	"""Trigger open animation"""
+	if UIAnimations:
+		UIAnimations.dialog_open(self)
+
+
+func _on_close_requested() -> void:
+	"""Handle close button with animation"""
+	if UIAnimations:
+		UIAnimations.dialog_close(self)
+	else:
+		hide()
+
+
+func _on_canceled() -> void:
+	"""Handle cancel button with animation"""
+	if UIAnimations:
+		UIAnimations.dialog_close(self)
+
 
 func _input(event: InputEvent) -> void:
-	"""Handle ESC key to close dialog"""
+	"""Handle ESC key to close dialog with animation"""
 	if not visible:
 		return
 
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		hide()
+		_on_close_requested()
 		get_viewport().set_input_as_handled()
 
 func build_ui() -> void:
@@ -124,7 +150,7 @@ func show_dialog() -> void:
 	"""Show the dialog and populate with current data"""
 	update_fleet_status()
 	populate_aircraft_list()
-	popup_centered()
+	popup_centered()  # Animation triggered via about_to_popup signal
 
 func update_fleet_status() -> void:
 	"""Update current fleet status display"""
@@ -260,13 +286,22 @@ func update_cost_display() -> void:
 func _on_confirmed() -> void:
 	"""Dialog confirmed - purchase aircraft"""
 	if not selected_model:
+		if UISoundManager:
+			UISoundManager.play_error()
 		return
 
 	# Attempt to purchase aircraft
 	var aircraft = GameData.purchase_aircraft(GameData.player_airline, selected_model)
 	if aircraft:
+		# Play purchase sound for major purchase
+		if UISoundManager:
+			UISoundManager.play_purchase()
 		aircraft_purchased.emit(aircraft)
 		print("Aircraft purchased: %s" % selected_model.get_display_name())
+	else:
+		# Purchase failed (insufficient funds)
+		if UISoundManager:
+			UISoundManager.play_error()
 
 func format_money(amount: float) -> String:
 	"""Format money with thousands separators"""

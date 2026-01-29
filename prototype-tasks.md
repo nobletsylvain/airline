@@ -1,9 +1,9 @@
 # Prototype Tasks — Phase 1: Prove the Feedback Loop
 
-**Version:** 1.1  
+**Version:** 1.2  
 **Date:** January 27, 2026  
 **Phase:** 4 of 5 (Phases 1-3 Complete)  
-**Status:** ✅ Phase 3 Complete — Ready for Phase 4 (Polish)  
+**Status:** ✅ Phase 4 (Polish) In Progress  
 **Reference:** `prototype-scope.md` §9.1
 
 ---
@@ -614,3 +614,4 @@ All criteria validated:
 | 0.9 | January 27, 2026 | Added Phase 4 Polish backlog with R.1 Traffic Flow Overlay (Democracy 4 style). |
 | 1.0 | January 27, 2026 | Code review fixes: O(n³) perf fix, FleetComparisonPanel refactor, debug prints removed. Added code review backlog. |
 | 1.1 | January 27, 2026 | **Phase 3 Complete.** All 11 tasks done: Aircraft Intelligence, Connection Insights, Route Deep-Dive, Market Research. Bug fix: yellow text visibility. Pending: RouteConfigDialog size, Finance panel. Ready for Phase 4 (Polish). |
+| 1.2 | January 27, 2026 | Documentation update: art-bible.md Phase 4 complete, README.md feature list updated. Code docs verified (TrafficOverlay, GeodesicUtils, UISoundManager). |

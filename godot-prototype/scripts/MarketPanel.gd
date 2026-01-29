@@ -941,9 +941,15 @@ func _on_buy_research_pressed() -> void:
 	var airports = _get_selected_research_airports()
 	
 	if not airports.from or not airports.to:
+		if UISoundManager:
+			UISoundManager.play_error()
 		return
 	
 	if GameData.purchase_market_research(airports.from, airports.to):
+		# Play purchase sound for market research buy
+		if UISoundManager:
+			UISoundManager.play_purchase()
+		
 		# Refresh the panel
 		refresh()
 		
@@ -955,6 +961,10 @@ func _on_buy_research_pressed() -> void:
 			research_preview_label.text += "Business: %.0f%% | Leisure: %.0f%% | Trend: %s" % [
 				data.business_ratio * 100, data.leisure_ratio * 100, data.growth_trend.capitalize()
 			]
+	else:
+		# Purchase failed (likely insufficient funds)
+		if UISoundManager:
+			UISoundManager.play_error()
 
 
 func _update_purchased_research_list() -> void:

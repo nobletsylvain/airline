@@ -195,8 +195,15 @@ func create_bottom_section(parent: VBoxContainer) -> void:
 func _on_nav_button_pressed(tab_id: String) -> void:
 	"""Handle navigation button press"""
 	if tab_id != active_tab:
+		# Play navigation sound
+		if UISoundManager:
+			UISoundManager.play_navigate()
 		update_active_tab(tab_id)
 		tab_changed.emit(tab_id)
+	else:
+		# Still provide click feedback even if same tab
+		if UISoundManager:
+			UISoundManager.play_click()
 
 func update_active_tab(tab_id: String) -> void:
 	"""Update the visual state of navigation buttons"""

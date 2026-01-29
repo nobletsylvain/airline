@@ -20,6 +20,9 @@ config/icon="res://icon.svg"
 
 DataLoader="*res://scripts/DataLoader.gd"
 GameData="*res://scripts/GameData.gd"
+UISoundManager="*res://scripts/audio/UISoundManager.gd"
+UIAnimations="*res://scripts/ui/UIAnimations.gd"
+AmbientAudioManager="*res://scripts/audio/AmbientAudioManager.gd"
 GDAIMCPRuntime="*res://addons/gdai-mcp-plugin-godot/gdai_mcp_runtime.gd"
 
 [display]

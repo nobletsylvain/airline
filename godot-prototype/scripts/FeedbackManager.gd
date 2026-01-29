@@ -118,11 +118,15 @@ func _create_toast_container() -> void:
 	add_child(toast_container)
 
 
-func show_toast(title: String, message: String, color: Color = Color.WHITE, duration: float = TOAST_DURATION) -> void:
+func show_toast(title: String, message: String, color: Color = Color.WHITE, duration: float = TOAST_DURATION, play_sound: bool = true) -> void:
 	"""Show a non-blocking toast notification"""
 	var toast = _create_toast(title, message, color)
 	toast_container.add_child(toast)
 	active_toasts.append(toast)
+	
+	# Play alert sound for notifications
+	if play_sound and UISoundManager:
+		UISoundManager.play_alert()
 	
 	# Animate in
 	toast.modulate.a = 0.0
@@ -316,10 +320,22 @@ func show_weekly_summary(week_number: int) -> void:
 	stats.text = stats_text
 	
 	weekly_popup.visible = true
+	
+	# Play money tally sound based on revenue
+	if UISoundManager and total_revenue > 0:
+		UISoundManager.play_money_tally(int(total_revenue))
+	
+	# Play success sound if profitable week
+	if profit > 0 and UISoundManager:
+		# Delay success sound to play after money tally
+		await get_tree().create_timer(0.5).timeout
+		UISoundManager.play_success()
 
 
 func _on_weekly_popup_dismissed() -> void:
 	"""Handle weekly popup dismiss"""
+	if UISoundManager:
+		UISoundManager.play_click()
 	weekly_popup.visible = false
 
 

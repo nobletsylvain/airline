@@ -13,6 +13,13 @@ var hover_route: Route = null
 var selected_route: Route = null
 var preview_mouse_pos: Vector2 = Vector2.ZERO  # Track mouse for preview line
 
+# Traffic overlay system
+var traffic_overlay: TrafficOverlay = null
+
+# Geodesic arc cache: route.id -> Array[Vector2] (lat/lon points)
+var _geodesic_cache: Dictionary = {}
+var _geodesic_cache_version: int = 0  # Incremented when routes change to invalidate cache
+
 # Floating info panel
 var floating_panel: PanelContainer = null
 var floating_panel_position: Vector2 = Vector2.ZERO
@@ -77,6 +84,9 @@ func _ready() -> void:
 
 	# Create floating info panel
 	create_floating_panel()
+	
+	# Initialize traffic overlay system
+	_setup_traffic_overlay()
 
 func _fit_map_to_viewport() -> void:
 	"""Fit the map to fill the viewport while maintaining bounds"""
@@ -217,9 +227,23 @@ func _process(_delta: float) -> void:
 
 	# Check for plane hover
 	update_plane_hover()
+	
+	# Redraw hub markers for pulse animation (every frame for smooth animation)
+	_update_hub_marker_pulse()
 
 	# Redraw to show updated plane positions
 	queue_redraw()
+
+
+func _update_hub_marker_pulse() -> void:
+	"""Redraw player hub markers to show pulse animation"""
+	if not GameData.player_airline or not traffic_overlay:
+		return
+	
+	for hub in GameData.player_airline.hubs:
+		if hub.iata_code in airport_markers:
+			var marker: Control = airport_markers[hub.iata_code]
+			marker.queue_redraw()
 
 func get_total_route_count() -> int:
 	"""Count total routes across all airlines"""
@@ -248,8 +272,6 @@ func spawn_planes() -> void:
 				var plane: PlaneSprite = PlaneSprite.new(route, airline, i)
 				plane_sprites.append(plane)
 
-	print("Spawned %d plane sprites" % plane_sprites.size())
-
 func update_plane_hover() -> void:
 	"""Check if mouse is hovering over any plane"""
 	if is_panning:
@@ -265,8 +287,8 @@ func update_plane_hover() -> void:
 		if not plane.is_active:
 			continue
 
-		var plane_world_pos: Vector2 = plane.get_current_position(size)
-		var plane_screen_pos: Vector2 = world_to_screen(plane_world_pos)
+		# Use geodesic position for hover detection
+		var plane_screen_pos: Vector2 = _get_plane_geodesic_position(plane)
 		var distance: float = mouse_pos.distance_to(plane_screen_pos)
 
 		if distance < closest_distance:
@@ -336,6 +358,10 @@ func zoom_at_point(point: Vector2, direction: int) -> void:
 
 		update_airport_positions()
 		queue_redraw()
+		
+		# Update traffic overlay visibility based on zoom
+		if traffic_overlay:
+			traffic_overlay.set_visible_for_zoom(osm_zoom)
 
 func _draw() -> void:
 	# Draw background (ocean color as fallback)
@@ -441,13 +467,15 @@ func get_airline_color(airline: Airline) -> Color:
 	return Color.from_hsv(hue, 0.7, 0.8, 0.5)
 
 func draw_single_route(route: Route, base_color: Color) -> void:
-	"""Draw a single route line with enhanced visualization"""
+	"""Draw a single route line with geodesic arc (great circle path)"""
 	if not route.from_airport or not route.to_airport:
 		return
 
-	# Convert world positions to screen positions
-	var from_pos: Vector2 = world_to_screen(route.from_airport.position_2d)
-	var to_pos: Vector2 = world_to_screen(route.to_airport.position_2d)
+	# Get geodesic arc points (cached for performance)
+	var arc_points: Array[Vector2] = _get_geodesic_screen_points(route)
+	
+	if arc_points.is_empty():
+		return
 
 	# Determine line color based on profitability
 	var line_color: Color = base_color
@@ -489,12 +517,17 @@ func draw_single_route(route: Route, base_color: Color) -> void:
 			# Dim routes not connected to this hub
 			line_color.a *= 0.25
 
-	# Draw line
-	draw_line(from_pos, to_pos, line_color, line_thickness)
+	# Draw geodesic arc as connected line segments
+	_draw_polyline(arc_points, line_color, line_thickness)
 
-	# Calculate midpoint and direction for labels
-	var direction: Vector2 = (to_pos - from_pos).normalized()
-	var mid_point: Vector2 = (from_pos + to_pos) / 2.0
+	# Calculate midpoint for labels (use actual geodesic midpoint)
+	var mid_idx: int = arc_points.size() / 2
+	var mid_point: Vector2 = arc_points[mid_idx] if mid_idx < arc_points.size() else arc_points[0]
+	
+	# Calculate direction at midpoint for label offset
+	var direction: Vector2 = Vector2.RIGHT
+	if mid_idx > 0 and mid_idx < arc_points.size() - 1:
+		direction = (arc_points[mid_idx + 1] - arc_points[mid_idx - 1]).normalized()
 
 	# Draw route labels if enabled and zoomed in enough
 	# Offset label perpendicular to route to avoid overlapping with planes
@@ -502,6 +535,56 @@ func draw_single_route(route: Route, base_color: Color) -> void:
 		var perpendicular: Vector2 = direction.rotated(PI / 2).normalized()
 		var label_offset: Vector2 = perpendicular * 25  # Offset 25 pixels perpendicular to route
 		draw_route_label(route, mid_point + label_offset, line_color)
+
+
+func _draw_polyline(points: Array[Vector2], color: Color, width: float) -> void:
+	"""Draw a polyline from an array of points"""
+	if points.size() < 2:
+		return
+	
+	for i in range(points.size() - 1):
+		draw_line(points[i], points[i + 1], color, width, true)
+
+
+func _get_geodesic_screen_points(route: Route) -> Array[Vector2]:
+	"""Get screen-space points for a geodesic arc (cached)"""
+	if not route.from_airport or not route.to_airport:
+		return []
+	
+	# Get or compute geodesic lat/lon points
+	var latlon_points: Array[Vector2]
+	if _geodesic_cache.has(route.id):
+		latlon_points = _geodesic_cache[route.id]
+	else:
+		# Compute geodesic points using GeodesicUtils
+		latlon_points = GeodesicUtils.calculate_geodesic_points(
+			route.from_airport.latitude, route.from_airport.longitude,
+			route.to_airport.latitude, route.to_airport.longitude
+		)
+		_geodesic_cache[route.id] = latlon_points
+	
+	# Convert lat/lon points to screen coordinates
+	var screen_points: Array[Vector2] = []
+	for point in latlon_points:
+		# point is Vector2(longitude, latitude)
+		var pixel_pos = lat_lon_to_pixel(point.y, point.x)
+		var screen_pos = world_to_screen(pixel_pos)
+		screen_points.append(screen_pos)
+	
+	return screen_points
+
+
+func get_geodesic_screen_points_for_route(route: Route) -> Array[Vector2]:
+	"""Public accessor for TrafficOverlay to get geodesic points"""
+	return _get_geodesic_screen_points(route)
+
+
+func invalidate_geodesic_cache(route_id: int = -1) -> void:
+	"""Invalidate geodesic cache. Call when routes change."""
+	if route_id < 0:
+		_geodesic_cache.clear()
+	else:
+		_geodesic_cache.erase(route_id)
 
 func draw_route_label(route: Route, position: Vector2, color: Color) -> void:
 	"""Draw informative label on route (offset from route line to avoid planes)"""
@@ -558,36 +641,140 @@ func draw_route_label(route: Route, position: Vector2, color: Color) -> void:
 	draw_string(ThemeDB.fallback_font, position - Vector2(text_size.x / 2, -text_size.y / 4), label_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, text_color)
 
 func draw_all_planes() -> void:
-	"""Draw all active plane sprites"""
+	"""Draw all active plane sprites following geodesic arcs"""
 	for plane in plane_sprites:
 		if plane.is_active:
-			# Get plane position in world coordinates and convert to screen
-			var world_pos = plane.get_current_position(size)
-			var screen_pos = world_to_screen(world_pos)
-			draw_plane_at(plane, screen_pos)
+			# Get plane position along geodesic arc
+			var screen_pos = _get_plane_geodesic_position(plane)
+			var rotation = _get_plane_geodesic_rotation(plane)
+			draw_plane_at(plane, screen_pos, rotation)
 
-func draw_plane_at(plane: PlaneSprite, screen_pos: Vector2) -> void:
-	"""Draw a plane sprite as a round circle"""
+
+func _get_plane_geodesic_position(plane: PlaneSprite) -> Vector2:
+	"""Calculate plane position along geodesic arc based on flight progress"""
+	if not plane.route:
+		return Vector2.ZERO
+	
+	# Get geodesic screen points for the route
+	var points: Array[Vector2] = _get_geodesic_screen_points(plane.route)
+	
+	if points.is_empty():
+		# Fallback to linear interpolation
+		var world_pos = plane.get_current_position(size)
+		return world_to_screen(world_pos)
+	
+	# If return leg, reverse the points array
+	var arc_points: Array[Vector2] = points.duplicate()
+	if plane.is_return_leg:
+		arc_points.reverse()
+	
+	# Interpolate position along the arc
+	return _interpolate_along_arc(arc_points, plane.progress)
+
+
+func _get_plane_geodesic_rotation(plane: PlaneSprite) -> float:
+	"""Calculate plane rotation (tangent) along geodesic arc"""
+	if not plane.route:
+		return 0.0
+	
+	# Get geodesic screen points for the route
+	var points: Array[Vector2] = _get_geodesic_screen_points(plane.route)
+	
+	if points.size() < 2:
+		# Fallback to simple direction
+		return plane.get_rotation_angle()
+	
+	# If return leg, reverse the points array
+	var arc_points: Array[Vector2] = points.duplicate()
+	if plane.is_return_leg:
+		arc_points.reverse()
+	
+	# Get tangent direction at current position along arc
+	return _get_tangent_at_progress(arc_points, plane.progress)
+
+
+func _interpolate_along_arc(points: Array[Vector2], progress: float) -> Vector2:
+	"""Interpolate a position along an array of arc points based on progress (0-1)"""
+	if points.is_empty():
+		return Vector2.ZERO
+	if points.size() == 1:
+		return points[0]
+	
+	progress = clamp(progress, 0.0, 1.0)
+	
+	var total_segments: int = points.size() - 1
+	var segment_progress: float = progress * total_segments
+	var segment_index: int = int(segment_progress)
+	
+	# Handle edge case at progress = 1.0
+	if segment_index >= total_segments:
+		return points[total_segments]
+	
+	var segment_t: float = segment_progress - segment_index
+	return points[segment_index].lerp(points[segment_index + 1], segment_t)
+
+
+func _get_tangent_at_progress(points: Array[Vector2], progress: float) -> float:
+	"""Get the direction angle (tangent) at a given progress along the arc"""
+	if points.size() < 2:
+		return 0.0
+	
+	progress = clamp(progress, 0.0, 1.0)
+	
+	var total_segments: int = points.size() - 1
+	var segment_progress: float = progress * total_segments
+	var segment_index: int = int(segment_progress)
+	
+	# Clamp to valid range
+	if segment_index >= total_segments:
+		segment_index = total_segments - 1
+	
+	# Direction to next point = curve tangent
+	var direction: Vector2 = points[segment_index + 1] - points[segment_index]
+	return direction.angle()
+
+func draw_plane_at(plane: PlaneSprite, screen_pos: Vector2, rotation: float = 0.0) -> void:
+	"""Draw a plane sprite as a directional arrow/chevron following the route curve"""
 	var pos: Vector2 = screen_pos
-	var radius: float = 6.0  # Circle radius
-
-	# Draw outer ring (darker outline)
-	draw_circle(pos, radius + 1.5, Color(0.1, 0.1, 0.1, 0.8))
-
-	# Draw main circle with airline color
-	draw_circle(pos, radius, plane.plane_color)
-
-	# Draw inner highlight for depth
-	draw_circle(pos + Vector2(-1, -1), radius * 0.4, plane.plane_color.lightened(0.3))
+	var radius: float = 6.0  # Base size
+	
+	# Draw directional plane icon (chevron pointing in flight direction)
+	var chevron_length: float = radius * 2.0
+	var chevron_width: float = radius * 1.2
+	
+	# Calculate chevron points based on rotation (nose points in direction of travel)
+	var nose: Vector2 = pos + Vector2(chevron_length, 0).rotated(rotation)
+	var left_wing: Vector2 = pos + Vector2(-chevron_length * 0.5, -chevron_width).rotated(rotation)
+	var right_wing: Vector2 = pos + Vector2(-chevron_length * 0.5, chevron_width).rotated(rotation)
+	var tail: Vector2 = pos + Vector2(-chevron_length * 0.3, 0).rotated(rotation)
+	
+	# Draw filled plane shape
+	var plane_points: PackedVector2Array = PackedVector2Array([nose, left_wing, tail, right_wing])
+	var plane_colors: PackedColorArray = PackedColorArray([
+		plane.plane_color, plane.plane_color, plane.plane_color, plane.plane_color
+	])
+	
+	# Draw shadow/outline
+	var shadow_offset := Vector2(1, 1)
+	var shadow_points: PackedVector2Array = PackedVector2Array([
+		nose + shadow_offset, left_wing + shadow_offset, 
+		tail + shadow_offset, right_wing + shadow_offset
+	])
+	draw_polygon(shadow_points, PackedColorArray([Color(0, 0, 0, 0.4), Color(0, 0, 0, 0.4), Color(0, 0, 0, 0.4), Color(0, 0, 0, 0.4)]))
+	
+	# Draw main plane body
+	draw_polygon(plane_points, plane_colors)
+	
+	# Draw outline for visibility
+	draw_polyline(plane_points + PackedVector2Array([nose]), plane.plane_color.darkened(0.3), 1.5, true)
 
 func draw_plane_tooltip() -> void:
 	"""Draw tooltip for hovered plane"""
 	if not hover_plane or not hover_plane.is_active:
 		return
 
-	# Get screen position of plane (with zoom and pan applied)
-	var plane_world_pos: Vector2 = hover_plane.get_current_position(size)
-	var plane_screen_pos: Vector2 = world_to_screen(plane_world_pos)
+	# Get screen position of plane along geodesic arc
+	var plane_screen_pos: Vector2 = _get_plane_geodesic_position(hover_plane)
 
 	# Get tooltip text
 	var tooltip_text: String = hover_plane.get_tooltip_text()
@@ -757,7 +944,7 @@ func draw_airport_tooltip() -> void:
 
 
 func draw_route_preview() -> void:
-	"""Draw preview line when creating a route"""
+	"""Draw preview line when creating a route (geodesic arc when hovering over airport)"""
 	if not selected_airport:
 		return
 
@@ -765,64 +952,113 @@ func draw_route_preview() -> void:
 	if hover_airport == selected_airport:
 		return
 
-	var from_pos: Vector2 = world_to_screen(selected_airport.position_2d)
-	var to_pos: Vector2 = get_local_mouse_position()
-
-	# If hovering over another airport, snap to that airport
-	if hover_airport:
-		to_pos = world_to_screen(hover_airport.position_2d)
-
-	# Draw dashed preview line
 	var line_color: Color = Color(0.4, 0.8, 1.0, 0.6)  # Light blue, semi-transparent
 	var line_thickness: float = 2.5
 
-	# Draw as dashed line by drawing multiple segments
-	var direction: Vector2 = to_pos - from_pos
-	var total_distance: float = direction.length()
-	var normalized_dir: Vector2 = direction.normalized()
-
-	var dash_length: float = 15.0
-	var gap_length: float = 10.0
-	var current_distance: float = 0.0
-
-	while current_distance < total_distance:
-		var segment_start: Vector2 = from_pos + normalized_dir * current_distance
-		var segment_end: Vector2 = from_pos + normalized_dir * min(current_distance + dash_length, total_distance)
-
-		draw_line(segment_start, segment_end, line_color, line_thickness)
-
-		current_distance += dash_length + gap_length
-
-	# Draw distance label if hovering over another airport
+	# If hovering over another airport, draw geodesic preview arc
 	if hover_airport:
+		# Calculate geodesic arc preview
+		var arc_points = GeodesicUtils.calculate_geodesic_points(
+			selected_airport.latitude, selected_airport.longitude,
+			hover_airport.latitude, hover_airport.longitude
+		)
+		
+		# Convert to screen coordinates
+		var screen_points: Array[Vector2] = []
+		for point in arc_points:
+			var pixel_pos = lat_lon_to_pixel(point.y, point.x)
+			var screen_pos = world_to_screen(pixel_pos)
+			screen_points.append(screen_pos)
+		
+		# Draw dashed geodesic arc
+		_draw_dashed_polyline(screen_points, line_color, line_thickness)
+		
+		# Draw distance label at geodesic midpoint
 		var route_distance: float = MarketAnalysis.calculate_great_circle_distance(selected_airport, hover_airport)
-		var mid_point: Vector2 = (from_pos + to_pos) / 2.0
+		var mid_idx: int = screen_points.size() / 2
+		var mid_point: Vector2 = screen_points[mid_idx] if mid_idx < screen_points.size() else screen_points[0]
 
 		var distance_text: String = "%.0f km" % route_distance
 		var font_size: int = 14
 		var text_size: Vector2 = Vector2(distance_text.length() * font_size * 0.6, font_size + 4)
+		
+		# Draw background for distance label
+		var bg_rect: Rect2 = Rect2(mid_point - text_size / 2.0, text_size)
+		draw_rect(bg_rect, Color(0.1, 0.15, 0.2, 0.9), true, -1)
+		draw_string(ThemeDB.fallback_font, mid_point - Vector2(text_size.x / 2.0 - 4, -4), distance_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color.WHITE)
+	else:
+		# No airport hover - draw straight dashed line to mouse
+		var from_pos: Vector2 = world_to_screen(selected_airport.position_2d)
+		var to_pos: Vector2 = get_local_mouse_position()
+		
+		# Draw as dashed line by drawing multiple segments
+		var direction: Vector2 = to_pos - from_pos
+		var total_distance: float = direction.length()
+		var normalized_dir: Vector2 = direction.normalized()
 
-		# Draw background
-		var bg_rect: Rect2 = Rect2(mid_point - text_size / 2, text_size)
-		draw_rect(bg_rect, Color(0.0, 0.0, 0.0, 0.7), true)
+		var dash_length: float = 15.0
+		var gap_length: float = 10.0
+		var current_distance: float = 0.0
 
-		# Draw text
-		draw_string(ThemeDB.fallback_font, mid_point - Vector2(text_size.x / 2, -text_size.y / 4), distance_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color.WHITE)
+		while current_distance < total_distance:
+			var segment_start: Vector2 = from_pos + normalized_dir * current_distance
+			var segment_end: Vector2 = from_pos + normalized_dir * min(current_distance + dash_length, total_distance)
+			draw_line(segment_start, segment_end, line_color, line_thickness)
+			current_distance += dash_length + gap_length
+
+
+func _draw_dashed_polyline(points: Array[Vector2], color: Color, width: float, dash_length: float = 12.0, gap_length: float = 8.0) -> void:
+	"""Draw a dashed polyline along an array of points"""
+	if points.size() < 2:
+		return
+	
+	var accumulated_distance: float = 0.0
+	var in_dash: bool = true
+	var dash_remaining: float = dash_length
+	
+	for i in range(points.size() - 1):
+		var segment_start: Vector2 = points[i]
+		var segment_end: Vector2 = points[i + 1]
+		var segment_dir: Vector2 = (segment_end - segment_start).normalized()
+		var segment_length: float = segment_start.distance_to(segment_end)
+		var segment_drawn: float = 0.0
+		
+		while segment_drawn < segment_length:
+			var draw_length: float = min(dash_remaining, segment_length - segment_drawn)
+			var draw_start: Vector2 = segment_start + segment_dir * segment_drawn
+			var draw_end: Vector2 = segment_start + segment_dir * (segment_drawn + draw_length)
+			
+			if in_dash:
+				draw_line(draw_start, draw_end, color, width, true)
+			
+			segment_drawn += draw_length
+			dash_remaining -= draw_length
+			
+			if dash_remaining <= 0:
+				in_dash = not in_dash
+				dash_remaining = gap_length if not in_dash else dash_length
+
 
 func setup_airports() -> void:
 	"""Create visual markers for all airports"""
-	print("WorldMap: Setting up airports with OSM tiles")
-	print("WorldMap: Number of airports: %d" % GameData.airports.size())
-
 	for airport in GameData.airports:
 		# Calculate pixel position at current zoom level
 		airport.position_2d = lat_lon_to_pixel(airport.latitude, airport.longitude)
-		print("  %s: lat/lon (%.2f, %.2f) -> pixel pos %s" % [airport.iata_code, airport.latitude, airport.longitude, airport.position_2d])
 
 		# Create marker
 		create_airport_marker(airport)
 
 	queue_redraw()
+
+
+func _setup_traffic_overlay() -> void:
+	"""Initialize the traffic overlay system for animated route flow"""
+	traffic_overlay = TrafficOverlay.new()
+	traffic_overlay.setup(self)
+	add_child(traffic_overlay)
+	
+	# Position the overlay behind airport markers but above map tiles
+	move_child(traffic_overlay, 1)
 
 func update_airport_positions() -> void:
 	"""Update airport marker positions based on zoom and pan"""
@@ -859,32 +1095,46 @@ func create_airport_marker(airport: Airport) -> void:
 	marker.queue_redraw()  # Force initial draw
 
 func _draw_airport_marker(marker: Control, airport: Airport) -> void:
-	"""Draw an individual airport marker"""
+	"""Draw an individual airport marker with hub pulse effect"""
 	var center: Vector2 = Vector2(12, 12)
-	var radius: float = 6.0
+	var base_radius: float = 6.0
 
 	# Color and size based on hub tier
 	var color: Color = Color.YELLOW
 	if airport.hub_tier == 1:  # Mega Hub
 		color = Color.ORANGE
-		radius = 9.0
+		base_radius = 9.0
 	elif airport.hub_tier == 2:  # Major Hub
 		color = Color.GOLD
-		radius = 7.5
+		base_radius = 7.5
 	elif airport.hub_tier == 3:  # Regional Hub
 		color = Color.YELLOW
-		radius = 6.5
+		base_radius = 6.5
 
 	# Check if this is a player hub
 	var is_player_hub: bool = false
 	if GameData.player_airline:
 		is_player_hub = GameData.player_airline.has_hub(airport)
 
-	# Draw player hub indicator (double ring)
+	# Hub pulse effect: Apply breathing scale to player hubs
+	var pulse_scale: float = 1.0
+	if is_player_hub and traffic_overlay:
+		pulse_scale = traffic_overlay.get_hub_pulse_scale(airport)
+	
+	var radius: float = base_radius * pulse_scale
+
+	# Draw player hub indicator (double ring) with pulse
 	if is_player_hub:
-		# Outer ring (airline primary color)
-		var hub_ring_outer: float = radius + 4.5
-		var hub_ring_inner: float = radius + 2.5
+		# Outer ring (airline primary color) - pulses with hub
+		var hub_ring_outer: float = (base_radius + 4.5) * pulse_scale
+		var hub_ring_inner: float = (base_radius + 2.5) * pulse_scale
+		
+		# Glow effect for pulsing hub
+		var glow_alpha: float = 0.3 + 0.2 * (pulse_scale - 1.0) * 20.0  # More glow at peak
+		var glow_color: Color = GameData.player_airline.primary_color
+		glow_color.a = glow_alpha
+		marker.draw_circle(center, hub_ring_outer + 3.0, glow_color)
+		
 		marker.draw_arc(center, hub_ring_outer, 0, TAU, 32, GameData.player_airline.primary_color, 2.0, true)
 
 		# Inner ring (white)
@@ -1124,7 +1374,6 @@ func create_floating_panel() -> void:
 	floating_panel.add_child(close_btn)
 
 	add_child(floating_panel)
-	print("Floating info panel created")
 
 func show_floating_panel_for_airport(airport: Airport, screen_pos: Vector2) -> void:
 	"""Show floating panel with airport info"""
@@ -1436,7 +1685,7 @@ func delete_route(route: Route) -> void:
 		return
 	
 	if route not in GameData.player_airline.routes:
-		print("Route not found in airline routes")
+		push_warning("WorldMap: Route not found in airline routes")
 		return
 	
 	# Remove route from airline
@@ -1448,8 +1697,6 @@ func delete_route(route: Route) -> void:
 	
 	# Refresh map display
 	refresh_routes()
-	
-	print("Route deleted: %s" % route.get_display_name())
 
 
 func _format_competitor_intel_for_popup(intel: Dictionary) -> String:

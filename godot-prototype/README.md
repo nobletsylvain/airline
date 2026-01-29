@@ -38,13 +38,18 @@ The simulation runs weekly cycles (configurable speed) that calculate:
 
 ### Visual Interface
 - **World Map**: Click airports to select, click two airports to create a route
+- **Traffic Flow Overlay**: Animated chevrons showing passenger flow direction and volume
 - **Top Panel**: Displays airline name, grade, reputation, fleet size, week number, and balance
 - **Route List**: Shows all active routes with assigned aircraft ID, passenger count and profit
 - **Aircraft Panel**: Browse available aircraft models and purchase them
+- **Fleet Comparison**: Side-by-side aircraft stats with utilization and revenue metrics
 - **Fleet List**: View your owned aircraft with assignment status and condition
+- **Hub Intelligence**: See most-demanded destinations, passenger pain points, connection opportunities
+- **Market Research**: Purchase reports to reveal exact demand data (fog of war system)
 - **Loan Panel**: Apply for loans and view active loan details
 - **Competitor Panel**: Monitor rival airlines' fleet size, routes, balance, debt, and strategy
 - **Control Buttons**: Play/Pause and Step Week for manual control
+- **UI Audio**: Responsive sound effects for all interactions (click, purchase, navigate, alerts)
 
 ## How to Run
 

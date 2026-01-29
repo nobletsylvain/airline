@@ -27,7 +27,35 @@ func _ready() -> void:
 	get_cancel_button().text = "Cancel"
 	build_ui()
 	confirmed.connect(_on_confirmed)
+	canceled.connect(_on_canceled)
+	close_requested.connect(_on_close_requested)
+	about_to_popup.connect(_on_about_to_popup)
 	hide()
+
+
+func _on_about_to_popup() -> void:
+	"""Animate dialog when it's about to show"""
+	call_deferred("_animate_open")
+
+
+func _animate_open() -> void:
+	"""Trigger open animation"""
+	if UIAnimations:
+		UIAnimations.dialog_open(self)
+
+
+func _on_close_requested() -> void:
+	"""Handle close button with animation"""
+	if UIAnimations:
+		UIAnimations.dialog_close(self)
+	else:
+		hide()
+
+
+func _on_canceled() -> void:
+	"""Handle cancel button with animation"""
+	if UIAnimations:
+		UIAnimations.dialog_close(self)
 
 func build_ui() -> void:
 	"""Build the loan dialog UI"""
@@ -218,7 +246,7 @@ func show_for_airline(p_airline: Airline) -> void:
 	# Update loan details
 	_update_loan_details()
 	
-	popup_centered()
+	popup_centered()  # Animation triggered via about_to_popup signal
 
 func _on_amount_changed(value: float) -> void:
 	"""Handle loan amount change"""
@@ -265,6 +293,9 @@ func _on_confirmed() -> void:
 	var available_credit = max(0.0, credit_limit - current_debt)
 
 	if selected_amount > available_credit:
+		# Play error sound for loan denial
+		if UISoundManager:
+			UISoundManager.play_error()
 		# Show error
 		var error_dialog = AcceptDialog.new()
 		error_dialog.title = "Loan Denied"
@@ -287,6 +318,10 @@ func _on_confirmed() -> void:
 	# Add loan to airline
 	airline.add_loan(loan)
 	airline.add_balance(selected_amount)
+
+	# Play purchase sound for major financial action
+	if UISoundManager:
+		UISoundManager.play_purchase()
 
 	# Emit signal
 	loan_created.emit(loan)

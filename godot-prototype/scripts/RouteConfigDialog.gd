@@ -75,6 +75,35 @@ func _ready() -> void:
 	get_cancel_button().text = "Cancel"
 	build_ui()
 	confirmed.connect(_on_confirmed)
+	canceled.connect(_on_canceled)
+	close_requested.connect(_on_close_requested)
+	about_to_popup.connect(_on_about_to_popup)
+
+
+func _on_about_to_popup() -> void:
+	"""Animate dialog when it's about to show"""
+	# Defer animation to next frame so popup_centered positions correctly first
+	call_deferred("_animate_open")
+
+
+func _animate_open() -> void:
+	"""Trigger open animation"""
+	if UIAnimations:
+		UIAnimations.dialog_open(self)
+
+
+func _on_close_requested() -> void:
+	"""Handle close button with animation"""
+	if UIAnimations:
+		UIAnimations.dialog_close(self)
+	else:
+		hide()
+
+
+func _on_canceled() -> void:
+	"""Handle cancel button with animation"""
+	if UIAnimations:
+		UIAnimations.dialog_close(self)
 
 func build_ui() -> void:
 	"""Build the dialog UI programmatically"""
@@ -1239,7 +1268,14 @@ func _on_buy_research_pressed() -> void:
 func _on_confirmed() -> void:
 	"""Dialog confirmed - emit configuration"""
 	if not selected_aircraft:
+		# Play error sound for invalid state
+		if UISoundManager:
+			UISoundManager.play_error()
 		return
+
+	# Play purchase sound for route creation/confirmation
+	if UISoundManager:
+		UISoundManager.play_purchase()
 
 	var config: Dictionary = {
 		"from_airport": from_airport,

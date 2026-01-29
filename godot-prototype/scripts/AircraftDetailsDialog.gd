@@ -32,16 +32,36 @@ func _init() -> void:
 
 func _ready() -> void:
 	build_ui()
-	close_requested.connect(hide)
+	close_requested.connect(_on_close_requested)
+	about_to_popup.connect(_on_about_to_popup)
 	hide()  # Start hidden
 
 
+func _on_about_to_popup() -> void:
+	"""Animate dialog when it's about to show"""
+	call_deferred("_animate_open")
+
+
+func _animate_open() -> void:
+	"""Trigger open animation"""
+	if UIAnimations:
+		UIAnimations.dialog_open(self)
+
+
+func _on_close_requested() -> void:
+	"""Handle close button with animation"""
+	if UIAnimations:
+		UIAnimations.dialog_close(self)
+	else:
+		hide()
+
+
 func _input(event: InputEvent) -> void:
-	"""Handle ESC key to close dialog"""
+	"""Handle ESC key to close dialog with animation"""
 	if not visible:
 		return
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		hide()
+		_on_close_requested()
 		get_viewport().set_input_as_handled()
 
 

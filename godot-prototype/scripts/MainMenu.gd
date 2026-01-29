@@ -30,6 +30,9 @@ var difficulty_selector: OptionButton
 var start_button: Button
 var cancel_button: Button
 
+# Audio Settings Panel
+var audio_settings_panel: AudioSettingsPanel = null
+
 # Animation
 var menu_buttons: Array[Button] = []
 var animation_timer: float = 0.0
@@ -38,6 +41,10 @@ var buttons_visible: bool = false
 func _ready() -> void:
 	create_ui()
 	animate_intro()
+	
+	# Set ambient audio to bootstrap office (art-bible 4.2)
+	if AmbientAudioManager:
+		AmbientAudioManager.set_scene(AmbientAudioManager.Scene.OFFICE_BOOTSTRAP)
 
 func _process(delta: float) -> void:
 	animation_timer += delta
@@ -388,6 +395,8 @@ func animate_intro() -> void:
 
 func _on_new_game_pressed() -> void:
 	"""Show new game dialog"""
+	if UISoundManager:
+		UISoundManager.play_click()
 	new_game_dialog.visible = true
 	# Animate in
 	new_game_dialog.modulate.a = 0
@@ -398,12 +407,16 @@ func _on_new_game_pressed() -> void:
 
 func _on_cancel_new_game() -> void:
 	"""Hide new game dialog"""
+	if UISoundManager:
+		UISoundManager.play_click()
 	var tween = create_tween()
 	tween.tween_property(new_game_dialog, "modulate:a", 0.0, 0.15)
 	tween.tween_callback(func(): new_game_dialog.visible = false)
 
 func _on_start_game() -> void:
 	"""Start a new game with selected settings"""
+	if UISoundManager:
+		UISoundManager.play_purchase()  # Major action - starting game
 	var hub_codes = ["LHR", "JFK", "DXB", "HND", "SIN", "CDG", "FRA"]
 	var budgets = [500_000_000, 100_000_000, 10_000_000]
 
@@ -435,15 +448,29 @@ func transition_to_game() -> void:
 
 func _on_load_game_pressed() -> void:
 	"""Open load game dialog"""
+	if UISoundManager:
+		UISoundManager.play_click()
 	# For now, just start a new game (TODO: implement save/load)
 	transition_to_game()
 
 func _on_options_pressed() -> void:
-	"""Open options dialog"""
+	"""Open options/audio settings dialog"""
+	if UISoundManager:
+		UISoundManager.play_click()
+	
+	# Show audio settings panel
+	if not audio_settings_panel:
+		audio_settings_panel = AudioSettingsPanel.new()
+		audio_settings_panel.set_anchors_preset(Control.PRESET_CENTER)
+		add_child(audio_settings_panel)
+	
+	audio_settings_panel.show_panel()
 	options_requested.emit()
 
 func _on_quit_pressed() -> void:
 	"""Quit the game"""
+	if UISoundManager:
+		UISoundManager.play_click()
 	quit_requested.emit()
 
 func _input(event: InputEvent) -> void:

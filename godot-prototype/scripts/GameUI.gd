@@ -24,6 +24,7 @@ var aircraft_details_dialog: AircraftDetailsDialog = null  # N.2: Aircraft perfo
 var passenger_flow_panel: PassengerFlowPanel = null  # Shows passenger flows from connected airports
 var delegate_assignment_dialog: DelegateAssignmentDialog = null
 var loan_dialog: LoanDialog = null
+var audio_settings_panel: AudioSettingsPanel = null
 
 # Pending route creation tracking (for buy aircraft flow)
 var pending_route_from: Airport = null
@@ -82,6 +83,10 @@ func _ready() -> void:
 	# Check for first route suggestion after a short delay
 	await get_tree().create_timer(1.0).timeout
 	check_first_route_suggestion()
+	
+	# Set ambient audio to map view (art-bible 4.2)
+	if AmbientAudioManager:
+		AmbientAudioManager.set_scene(AmbientAudioManager.Scene.MAP)
 
 	print("GameUI: _ready() complete!")
 
@@ -125,6 +130,7 @@ func setup_dashboard() -> void:
 	dashboard_ui.purchase_hub_pressed.connect(_on_purchase_hub_button_pressed)
 	dashboard_ui.buy_aircraft_pressed.connect(_on_buy_aircraft_button_pressed)
 	dashboard_ui.create_route_pressed.connect(_on_create_route_button_pressed)
+	dashboard_ui.settings_pressed.connect(_on_settings_button_pressed)
 
 	# Get main content area - wait a frame for deferred layout creation
 	await get_tree().process_frame
@@ -152,6 +158,13 @@ func setup_world_map() -> void:
 		world_map.airport_hovered.connect(_on_airport_hovered)
 		world_map.route_created.connect(_on_route_created)
 		world_map.route_clicked.connect(_on_route_clicked)
+	
+	# Add performance profiler in debug builds (F3 to toggle)
+	if OS.is_debug_build():
+		var ProfilerScript = load("res://scripts/debug/PerformanceProfiler.gd")
+		if ProfilerScript:
+			var profiler = ProfilerScript.new()
+			add_child(profiler)
 
 func create_content_panels(parent: Control) -> void:
 	"""Create content panels for non-map tabs"""
@@ -385,6 +398,11 @@ func create_dialogs() -> void:
 	loan_dialog = LoanDialog.new()
 	add_child(loan_dialog)
 	loan_dialog.loan_created.connect(_on_loan_dialog_created)
+	
+	# Audio settings panel
+	audio_settings_panel = AudioSettingsPanel.new()
+	audio_settings_panel.set_anchors_preset(Control.PRESET_CENTER)
+	add_child(audio_settings_panel)
 
 	print("Dialogs created")
 
@@ -868,6 +886,14 @@ func _on_create_route_button_pressed() -> void:
 	var first_hub = GameData.player_airline.hubs[0]
 	if route_opportunity_dialog:
 		route_opportunity_dialog.show_for_hub(first_hub)
+
+
+func _on_settings_button_pressed() -> void:
+	"""Handle Settings button press from sidebar"""
+	if audio_settings_panel:
+		audio_settings_panel.show_panel()
+		if UISoundManager:
+			UISoundManager.play_click()
 
 func _on_week_completed(week: int) -> void:
 	"""Handle week simulation completion"""

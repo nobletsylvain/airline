@@ -9,6 +9,7 @@ signal tab_changed(tab_name: String)
 signal purchase_hub_pressed()
 signal buy_aircraft_pressed()
 signal create_route_pressed()
+signal settings_pressed()
 
 # Layout constants
 const SIDEBAR_WIDTH = 256
@@ -408,6 +409,9 @@ func create_sidebar_bottom(parent: VBoxContainer) -> void:
 	# Add button animation
 	if UIAnimations:
 		UIAnimations.setup_button_animations(settings_btn)
+	
+	# Connect to settings signal
+	settings_btn.pressed.connect(func(): settings_pressed.emit())
 
 	bottom_vbox.add_child(settings_btn)
 
