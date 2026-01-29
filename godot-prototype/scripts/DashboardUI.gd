@@ -39,6 +39,10 @@ var nav_buttons: Dictionary = {}
 # Simulation engine reference
 var simulation_engine: Node = null
 
+# Animation tracking
+var _previous_balance: float = -1.0  # Track for cash animation
+var _previous_reputation: float = -1.0  # Track for reputation animation
+
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	# Register for theme changes
@@ -328,6 +332,10 @@ func create_nav_button(id: String, label: String, icon: String) -> Button:
 	btn.add_theme_color_override("font_hover_color", UITheme.TEXT_WHITE)
 
 	btn.pressed.connect(_on_nav_button_pressed.bind(id))
+	
+	# Add button hover/press animations (art-bible 5.1)
+	if UIAnimations:
+		UIAnimations.setup_button_animations(btn)
 
 	return btn
 
@@ -369,6 +377,11 @@ func create_sidebar_bottom(parent: VBoxContainer) -> void:
 	theme_btn.add_theme_stylebox_override("hover", theme_hover_style)
 
 	theme_btn.pressed.connect(_on_theme_toggle_pressed)
+	
+	# Add button animation
+	if UIAnimations:
+		UIAnimations.setup_button_animations(theme_btn)
+	
 	bottom_vbox.add_child(theme_btn)
 
 	# Settings button
@@ -391,6 +404,10 @@ func create_sidebar_bottom(parent: VBoxContainer) -> void:
 	hover_style.set_corner_radius_all(10)
 	hover_style.set_content_margin_all(10)
 	settings_btn.add_theme_stylebox_override("hover", hover_style)
+
+	# Add button animation
+	if UIAnimations:
+		UIAnimations.setup_button_animations(settings_btn)
 
 	bottom_vbox.add_child(settings_btn)
 
@@ -471,6 +488,10 @@ func create_bottom_bar() -> void:
 		btn_pressed_style.set_corner_radius_all(8)
 		btn_pressed_style.set_content_margin_all(8)
 		btn.add_theme_stylebox_override("pressed", btn_pressed_style)
+		
+		# Add button hover/press animations (art-bible 5.1)
+		if UIAnimations:
+			UIAnimations.setup_button_animations(btn)
 
 		# Connect to the appropriate signal
 		match action.signal:
@@ -570,23 +591,49 @@ func set_simulation_engine(engine: Node) -> void:
 		time_speed_panel.set_simulation_engine(engine)
 
 func update_stats() -> void:
-	"""Update header stats from GameData"""
+	"""Update header stats from GameData with animations"""
 	if not GameData.player_airline:
 		return
 
-	# Money
+	# Money - animate changes
 	if money_label:
 		var balance = GameData.player_airline.balance
-		money_label.text = UITheme.format_money(balance)
 		var profit = GameData.player_airline.calculate_weekly_profit()
+		
+		# Set color based on profit
 		if profit >= 0:
 			money_label.add_theme_color_override("font_color", UITheme.PROFIT_COLOR)
 		else:
 			money_label.add_theme_color_override("font_color", UITheme.LOSS_COLOR)
+		
+		# Animate if balance changed (and not first update)
+		if _previous_balance >= 0 and abs(balance - _previous_balance) > 0.01:
+			if UIAnimations:
+				UIAnimations.animate_money(money_label, _previous_balance, balance)
+			else:
+				money_label.text = UITheme.format_money(balance)
+		else:
+			money_label.text = UITheme.format_money(balance)
+		
+		_previous_balance = balance
 
-	# Reputation
+	# Reputation - animate changes
 	if reputation_label:
-		reputation_label.text = "%.1f" % GameData.player_airline.reputation
+		var reputation = GameData.player_airline.reputation
+		
+		# Animate if reputation changed (and not first update)
+		if _previous_reputation >= 0 and abs(reputation - _previous_reputation) > 0.01:
+			if UIAnimations:
+				var tween = UIAnimations.animate_value(reputation_label, _previous_reputation, reputation, "", "")
+				# Fix display format after animation completes
+				var final_rep: float = reputation  # Capture for lambda
+				tween.finished.connect(func(): reputation_label.text = "%.1f" % final_rep)
+			else:
+				reputation_label.text = "%.1f" % reputation
+		else:
+			reputation_label.text = "%.1f" % reputation
+		
+		_previous_reputation = reputation
 
 	# Update TimeSpeedPanel date display
 	if time_speed_panel:
