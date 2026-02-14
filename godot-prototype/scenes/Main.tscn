@@ -1,0 +1,36 @@
+[gd_scene load_steps=5 format=3 uid="uid://bvdx8y3qwmfqh"]
+
+[ext_resource type="Script" uid="uid://bpytg6ecxnlq7" path="res://scripts/GameUI.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://bam7ss67fiomu" path="res://scripts/WorldMap.gd" id="2_worldmap"]
+[ext_resource type="Script" uid="uid://50j1sxnhc3po" path="res://scripts/SimulationEngine.gd" id="3_simulation"]
+[ext_resource type="Script" uid="uid://bp5grsulartxr" path="res://scripts/DashboardUI.gd" id="4_dashboard"]
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_main")
+
+[node name="SimulationEngine" type="Node" parent="."]
+script = ExtResource("3_simulation")
+
+[node name="DashboardUI" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("4_dashboard")
+
+[node name="WorldMap" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("2_worldmap")

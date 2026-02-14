@@ -1,0 +1,11 @@
+godot-prototype-fresh/
+
+# Godot cache
+godot-prototype/.godot/
+godot-prototype/.claude/
+
+# Large mockup images (design reference, not needed in repo)
+godot-prototype/mockups/
+
+# Windows artifacts
+godot-prototype/nul
