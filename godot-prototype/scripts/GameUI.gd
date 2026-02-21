@@ -166,112 +166,26 @@ func create_fleet_panel() -> Control:
 	return panel
 
 func create_routes_panel() -> Control:
-	"""Create routes management panel"""
-	var panel = PanelContainer.new()
+	"""Create route network panel using RouteNetworkPanel"""
+	var panel = RouteNetworkPanel.new()
 	panel.name = "RoutesPanel"
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-
-	var style = UITheme.create_panel_style()
-	style.bg_color = UITheme.BG_MAIN
-	panel.add_theme_stylebox_override("panel", style)
-
-	var margin = MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 24)
-	margin.add_theme_constant_override("margin_right", 24)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_bottom", 24)
-	panel.add_child(margin)
-
-	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 16)
-	margin.add_child(vbox)
-
-	# Title
-	var title = Label.new()
-	title.text = "Route Network"
-	title.add_theme_font_size_override("font_size", 24)
-	title.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
-	vbox.add_child(title)
-
-	var content = Label.new()
-	content.name = "RoutesContent"
-	content.text = "Your routes will be displayed here.\n\nClick on the map to create new routes."
-	content.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
-	vbox.add_child(content)
-
+	panel.create_route_pressed.connect(_on_create_route_button_pressed)
+	panel.route_selected.connect(_on_route_clicked)
 	return panel
 
 func create_finances_panel() -> Control:
-	"""Create finances panel"""
-	var panel = PanelContainer.new()
+	"""Create financial overview panel using FinancialPanel"""
+	var panel = FinancialPanel.new()
 	panel.name = "FinancesPanel"
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-
-	var style = UITheme.create_panel_style()
-	style.bg_color = UITheme.BG_MAIN
-	panel.add_theme_stylebox_override("panel", style)
-
-	var margin = MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 24)
-	margin.add_theme_constant_override("margin_right", 24)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_bottom", 24)
-	panel.add_child(margin)
-
-	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 16)
-	margin.add_child(vbox)
-
-	var title = Label.new()
-	title.text = "Financial Overview"
-	title.add_theme_font_size_override("font_size", 24)
-	title.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
-	vbox.add_child(title)
-
-	var content = Label.new()
-	content.name = "FinancesContent"
-	content.text = "Financial data will be displayed here."
-	content.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
-	vbox.add_child(content)
-
 	return panel
 
 func create_market_panel() -> Control:
-	"""Create market panel"""
-	var panel = PanelContainer.new()
+	"""Create market & competitors panel using MarketPanel"""
+	var panel = MarketPanel.new()
 	panel.name = "MarketPanel"
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-
-	var style = UITheme.create_panel_style()
-	style.bg_color = UITheme.BG_MAIN
-	panel.add_theme_stylebox_override("panel", style)
-
-	var margin = MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 24)
-	margin.add_theme_constant_override("margin_right", 24)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_bottom", 24)
-	panel.add_child(margin)
-
-	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 16)
-	margin.add_child(vbox)
-
-	var title = Label.new()
-	title.text = "Market & Competitors"
-	title.add_theme_font_size_override("font_size", 24)
-	title.add_theme_color_override("font_color", UITheme.TEXT_PRIMARY)
-	vbox.add_child(title)
-
-	var content = Label.new()
-	content.name = "MarketContent"
-	content.text = "Market data and competitors will be displayed here."
-	content.add_theme_color_override("font_color", UITheme.TEXT_SECONDARY)
-	vbox.add_child(content)
-
 	return panel
 
 func create_dialogs() -> void:
@@ -363,81 +277,22 @@ func update_routes_panel() -> void:
 	"""Update routes panel content"""
 	if not routes_panel or not GameData.player_airline:
 		return
-
-	var content = routes_panel.get_node_or_null("MarginContainer/VBoxContainer/RoutesContent")
-	if content and content is Label:
-		var routes = GameData.player_airline.routes
-		if routes.is_empty():
-			content.text = "No routes created yet.\n\nClick on your hub airport on the map,\nthen select a destination to create a route."
-		else:
-			var text = "Active Routes: %d\n\n" % routes.size()
-			for route in routes:
-				var profit_sign = "+" if route.weekly_profit >= 0 else ""
-				text += "%s\n  %d flights/wk | %d pax | %s$%s/wk\n\n" % [
-					route.get_display_name(),
-					route.frequency,
-					route.passengers_transported,
-					profit_sign,
-					format_money(route.weekly_profit)
-				]
-			content.text = text
+	if routes_panel is RouteNetworkPanel:
+		routes_panel.refresh()
 
 func update_finances_panel() -> void:
 	"""Update finances panel content"""
 	if not finances_panel or not GameData.player_airline:
 		return
-
-	var content = finances_panel.get_node_or_null("MarginContainer/VBoxContainer/FinancesContent")
-	if content and content is Label:
-		var airline = GameData.player_airline
-		var profit = airline.calculate_weekly_profit()
-		var profit_sign = "+" if profit >= 0 else ""
-
-		content.text = """Balance: $%s
-
-Weekly Summary:
-  Revenue: $%s
-  Expenses: $%s
-  Profit: %s$%s
-
-Loans:
-  Total Debt: $%s
-  Weekly Payments: $%s
-  Credit Limit: $%s
-
-Grade: %s
-Reputation: %.1f""" % [
-			format_money(airline.balance),
-			format_money(airline.weekly_revenue),
-			format_money(airline.weekly_expenses),
-			profit_sign,
-			format_money(profit),
-			format_money(airline.total_debt),
-			format_money(airline.weekly_loan_payment),
-			format_money(airline.get_credit_limit()),
-			airline.get_grade(),
-			airline.reputation
-		]
+	if finances_panel is FinancialPanel:
+		finances_panel.refresh()
 
 func update_market_panel() -> void:
 	"""Update market panel content"""
-	if not market_panel:
+	if not market_panel or not GameData.player_airline:
 		return
-
-	var content = market_panel.get_node_or_null("MarginContainer/VBoxContainer/MarketContent")
-	if content and content is Label:
-		var text = "Competitor Airlines:\n\n"
-		for airline in GameData.airlines:
-			if airline.id == GameData.player_airline.id:
-				continue
-			text += "%s (%s)\n  Grade: %s | Fleet: %d | Routes: %d\n\n" % [
-				airline.name,
-				airline.airline_code,
-				airline.get_grade(),
-				airline.aircraft.size(),
-				airline.routes.size()
-			]
-		content.text = text
+	if market_panel is MarketPanel:
+		market_panel.refresh()
 
 # Event Handlers
 
